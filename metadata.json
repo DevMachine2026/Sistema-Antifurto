@@ -1,0 +1,6 @@
+{
+  "name": "Sistema Antifraude - Bares e Eventos",
+  "description": "Sistema de monitoramento e auditoria antifraude que cruza dados de bilheteria, pagamentos e câmeras para identificar desvios financeiros.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
