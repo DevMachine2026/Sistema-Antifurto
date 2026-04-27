@@ -178,7 +178,7 @@ export default function Settings() {
             <span className="text-[10px] uppercase font-black text-text-dim tracking-widest block mb-1.5">
               Número WhatsApp (com DDD e código do país)
             </span>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <input
                 type="tel"
                 value={form.whatsapp_number}
@@ -188,12 +188,12 @@ export default function Settings() {
                   set('whatsapp_number', v);
                 }}
                 placeholder="5585999990000"
-                className="flex-1 bg-surface-alt border border-border rounded px-4 py-2.5 text-text font-mono text-sm focus:outline-none focus:border-primary transition-colors"
+                className="flex-1 min-w-0 bg-surface-alt border border-border rounded px-3 py-2.5 text-text font-mono text-sm focus:outline-none focus:border-primary transition-colors"
               />
               <button
                 onClick={testNotification}
                 disabled={testing || !form.whatsapp_number}
-                className="flex items-center gap-2 px-4 py-2.5 bg-success/10 border border-success/30 text-success rounded font-black text-[10px] uppercase tracking-widest hover:bg-success/20 transition-all disabled:opacity-40"
+                className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 bg-success/10 border border-success/30 text-success rounded font-black text-[10px] uppercase tracking-widest hover:bg-success/20 transition-all disabled:opacity-40"
               >
                 {testing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
                 Testar
@@ -227,18 +227,18 @@ export default function Settings() {
             <span className="text-[10px] uppercase font-black text-text-dim tracking-widest block mb-1.5">
               Chat ID (seu ID no Telegram)
             </span>
-            <div className="flex gap-3">
+            <div className="flex gap-2">
               <input
                 type="text"
                 value={form.telegram_chat_id}
                 onChange={e => set('telegram_chat_id', e.target.value.trim())}
                 placeholder="123456789"
-                className="flex-1 bg-surface-alt border border-border rounded px-4 py-2.5 text-text font-mono text-sm focus:outline-none focus:border-primary transition-colors"
+                className="flex-1 min-w-0 bg-surface-alt border border-border rounded px-3 py-2.5 text-text font-mono text-sm focus:outline-none focus:border-primary transition-colors"
               />
               <button
                 onClick={testNotification}
                 disabled={testing || !form.telegram_bot_token || !form.telegram_chat_id}
-                className="flex items-center gap-2 px-4 py-2.5 bg-primary/10 border border-primary/30 text-primary rounded font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all disabled:opacity-40"
+                className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 bg-primary/10 border border-primary/30 text-primary rounded font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all disabled:opacity-40"
               >
                 {testing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
                 Testar
