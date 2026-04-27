@@ -2,7 +2,7 @@
 
 Sistema inteligente de monitoramento e auditoria em tempo real que cruza dados de múltiplas fontes para identificar desvios financeiros e operacionais em estabelecimentos comerciais.
 
-**Desenvolvido por RonalDigital**
+**Desenvolvido por Dev Machine**
 
 ---
 
@@ -39,14 +39,16 @@ Ao cruzar essas informações, o sistema identifica automaticamente inconsistên
 ### 1. Clone e instale
 
 ```bash
-git clone [url-do-repositorio]
-cd sistema-antifraude
+git clone https://github.com/DevMachine2026/Sistema-Antifurto.git
+cd Sistema-Antifurto
 npm install
 ```
 
 ### 2. Configure o banco de dados
 
 No dashboard do Supabase, vá em **SQL Editor** e execute o conteúdo de `supabase/schema.sql`.
+
+Opcionalmente, execute `supabase/seed_demo.sql` para popular o banco com dados de demonstração.
 
 ### 3. Configure as variáveis de ambiente
 
@@ -67,7 +69,7 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 npm run dev
 ```
 
-O sistema estará disponível em `http://localhost:3000`
+O sistema estará disponível em `http://localhost:5173`
 
 ---
 
@@ -85,10 +87,13 @@ As regras rodam no banco de dados via função PostgreSQL `run_fraud_rules()`, a
 ## Funcionalidades
 
 - **Dashboard** — Métricas em tempo real + gráfico vendas vs. ocupação
-- **Central de Alertas** — Histórico, resolução e notificação via WhatsApp
+- **Central de Alertas** — Histórico, resolução e auditoria de alertas
 - **Importação CSV** — Upload de extratos PagBank e ST Ingressos
 - **Motor de Regras** — R01 e R02 rodando no banco (PostgreSQL)
-- **Notificações** — Push nativo do navegador + deep link WhatsApp
+- **Notificações Telegram** — Alertas automáticos via bot (sem interação do usuário)
+- **Notificações WhatsApp** — Push nativo + deep link para envio manual
+- **Simulador Demo** — Ambiente interativo para demonstração e testes
+- **Configurações** — Thresholds, canais de notificação e modo de auditoria
 
 ---
 
@@ -106,12 +111,14 @@ src/
 │   ├── Alerts.tsx
 │   ├── Upload.tsx
 │   ├── Settings.tsx
+│   ├── Simulator.tsx        # Demo interativa
 │   └── Guide.tsx
 ├── components/layout/
 │   └── Shell.tsx
 └── types.ts
 supabase/
-└── schema.sql               # Tabelas, índices, RLS e funções PL/pgSQL
+├── schema.sql               # Tabelas, índices, RLS e funções PL/pgSQL
+└── seed_demo.sql            # Dados de demonstração
 ```
 
 ---
@@ -123,6 +130,9 @@ supabase/
 | Interface | Completo |
 | Motor de Regras (R01, R02) | Completo |
 | Banco de Dados (Supabase) | Completo |
+| Notificações Telegram | Completo |
+| Notificações WhatsApp | Completo |
+| Simulador de Demo | Completo |
 | Importação CSV | Funcional (parser mockado) |
 | Integrações Reais (PagBank API, câmeras) | Pendente |
 | Autenticação | Pendente |
@@ -130,10 +140,4 @@ supabase/
 
 ---
 
-## Roadmap
-
-Consulte [ROADMAP.md](ROADMAP.md) para o planejamento completo de produção.
-
----
-
-**Sistema Antifraude v1.0 — By RonalDigital**
+**Sistema Antifraude v1.0 — By Dev Machine**

@@ -46,14 +46,34 @@ Importe o relatório de consumo pelo mesmo processo. O motor de regras cruza os 
 
 ## 4. Notificações
 
-Quando um alerta crítico é gerado:
-1. O navegador dispara uma **notificação push** (celular ou desktop)
-2. Ao clicar, abre o WhatsApp com uma mensagem já formatada para o número configurado em **Configurações**
-3. O alerta fica registrado na aba **Alertas de Fraude** para auditoria
+Quando um alerta crítico é gerado, o sistema dispara **dois canais simultaneamente**:
+
+### Telegram (automático)
+- A mensagem é enviada **instantaneamente** para o Telegram do responsável
+- Não requer nenhuma interação — chega mesmo com o celular bloqueado
+- Configure o bot token e o Chat ID em **Configurações → Telegram**
+
+### WhatsApp (manual)
+- O navegador exibe uma **notificação push** (desktop ou celular)
+- Ao clicar na notificação, abre o WhatsApp com a mensagem já formatada
+- Requer que o navegador esteja aberto e com permissão concedida
+
+O alerta sempre fica registrado na aba **Alertas de Fraude** para auditoria, independente dos canais.
 
 ---
 
-## 5. Rotina Recomendada
+## 5. Simulador de Demo
+
+A aba **Simulador Demo** permite testar o sistema de ponta a ponta sem dados reais:
+
+1. Clique em **Reset Demo** para limpar o banco
+2. Ajuste os sliders: pessoas no salão, valor ST Ingressos, valor PagBank
+3. Execute os 4 passos em sequência: Importar ST → Importar PagBank → Acionar Câmera → Executar Regras
+4. Veja o alerta aparecer na aba **Alertas** e a notificação chegar no Telegram
+
+---
+
+## 6. Rotina Recomendada
 
 | Frequência | Ação |
 |-----------|------|

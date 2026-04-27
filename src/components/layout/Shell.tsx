@@ -63,7 +63,7 @@ export default function Shell({ children, activeTab, onTabChange }: ShellProps) 
 
         <div className="p-6 flex flex-col gap-1 text-[10px] text-text-dim mt-auto border-t border-border">
           <p>Versão 1.0 — MVP</p>
-          <p>By RonalDigital</p>
+          <p>By Dev Machine</p>
         </div>
       </aside>
 

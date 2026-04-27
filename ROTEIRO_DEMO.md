@@ -106,4 +106,4 @@
 
 ---
 
-*Sistema Antifraude — RonalDigital*
+*Sistema Antifraude — Dev Machine*

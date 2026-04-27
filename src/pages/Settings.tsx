@@ -107,7 +107,7 @@ export default function Settings() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               chat_id: form.telegram_chat_id,
-              text: '✅ *SISTEMA ANTIFRAUDE — TESTE*\n\nNotificação funcionando corretamente!\n\n_RonalDigital_',
+              text: '✅ *SISTEMA ANTIFRAUDE — TESTE*\n\nNotificação funcionando corretamente!\n\n_Dev Machine_',
               parse_mode: 'Markdown',
             }),
           }
@@ -372,7 +372,7 @@ export default function Settings() {
 
       <div className="pt-4 border-t border-border/30 text-center">
         <p className="text-xs text-text-dim">
-          Sistema desenvolvido por <span className="text-primary font-semibold">RonalDigital</span>
+          Sistema desenvolvido por <span className="text-primary font-semibold">Dev Machine</span>
           <span className="mx-2">·</span>Versão 1.0
         </p>
       </div>
