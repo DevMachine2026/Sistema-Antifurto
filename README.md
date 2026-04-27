@@ -1,4 +1,4 @@
-# 🛡️ Sistema Antifraude para Bares e Eventos
+# Sistema Antifraude para Bares e Eventos
 
 Sistema inteligente de monitoramento e auditoria em tempo real que cruza dados de múltiplas fontes para identificar desvios financeiros e operacionais em estabelecimentos comerciais.
 
@@ -6,84 +6,62 @@ Sistema inteligente de monitoramento e auditoria em tempo real que cruza dados d
 
 ---
 
-## 📋 Visão Geral
+## Visão Geral
 
-O Sistema Antifraude funciona como um **Auditor Digital 24/7** que monitora continuamente três pilares fundamentais:
+O Sistema Antifraude funciona como um **Auditor Digital 24/7** que monitora três pilares:
 
-1. **📸 Câmeras Inteligentes** - Contagem de pessoas em tempo real
-2. **💳 Maquinetas de Pagamento** - Transações financeiras (PagBank)
-3. **🧾 Sistema de Pedidos** - Registro de vendas (ST Ingressos)
+1. **Câmeras Inteligentes** — Contagem de pessoas em tempo real
+2. **Maquinetas de Pagamento** — Transações financeiras (PagBank)
+3. **Sistema de Pedidos** — Registro de vendas (ST Ingressos)
 
 Ao cruzar essas informações, o sistema identifica automaticamente inconsistências que podem indicar fraudes, erros operacionais ou falhas de processo.
 
 ---
 
-## 🎯 Principais Funcionalidades
-
-### Dashboard em Tempo Real
-- Visualização gráfica de vendas vs. ocupação
-- Indicadores de performance operacional
-- Status do sistema e alertas ativos
-- Métricas de conversão e eficiência
-
-### Motor de Regras Antifraude
-
-**Regra R01 - "Salão Cheio, Caixa Vazio"**
-- Detecta quando há alta ocupação (>30 pessoas) sem vendas registradas nos últimos 30 minutos
-- Indica possível consumo sem registro ou falha operacional
-- Severidade: Alta
-
-**Regra R02 - "Gap Financeiro"**
-- Identifica divergências entre valores da maquineta e sistema de pedidos
-- Threshold configurável (padrão: R$ 200,00)
-- Indica possível desvio financeiro ou erro de lançamento
-- Severidade: Alta
-
-### Central de Alertas
-- Notificações push nativas do navegador
-- Integração com WhatsApp para alertas críticos
-- Histórico completo de alertas
-- Sistema de resolução e auditoria
-
-### Importação de Dados
-- Upload de arquivos CSV (PagBank, ST Ingressos)
-- Validação automática de dados
-- Rastreamento de lotes importados
-- Relatório de erros e inconsistências
-
----
-
-## 🔧 Tecnologias Utilizadas
+## Tecnologias
 
 - **Frontend:** React 19 + TypeScript
+- **Banco de Dados:** Supabase (PostgreSQL)
 - **Estilização:** TailwindCSS 4
 - **Gráficos:** Recharts
-- **Animações:** Motion (Framer Motion)
+- **Animações:** Framer Motion (`motion`)
 - **Build:** Vite 6
 - **Ícones:** Lucide React
 
 ---
 
-## 🚀 Instalação e Execução
+## Instalação
 
 ### Pré-requisitos
-- Node.js (versão 18 ou superior)
-- npm ou yarn
+- Node.js 18+
+- Conta no [Supabase](https://supabase.com)
 
-### Instalação
+### 1. Clone e instale
 
 ```bash
-# Clone o repositório
 git clone [url-do-repositorio]
-
-# Entre no diretório
 cd sistema-antifraude
-
-# Instale as dependências
 npm install
 ```
 
-### Executar em Desenvolvimento
+### 2. Configure o banco de dados
+
+No dashboard do Supabase, vá em **SQL Editor** e execute o conteúdo de `supabase/schema.sql`.
+
+### 3. Configure as variáveis de ambiente
+
+```bash
+cp .env.example .env
+```
+
+Edite o `.env` com suas credenciais do Supabase (Settings → API):
+
+```env
+VITE_SUPABASE_URL=https://SEU_PROJETO.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+```
+
+### 4. Execute
 
 ```bash
 npm run dev
@@ -91,140 +69,71 @@ npm run dev
 
 O sistema estará disponível em `http://localhost:3000`
 
-### Build para Produção
+---
 
-```bash
-npm run build
+## Motor de Regras Antifraude
+
+| Regra | Gatilho | Severidade |
+|-------|---------|------------|
+| **R01** — Salão Cheio, Caixa Vazio | >30 pessoas sem vendas nos últimos 30 min | Alta |
+| **R02** — Gap Financeiro | Divergência PagBank vs ST Ingressos > R$200 | Alta |
+
+As regras rodam no banco de dados via função PostgreSQL `run_fraud_rules()`, acionada após cada ingestão de dados.
+
+---
+
+## Funcionalidades
+
+- **Dashboard** — Métricas em tempo real + gráfico vendas vs. ocupação
+- **Central de Alertas** — Histórico, resolução e notificação via WhatsApp
+- **Importação CSV** — Upload de extratos PagBank e ST Ingressos
+- **Motor de Regras** — R01 e R02 rodando no banco (PostgreSQL)
+- **Notificações** — Push nativo do navegador + deep link WhatsApp
+
+---
+
+## Estrutura do Projeto
+
+```
+src/
+├── lib/
+│   └── supabase.ts          # Client Supabase
+├── services/
+│   ├── dataService.ts       # Acesso ao banco (CRUD + motor de regras)
+│   └── notificationService.ts
+├── pages/
+│   ├── Dashboard.tsx
+│   ├── Alerts.tsx
+│   ├── Upload.tsx
+│   ├── Settings.tsx
+│   └── Guide.tsx
+├── components/layout/
+│   └── Shell.tsx
+└── types.ts
+supabase/
+└── schema.sql               # Tabelas, índices, RLS e funções PL/pgSQL
 ```
 
-### Preview da Build
+---
 
-```bash
-npm run preview
-```
+## Status
+
+| Componente | Status |
+|-----------|--------|
+| Interface | Completo |
+| Motor de Regras (R01, R02) | Completo |
+| Banco de Dados (Supabase) | Completo |
+| Importação CSV | Funcional (parser mockado) |
+| Integrações Reais (PagBank API, câmeras) | Pendente |
+| Autenticação | Pendente |
+| Multi-estabelecimento | Pendente |
 
 ---
 
-## 📊 Como Funciona
+## Roadmap
 
-### 1. Integração com Câmeras
-- Câmeras com IA instaladas na entrada/saída
-- Contagem automática de pessoas (sem gravação de rostos)
-- Envio de dados a cada 30 minutos
-- Tecnologia de detecção de formas humanas
-
-### 2. Integração com Maquinetas
-- Importação de extratos CSV do PagBank
-- Registro automático de todas as transações
-- Categorização por método de pagamento
-- Timestamp preciso de cada operação
-
-### 3. Integração com Sistema de Pedidos
-- Conexão com ST Ingressos ou similar
-- Registro de produtos vendidos
-- Valores e horários de cada pedido
-- Identificação de operadores
-
-### 4. Cruzamento de Dados
-O sistema executa as regras de auditoria automaticamente:
-- Compara ocupação vs. vendas
-- Valida valores entre maquineta e pedidos
-- Identifica padrões anormais
-- Dispara alertas quando necessário
-
-### 5. Notificações Inteligentes
-- Push notifications no navegador
-- Deep link para WhatsApp com mensagem pronta
-- Alertas apenas para situações críticas
-- Histórico completo para auditoria
+Consulte [ROADMAP.md](ROADMAP.md) para o planejamento completo de produção.
 
 ---
 
-## 📱 Uso no Dia a Dia
-
-### Para Proprietários
-1. Acesse o **Dashboard** para visão geral da operação
-2. Monitore a relação entre ocupação e vendas
-3. Receba alertas automáticos de situações críticas
-4. Revise o histórico na **Central de Alertas**
-
-### Para Gerentes
-1. Importe dados das maquinetas na **Central de Ingestão**
-2. Verifique alertas pendentes
-3. Marque alertas como resolvidos após investigação
-4. Configure thresholds nas **Configurações**
-
-### Para Auditores
-1. Analise o histórico completo de alertas
-2. Cruze informações entre diferentes fontes
-3. Identifique padrões de comportamento
-4. Gere relatórios de auditoria
-
----
-
-## ⚙️ Configurações Disponíveis
-
-- **Thresholds de Alerta:** Ajuste o valor mínimo para disparar R02
-- **Central WhatsApp:** Configure números para receber alertas
-- **Janela de Monitoramento:** Defina horários prioritários
-- **Modo Auditoria Estrita:** Aumenta sensibilidade das regras
-
----
-
-## 🎨 Interface
-
-O sistema utiliza um design moderno e profissional com:
-- Tema escuro otimizado para longas sessões
-- Código de cores intuitivo (Verde = OK, Vermelho = Crítico)
-- Tipografia técnica (JetBrains Mono para dados)
-- Animações suaves e responsivas
-- Layout adaptável para mobile e desktop
-
----
-
-## 🔒 Segurança e Privacidade
-
-- Câmeras não gravam rostos, apenas contam pessoas
-- Dados armazenados localmente no navegador (MVP)
-- Sem envio de informações para servidores externos
-- Notificações via APIs nativas do navegador
-- Código open-source auditável
-
----
-
-## 📈 Roadmap
-
-### Fase 1 - MVP (Atual)
-- ✅ Dashboard básico
-- ✅ Regras R01 e R02
-- ✅ Importação CSV
-- ✅ Alertas via WhatsApp
-
-### Fase 2 - Expansão
-- 🔄 Análise preditiva com IA
-- 🔄 Integração API direta com maquinetas
-- 🔄 Relatórios avançados
-- 🔄 Multi-estabelecimento
-
-### Fase 3 - Enterprise
-- 📋 Backend robusto
-- 📋 Autenticação e permissões
-- 📋 API para integrações
-- 📋 App mobile nativo
-
----
-
-## 🤝 Suporte
-
-Para dúvidas, sugestões ou suporte técnico, entre em contato com **RonalDigital**.
-
----
-
-## 📄 Licença
-
-Apache-2.0
-
----
-
-**Sistema Antifraude v1.0 - MVP**  
-*Transformando dados em segurança operacional*
+**Sistema Antifraude v1.0 — By RonalDigital**

@@ -16,6 +16,9 @@ export default defineConfig(({mode}) => {
     server: {
       // Hot Module Replacement configuration
       hmr: process.env.DISABLE_HMR !== 'true',
+      watch: {
+        usePolling: true,
+      },
     },
   };
 });

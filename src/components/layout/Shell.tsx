@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  LayoutDashboard, 
-  Upload, 
-  AlertTriangle, 
-  BarChart3, 
-  Settings, 
-  Menu, 
+  LayoutDashboard,
+  Upload,
+  AlertTriangle,
+  BarChart3,
+  Settings,
+  Menu,
   X,
-  ShieldCheck,
-  BookOpen
+  BookOpen,
+  FlaskConical
 } from 'lucide-react';
 import { dataService } from '../../services/dataService';
 import { cn } from '../../lib/utils';
@@ -27,6 +27,7 @@ export default function Shell({ children, activeTab, onTabChange }: ShellProps) 
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'upload', label: 'Importar Dados', icon: Upload },
     { id: 'alerts', label: 'Alertas de Fraude', icon: AlertTriangle },
+    { id: 'simulator', label: 'Simulador Demo', icon: FlaskConical },
     { id: 'guide', label: 'Guia de Operação', icon: BookOpen },
     { id: 'analytics', label: 'Analítico', icon: BarChart3 },
     { id: 'settings', label: 'Configurações', icon: Settings },
@@ -128,12 +129,13 @@ export default function Shell({ children, activeTab, onTabChange }: ShellProps) 
           <div className="header-meta text-right flex items-center gap-6">
             <button 
               onClick={async () => {
-                // Simula uma condição de R01: Lotação sem Vendas
                 await dataService.addPeopleCount({
-                  timestamp: new Date().toISOString(),
+                  id: crypto.randomUUID(),
+                  cameraId: 'cam-entrada',
+                  countIn: 10,
+                  countOut: 2,
                   peopleInside: 85,
-                  entries: 10,
-                  exits: 2
+                  recordedAt: new Date().toISOString(),
                 });
                 alert('Simulação de Alerta R01 disparada! Verifique as notificações e a aba de Alertas.');
               }}

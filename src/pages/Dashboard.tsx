@@ -1,32 +1,41 @@
-import React, { useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
-import { 
-  Users, 
-  TrendingUp, 
-  AlertCircle, 
-  Wallet,
-  ArrowUpRight,
-  ArrowDownRight
-} from 'lucide-react';
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer,
-  BarChart,
-  Bar
+import { Users, TrendingUp, AlertCircle, Wallet } from 'lucide-react';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer
 } from 'recharts';
 import { dataService } from '../services/dataService';
 import { formatCurrency, cn } from '../lib/utils';
+import { Transaction, PeopleCountEvent, Alert } from '../types';
 import { format, parseISO } from 'date-fns';
 
 export default function Dashboard() {
-  const transactions = dataService.getTransactions();
-  const people = dataService.getPeopleCount();
-  const alerts = dataService.getAlerts().filter(a => !a.resolved);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [people, setPeople] = useState<PeopleCountEvent[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [chartReady, setChartReady] = useState(false);
+
+  useEffect(() => { setChartReady(true); }, []);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [txs, ppl, als] = await Promise.all([
+          dataService.getTransactions(),
+          dataService.getPeopleCount(),
+          dataService.getAlerts(),
+        ]);
+        setTransactions(txs);
+        setPeople(ppl);
+        setAlerts(als.filter(a => !a.resolved));
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
 
   const stats = useMemo(() => {
     const totalSales = transactions.reduce((acc, t) => acc + t.amount, 0);
@@ -34,133 +43,93 @@ export default function Dashboard() {
     const highAlerts = alerts.filter(a => a.severity === 'high').length;
     const stTotal = transactions.filter(t => t.source === 'st_ingressos').reduce((a, t) => a + t.amount, 0);
     const pagbankTotal = transactions.filter(t => t.source === 'pagbank').reduce((a, t) => a + t.amount, 0);
-    
-    return {
-      totalSales,
-      peopleInside,
-      highAlerts,
-      financialGap: Math.abs(stTotal - pagbankTotal)
-    };
+    return { totalSales, peopleInside, highAlerts, financialGap: Math.abs(stTotal - pagbankTotal) };
   }, [transactions, people, alerts]);
 
-  // Chart data: Group transactions by hour
   const chartData = useMemo(() => {
-    const hours: Record<string, { time: string, sales: number, people: number }> = {};
-    
+    const hours: Record<string, { time: string; sales: number; people: number }> = {};
     transactions.forEach(t => {
       const hour = format(parseISO(t.occurredAt), 'HH:00');
       if (!hours[hour]) hours[hour] = { time: hour, sales: 0, people: 0 };
       hours[hour].sales += t.amount;
     });
-
-    // Match people count to nearest hour
     people.forEach(p => {
       const hour = format(parseISO(p.recordedAt), 'HH:00');
       if (hours[hour]) hours[hour].people = p.peopleInside;
     });
-
     return Object.values(hours).sort((a, b) => a.time.localeCompare(b.time));
   }, [transactions, people]);
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <div className="text-text-dim text-xs font-mono uppercase tracking-widest animate-pulse">
+          Carregando dados...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-12">
-      {/* Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard 
-          title="Consumo (Sistemas)" 
+        <MetricCard
+          title="Consumo (Sistemas)"
           value={formatCurrency(transactions.filter(t => t.source === 'st_ingressos').reduce((a, t) => a + t.amount, 0))}
           icon={Wallet}
-          color="primary"
         />
-        <MetricCard 
-          title="Pagamentos (Maquineta)" 
+        <MetricCard
+          title="Pagamentos (Maquineta)"
           value={formatCurrency(transactions.filter(t => t.source === 'pagbank').reduce((a, t) => a + t.amount, 0))}
           icon={TrendingUp}
-          color="primary"
         />
-        <MetricCard 
-          title="Gap Auditoria (R02)" 
+        <MetricCard
+          title="Gap Auditoria (R02)"
           value={`+ ${formatCurrency(stats.financialGap)}`}
           icon={AlertCircle}
-          color={stats.financialGap > 200 ? "danger" : "success"}
           isDanger={stats.financialGap > 200}
         />
-        <MetricCard 
-          title="Clientes no Salão" 
+        <MetricCard
+          title="Clientes no Salão"
           value={`${stats.peopleInside} pessoas`}
           icon={Users}
-          color="primary"
         />
       </div>
 
-      {/* Main Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-surface p-5 rounded-lg border border-border shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-[13px] uppercase font-semibold tracking-wider text-text">DYNAMICS_CROSSING :: CONSUMO VS FLUXO</h3>
+            <h3 className="text-[13px] uppercase font-semibold tracking-wider text-text">
+              DYNAMICS_CROSSING :: CONSUMO VS FLUXO
+            </h3>
             <div className="text-[10px] text-text-dim uppercase font-mono">Varredura: 30 min</div>
           </div>
           <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+            {chartReady && <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.2} />
+                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#2D2D35" />
-                <XAxis 
-                  dataKey="time" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fill: '#71717A', fontSize: 10, fontFamily: 'JetBrains Mono' }}
-                  dy={10}
-                />
-                <YAxis 
-                   axisLine={false} 
-                   tickLine={false} 
-                   tick={{ fill: '#71717A', fontSize: 10, fontFamily: 'JetBrains Mono' }}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#1C1C21',
-                    borderRadius: '4px', 
-                    border: '1px solid #2D2D35', 
-                    fontSize: '12px',
-                    fontFamily: 'JetBrains Mono'
-                  }}
-                  itemStyle={{ color: '#E4E4E7' }}
-                />
-                <Area 
-                  type="stepAfter" 
-                  dataKey="sales" 
-                  stroke="#3B82F6" 
-                  strokeWidth={2}
-                  fillOpacity={1} 
-                  fill="url(#colorSales)" 
-                  name="Vendas (R$)"
-                />
-                <Area 
-                  type="stepAfter" 
-                  dataKey="people" 
-                  stroke="rgba(228, 228, 231, 0.2)" 
-                  strokeWidth={1}
-                  strokeDasharray="4 4"
-                  fillOpacity={0}
-                  name="Pessoas"
-                />
+                <XAxis dataKey="time" axisLine={false} tickLine={false}
+                  tick={{ fill: '#71717A', fontSize: 10, fontFamily: 'JetBrains Mono' }} dy={10} />
+                <YAxis axisLine={false} tickLine={false}
+                  tick={{ fill: '#71717A', fontSize: 10, fontFamily: 'JetBrains Mono' }} />
+                <Tooltip contentStyle={{ backgroundColor: '#1C1C21', borderRadius: '4px', border: '1px solid #2D2D35', fontSize: '12px', fontFamily: 'JetBrains Mono' }} itemStyle={{ color: '#E4E4E7' }} />
+                <Area type="stepAfter" dataKey="sales" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorSales)" name="Vendas (R$)" />
+                <Area type="stepAfter" dataKey="people" stroke="rgba(228, 228, 231, 0.2)" strokeWidth={1} strokeDasharray="4 4" fillOpacity={0} name="Pessoas" />
               </AreaChart>
-            </ResponsiveContainer>
+            </ResponsiveContainer>}
           </div>
           <div className="mt-4 pt-4 border-t border-border flex gap-6">
             <div className="flex items-center gap-2 text-[11px] font-medium text-text">
-              <div className="w-2.5 h-2.5 bg-primary rounded-sm" />
-              Vendas Processadas
+              <div className="w-2.5 h-2.5 bg-primary rounded-sm" /> Vendas Processadas
             </div>
             <div className="flex items-center gap-2 text-[11px] font-medium text-text">
-              <div className="w-2.5 h-2.5 bg-text-dim/20 rounded-sm" />
-              Fluxo de Câmera (R01)
+              <div className="w-2.5 h-2.5 bg-text-dim/20 rounded-sm" /> Fluxo de Câmera (R01)
             </div>
           </div>
         </div>
@@ -192,11 +161,13 @@ export default function Dashboard() {
             )}
           </div>
           <div className="p-4 bg-surface-alt mt-auto border-t border-border">
-             <div className="text-[10px] text-text-dim uppercase tracking-[0.5px] mb-1">Última Importação</div>
-             <div className="text-[12px] font-mono text-text truncate">ST_INGRESSOS_{format(new Date(), 'ddMMyy')}.csv</div>
-             <div className="inline-block mt-2 px-2 py-0.5 rounded bg-surface border border-border text-[10px] text-success font-bold uppercase tracking-wider">
-               Lote #000{transactions.length} • OK
-             </div>
+            <div className="text-[10px] text-text-dim uppercase tracking-[0.5px] mb-1">Última Importação</div>
+            <div className="text-[12px] font-mono text-text truncate">
+              ST_INGRESSOS_{format(new Date(), 'ddMMyy')}.csv
+            </div>
+            <div className="inline-block mt-2 px-2 py-0.5 rounded bg-surface border border-border text-[10px] text-success font-bold uppercase tracking-wider">
+              Lote #000{transactions.length} • OK
+            </div>
           </div>
         </div>
       </div>
@@ -204,17 +175,11 @@ export default function Dashboard() {
   );
 }
 
-function MetricCard({ title, value, icon: Icon, color = 'primary', isDanger }: any) {
+function MetricCard({ title, value, isDanger }: any) {
   return (
-    <motion.div 
-      whileHover={{ y: -2 }}
-      className="bg-surface p-5 rounded-lg border border-border shadow-sm"
-    >
+    <motion.div whileHover={{ y: -2 }} className="bg-surface p-5 rounded-lg border border-border shadow-sm">
       <h4 className="text-text-dim text-[11px] font-semibold uppercase tracking-wider mb-2">{title}</h4>
-      <p className={cn(
-        "text-xl font-bold font-mono tracking-tight",
-        isDanger ? "text-danger" : "text-text"
-      )}>
+      <p className={cn("text-xl font-bold font-mono tracking-tight", isDanger ? "text-danger" : "text-text")}>
         {value}
       </p>
     </motion.div>

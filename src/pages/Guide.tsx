@@ -1,50 +1,66 @@
-import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import { BookOpen, ChevronRight, HelpCircle } from 'lucide-react';
 
-const guideContent = `# 🛡️ Guia do Sistema Antifraude para Bares
+const guideContent = `# Guia do Sistema Antifraude
 
-Este guia explica como o seu sistema monitora o bar e garante a integridade da operação.
+Este guia explica como o sistema monitora o estabelecimento e garante a integridade da operação.
 
 ---
 
 ## 1. O que o sistema faz?
-O sistema funciona como um "Auditor Digital". Ele cruza três informações:
-1. **Câmeras Inteligentes:** Contam quem entra e sai.
-2. **Maquinetas (PagBank):** Confirmam o dinheiro real.
-3. **Sistemas (Consumo):** Registram os pedidos lançados.
+
+O sistema funciona como um **Auditor Digital 24/7**. Ele cruza três fontes de dados em tempo real:
+
+1. **Câmeras Inteligentes** — Contam quantas pessoas estão no salão
+2. **Maquinetas (PagBank)** — Confirmam o dinheiro que entrou de fato
+3. **Sistema de Consumo (ST Ingressos)** — Registra os pedidos lançados
+
+Todos os dados são armazenados em banco de dados seguro e auditável.
 
 ---
 
 ## 2. Como as Integrações Funcionam
 
-### 📸 Câmeras (Pessoas)
-A cada 30 minutos, o sistema recebe a contagem de pessoas no salão via integração com o hardware.
+### Câmeras (Contagem de Pessoas)
+A cada 30 minutos, o sistema recebe a contagem de pessoas no salão. A câmera usa IA para identificar formas humanas — não grava rostos, apenas conta.
 
-### 💳 Maquinetas (PagBank)
-O sistema audita os valores das transações para garantir que o que foi pago no cartão é o que foi lançado no sistema.
+### Maquinetas (PagBank)
+Importe o extrato CSV da maquineta na aba **Importar Dados**. O sistema valida automaticamente se os valores batem com os pedidos lançados.
 
-### 🧾 Sistemas de Pedidos (Consumo)
-Cruzamos o fluxo de pessoas com os pedidos para identificar se há clientes consumindo sem registro.
-
----
-
-## 3. Identificando Ações Estranhas
-
-O sistema dispara alertas automáticos:
-
-### 🚩 Alerta R01: "Salão Cheio, Caixa Vazio"
-*   **Cenário:** Muitas pessoas no bar, mas zero vendas nos últimos 30min.
-*   **Risco:** Consumo sem registro ou "venda externa" por funcionários.
-
-### 🚩 Alerta R02: "Gap Financeiro"
-*   **Cenário:** Valor na maquineta é diferente do valor lançado.
-*   **Risco:** Desvio de valores ou erro operacional.
+### Sistema de Pedidos (ST Ingressos)
+Importe o relatório de consumo pelo mesmo processo. O motor de regras cruza os dois arquivos instantaneamente.
 
 ---
 
-## 4. Notificações WhatsApp
-Ao detectar um erro grave, você recebe um alerta no navegador. Ao clicar, o sistema prepara uma mensagem para o número cadastrado (**85 99199-3833**).
+## 3. Alertas Automáticos
+
+### Alerta R01 — "Salão Cheio, Caixa Vazio"
+- **Cenário:** Mais de 30 pessoas no bar, mas zero vendas nos últimos 30 minutos
+- **Risco:** Consumo sem registro, venda sem lançamento ou falha do sistema de pedidos
+
+### Alerta R02 — "Gap Financeiro"
+- **Cenário:** Valor na maquineta difere do valor lançado no sistema por mais de R$ 200
+- **Risco:** Desvio de valores, cancelamentos abusivos ou erro operacional grave
+
+---
+
+## 4. Notificações
+
+Quando um alerta crítico é gerado:
+1. O navegador dispara uma **notificação push** (celular ou desktop)
+2. Ao clicar, abre o WhatsApp com uma mensagem já formatada para o número configurado em **Configurações**
+3. O alerta fica registrado na aba **Alertas de Fraude** para auditoria
+
+---
+
+## 5. Rotina Recomendada
+
+| Frequência | Ação |
+|-----------|------|
+| A cada turno | Importar CSV do PagBank e ST Ingressos |
+| A cada 30 min | Verificar dashboard (câmera atualiza automaticamente) |
+| Diariamente | Revisar alertas abertos e marcar como auditados |
+| Semanalmente | Analisar histórico de gaps e padrões por operador |
 `;
 
 export default function Guide() {

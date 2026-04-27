@@ -1,156 +1,190 @@
-import { Transaction, PeopleCountEvent, Alert, ImportBatch, TransactionSource } from '../types';
-import { subMinutes, isWithinInterval, parseISO } from 'date-fns';
+import { Transaction, PeopleCountEvent, Alert, ImportBatch } from '../types';
+import { supabase } from '../lib/supabase';
 import { notificationService } from './notificationService';
 
+// ID do estabelecimento demo criado no schema.sql
+// Quando houver autenticação, este valor virá do contexto do usuário logado
+const ESTABLISHMENT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
+
 class DataService {
-  private transactions: Transaction[] = [];
-  private peopleCount: PeopleCountEvent[] = [];
-  private alerts: Alert[] = [];
-  private batches: ImportBatch[] = [];
 
-  // Persistence (Simulated for MVP)
-  constructor() {
-    const savedData = localStorage.getItem('antifraude_data');
-    if (savedData) {
-      const parsed = JSON.parse(savedData);
-      this.transactions = parsed.transactions || [];
-      this.peopleCount = parsed.peopleCount || [];
-      this.alerts = parsed.alerts || [];
-      this.batches = parsed.batches || [];
-    }
-  }
+  // ── Leitura ────────────────────────────────────────────────
 
-  private save() {
-    localStorage.setItem('antifraude_data', JSON.stringify({
-      transactions: this.transactions,
-      peopleCount: this.peopleCount,
-      alerts: this.alerts,
-      batches: this.batches
+  async getTransactions(): Promise<Transaction[]> {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('establishment_id', ESTABLISHMENT_ID)
+      .order('occurred_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data ?? []).map(row => ({
+      id: row.id,
+      source: row.source,
+      amount: Number(row.amount),
+      paymentMethod: row.payment_method,
+      occurredAt: row.occurred_at,
+      importedAt: row.imported_at,
+      operatorId: row.operator_id ?? undefined,
+      batchId: row.batch_id,
     }));
   }
 
-  getTransactions() { return this.transactions; }
-  getAlerts() { return this.alerts; }
-  getPeopleCount() { return this.peopleCount; }
-  getBatches() { return this.batches; }
+  async getPeopleCount(): Promise<PeopleCountEvent[]> {
+    const { data, error } = await supabase
+      .from('people_count_events')
+      .select('*')
+      .eq('establishment_id', ESTABLISHMENT_ID)
+      .order('recorded_at', { ascending: true });
 
-  async addTransactions(newTransactions: Transaction[], batch: ImportBatch) {
-    this.transactions.push(...newTransactions);
-    this.batches.push(batch);
-    this.save();
+    if (error) throw error;
+
+    return (data ?? []).map(row => ({
+      id: row.id,
+      cameraId: row.camera_id,
+      countIn: row.count_in,
+      countOut: row.count_out,
+      peopleInside: row.people_inside,
+      recordedAt: row.recorded_at,
+    }));
+  }
+
+  async getAlerts(): Promise<Alert[]> {
+    const { data, error } = await supabase
+      .from('alerts')
+      .select('*')
+      .eq('establishment_id', ESTABLISHMENT_ID)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data ?? []).map(row => ({
+      id: row.id,
+      type: row.type,
+      severity: row.severity,
+      description: row.description,
+      context: row.context,
+      resolved: row.resolved,
+      resolvedBy: row.resolved_by ?? undefined,
+      createdAt: row.created_at,
+    }));
+  }
+
+  async getBatches(): Promise<ImportBatch[]> {
+    const { data, error } = await supabase
+      .from('import_batches')
+      .select('*')
+      .eq('establishment_id', ESTABLISHMENT_ID)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data ?? []).map(row => ({
+      id: row.id,
+      source: row.source,
+      filename: row.filename,
+      rowsTotal: row.rows_total,
+      rowsImported: row.rows_imported,
+      rowsFailed: row.rows_failed,
+      status: row.status,
+      importedBy: row.imported_by,
+      createdAt: row.created_at,
+    }));
+  }
+
+  // ── Escrita ────────────────────────────────────────────────
+
+  async addTransactions(newTransactions: Transaction[], batch: ImportBatch): Promise<void> {
+    // 1. Insere o lote
+    const { data: batchData, error: batchError } = await supabase
+      .from('import_batches')
+      .insert({
+        id: batch.id,
+        establishment_id: ESTABLISHMENT_ID,
+        source: batch.source,
+        filename: batch.filename,
+        rows_total: batch.rowsTotal,
+        rows_imported: batch.rowsImported,
+        rows_failed: batch.rowsFailed,
+        status: batch.status,
+        imported_by: batch.importedBy,
+      })
+      .select()
+      .single();
+
+    if (batchError) throw batchError;
+
+    // 2. Insere as transações
+    const rows = newTransactions.map(t => ({
+      id: t.id,
+      establishment_id: ESTABLISHMENT_ID,
+      batch_id: batchData.id,
+      source: t.source,
+      amount: t.amount,
+      payment_method: t.paymentMethod,
+      operator_id: t.operatorId ?? null,
+      occurred_at: t.occurredAt,
+      imported_at: t.importedAt,
+    }));
+
+    const { error: txError } = await supabase.from('transactions').insert(rows);
+    if (txError) throw txError;
+
+    // 3. Roda o motor de regras no banco
     await this.runRules();
   }
 
-  async addPeopleCount(event: PeopleCountEvent) {
-    this.peopleCount.push(event);
-    this.save();
+  async addPeopleCount(event: PeopleCountEvent): Promise<void> {
+    const { error } = await supabase.from('people_count_events').insert({
+      id: event.id,
+      establishment_id: ESTABLISHMENT_ID,
+      camera_id: event.cameraId,
+      count_in: event.countIn,
+      count_out: event.countOut,
+      people_inside: event.peopleInside,
+      recorded_at: event.recordedAt,
+    });
+
+    if (error) throw error;
+
     await this.runRules();
   }
 
-  resolveAlert(alertId: string, user: string) {
-    const alert = this.alerts.find(a => a.id === alertId);
-    if (alert) {
-      alert.resolved = true;
-      alert.resolvedBy = user;
-      this.save();
+  async resolveAlert(alertId: string, user: string): Promise<void> {
+    const { error } = await supabase.rpc('resolve_alert', {
+      p_alert_id: alertId,
+      p_resolved_by: user,
+    });
+
+    if (error) throw error;
+  }
+
+  // ── Motor de Regras ────────────────────────────────────────
+
+  private async runRules(): Promise<void> {
+    const { data, error } = await supabase.rpc('run_fraud_rules', {
+      p_establishment_id: ESTABLISHMENT_ID,
+    });
+
+    if (error) {
+      console.error('[runRules] Erro ao executar regras:', error.message);
+      return;
     }
-  }
 
-  // Fraud Rules (Section 6 of SDD) - Now Async to handle notifications
-  private async runRules() {
-    const now = new Date();
-    
-    // R01: Lotação sem Vendas (Cruzamento de Câmera x Ingressos)
-    const last30Min = subMinutes(now, 30);
-    const latestPeople = this.peopleCount[this.peopleCount.length - 1];
-    
-    if (latestPeople && latestPeople.peopleInside > 30) {
-      const recentSales = this.transactions.filter(t => 
-        t.source === 'st_ingressos' && parseISO(t.occurredAt) >= last30Min
-      );
-      
-      if (recentSales.length === 0) {
-        await this.createAlert({
-          type: 'crowd_no_sales',
-          severity: 'high',
-          description: `R01: Fluxo de ${latestPeople.peopleInside} pessoas sem vendas registradas nos últimos 30min.`,
-          context: { peopleInside: latestPeople.peopleInside, window: '30min' }
-        });
+    // Dispara notificações push para alertas críticos recém-criados
+    if (data && data.length > 0) {
+      const newAlerts = await this.getAlerts();
+      for (const row of data) {
+        const alert = newAlerts.find(
+          a => a.type === row.alert_type && !a.resolved
+        );
+        if (alert && alert.severity === 'high') {
+          await notificationService.sendWhatsAppAlert(alert);
+        }
       }
     }
-
-    // R02: Gap Financeiro (Cruzamento PagBank x St Ingressos)
-    const pagbankTotal = this.transactions
-      .filter(t => t.source === 'pagbank')
-      .reduce((sum, t) => sum + t.amount, 0);
-    const stTotal = this.transactions
-      .filter(t => t.source === 'st_ingressos')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    if (Math.abs(pagbankTotal - stTotal) > 200) {
-      await this.createAlert({
-        type: 'card_gap',
-        severity: 'high',
-        description: `R02: Divergência Crítica detectada entre PagBank e Bilheteria.`,
-        context: { pagbankTotal, stTotal, diff: pagbankTotal - stTotal }
-      });
-    }
-
-    this.save();
-  }
-
-  private async createAlert(data: Omit<Alert, 'id' | 'createdAt' | 'resolved'>) {
-    // Prevent duplicate active alerts of same type in close proximity
-    const existing = this.alerts.find(a => a.type === data.type && !a.resolved);
-    if (existing) return;
-
-    const newAlert: Alert = {
-      ...data,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      resolved: false
-    };
-    
-    this.alerts.unshift(newAlert);
-    
-    // Envio Push via WhatsApp para Alertas Críticos
-    if (newAlert.severity === 'high') {
-      await notificationService.sendWhatsAppAlert(newAlert);
-    }
-  }
-
-  seedDemo() {
-    if (this.transactions.length > 0) return;
-
-    const batchId = crypto.randomUUID();
-    const mockTransactions: Transaction[] = Array.from({ length: 20 }).map((_, i) => ({
-      id: crypto.randomUUID(),
-      source: i % 2 === 0 ? 'st_ingressos' : 'pagbank',
-      amount: Math.floor(Math.random() * 100) + 50,
-      paymentMethod: i % 3 === 0 ? 'credit' : 'debit',
-      occurredAt: subMinutes(new Date(), i * 15).toISOString(),
-      importedAt: new Date().toISOString(),
-      batchId
-    }));
-
-    this.transactions = mockTransactions;
-    this.peopleCount = [
-      { id: '1', cameraId: 'cam1', countIn: 45, countOut: 5, peopleInside: 40, recordedAt: new Date().toISOString() }
-    ];
-    this.batches = [{
-      id: batchId,
-      source: 'st_ingressos',
-      filename: 'extrato_mock.csv',
-      rowsTotal: 20,
-      rowsImported: 20,
-      rowsFailed: 0,
-      status: 'done',
-      importedBy: 'Admin',
-      createdAt: new Date().toISOString()
-    }];
-    this.save();
   }
 }
 
 export const dataService = new DataService();
-dataService.seedDemo();
