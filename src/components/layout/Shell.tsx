@@ -9,7 +9,8 @@ import {
   Menu,
   X,
   BookOpen,
-  FlaskConical
+  FlaskConical,
+  Plug
 } from 'lucide-react';
 import { dataService } from '../../services/dataService';
 import { cn } from '../../lib/utils';
@@ -24,13 +25,14 @@ export default function Shell({ children, activeTab, onTabChange }: ShellProps) 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'upload', label: 'Importar Dados', icon: Upload },
-    { id: 'alerts', label: 'Alertas de Fraude', icon: AlertTriangle },
-    { id: 'simulator', label: 'Simulador Demo', icon: FlaskConical },
-    { id: 'guide', label: 'Guia de Operação', icon: BookOpen },
-    { id: 'analytics', label: 'Analítico', icon: BarChart3 },
-    { id: 'settings', label: 'Configurações', icon: Settings },
+    { id: 'dashboard',     label: 'Dashboard',        icon: LayoutDashboard },
+    { id: 'upload',        label: 'Importar Dados',   icon: Upload },
+    { id: 'alerts',        label: 'Alertas de Fraude',icon: AlertTriangle },
+    { id: 'simulator',     label: 'Simulador Demo',   icon: FlaskConical },
+    { id: 'integrations',  label: 'Integrações',      icon: Plug },
+    { id: 'guide',         label: 'Guia de Operação', icon: BookOpen },
+    { id: 'analytics',     label: 'Analítico',        icon: BarChart3 },
+    { id: 'settings',      label: 'Configurações',    icon: Settings },
   ];
 
   return (

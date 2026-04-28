@@ -11,6 +11,7 @@ import AlertsPage from './pages/Alerts';
 import Settings from './pages/Settings';
 import Guide from './pages/Guide';
 import Simulator from './pages/Simulator';
+import Integrations from './pages/Integrations';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -27,6 +28,8 @@ export default function App() {
         return <Guide />;
       case 'simulator':
         return <Simulator />;
+      case 'integrations':
+        return <Integrations />;
       case 'settings':
         return <Settings />;
       case 'analytics':
