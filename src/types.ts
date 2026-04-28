@@ -68,3 +68,13 @@ export interface ImportBatch {
   importedBy: string;
   createdAt: string;
 }
+
+export interface AuditEvent {
+  id: string;
+  eventType: string;
+  actor: string;
+  targetType: string;
+  targetId?: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}

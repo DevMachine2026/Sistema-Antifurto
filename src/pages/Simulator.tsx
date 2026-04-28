@@ -6,10 +6,9 @@ import {
   ChevronRight, Bell, Banknote
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getCurrentEstablishmentId } from '../lib/tenant';
 import { dataService } from '../services/dataService';
 import { cn } from '../lib/utils';
-
-const ESTABLISHMENT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
 
 type StepStatus = 'idle' | 'loading' | 'done' | 'error';
 type LogEntry = { time: string; message: string; type: 'info' | 'success' | 'alert' | 'error' };
@@ -19,6 +18,7 @@ interface StepResult {
 }
 
 export default function Simulator() {
+  const establishmentId = getCurrentEstablishmentId();
   const [log, setLog] = useState<LogEntry[]>([]);
   const [people, setPeople] = useState(85);
   const [stAmount, setStAmount] = useState(1800);
@@ -39,11 +39,11 @@ export default function Simulator() {
     await setStep('reset', 'loading');
     addLog('Limpando banco de dados...', 'info');
     try {
-      await supabase.from('alerts').delete().eq('establishment_id', ESTABLISHMENT_ID);
-      await supabase.from('transactions').delete().eq('establishment_id', ESTABLISHMENT_ID);
-      await supabase.from('people_count_events').delete().eq('establishment_id', ESTABLISHMENT_ID);
-      await supabase.from('cash_payment_events').delete().eq('establishment_id', ESTABLISHMENT_ID);
-      await supabase.from('import_batches').delete().eq('establishment_id', ESTABLISHMENT_ID);
+      await supabase.from('alerts').delete().eq('establishment_id', establishmentId);
+      await supabase.from('transactions').delete().eq('establishment_id', establishmentId);
+      await supabase.from('people_count_events').delete().eq('establishment_id', establishmentId);
+      await supabase.from('cash_payment_events').delete().eq('establishment_id', establishmentId);
+      await supabase.from('import_batches').delete().eq('establishment_id', establishmentId);
       setCompletedSteps(new Set());
       setStepStatus({});
       setLog([]);
@@ -61,7 +61,7 @@ export default function Simulator() {
       const { data: batch } = await supabase
         .from('import_batches')
         .insert({
-          establishment_id: ESTABLISHMENT_ID,
+          establishment_id: establishmentId,
           source: 'st_ingressos',
           filename: `ST_INGRESSOS_DEMO_${Date.now()}.csv`,
           rows_total: Math.ceil(stAmount / 180),
@@ -76,7 +76,7 @@ export default function Simulator() {
       const count = Math.ceil(stAmount / 180);
       const perTx = stAmount / count;
       const txs = Array.from({ length: count }).map((_, i) => ({
-        establishment_id: ESTABLISHMENT_ID,
+        establishment_id: establishmentId,
         batch_id: batch.id,
         source: 'st_ingressos',
         amount: perTx.toFixed(2),
@@ -103,7 +103,7 @@ export default function Simulator() {
       const { data: batch } = await supabase
         .from('import_batches')
         .insert({
-          establishment_id: ESTABLISHMENT_ID,
+          establishment_id: establishmentId,
           source: 'pagbank',
           filename: `PAGBANK_EXTRATO_DEMO_${Date.now()}.csv`,
           rows_total: Math.ceil(pagbankAmount / 150),
@@ -118,7 +118,7 @@ export default function Simulator() {
       const count = Math.ceil(pagbankAmount / 150);
       const perTx = pagbankAmount / count;
       const txs = Array.from({ length: count }).map((_, i) => ({
-        establishment_id: ESTABLISHMENT_ID,
+        establishment_id: establishmentId,
         batch_id: batch.id,
         source: 'pagbank',
         amount: perTx.toFixed(2),
@@ -149,7 +149,7 @@ export default function Simulator() {
     addLog(`Câmera registrando ${people} pessoas no salão...`, 'info');
     try {
       await supabase.from('people_count_events').insert({
-        establishment_id: ESTABLISHMENT_ID,
+        establishment_id: establishmentId,
         camera_id: 'cam-entrada',
         count_in: people + 10,
         count_out: 10,
@@ -190,7 +190,7 @@ export default function Simulator() {
     addLog('Executando motor de regras antifraude...', 'info');
     try {
       const { data, error } = await supabase.rpc('run_fraud_rules', {
-        p_establishment_id: ESTABLISHMENT_ID,
+        p_establishment_id: establishmentId,
       });
       if (error) throw error;
 

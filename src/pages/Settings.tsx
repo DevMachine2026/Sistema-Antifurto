@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Shield, Bell, Database, Megaphone, Save, Loader2, CheckCircle2, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getCurrentEstablishmentId } from '../lib/tenant';
 import { notificationService } from '../services/notificationService';
+import { auditService } from '../services/auditService';
 import { cn } from '../lib/utils';
-
-const ESTABLISHMENT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
 
 interface SettingsData {
   whatsapp_number: string;
@@ -31,6 +31,7 @@ const DEFAULTS: SettingsData = {
 };
 
 export default function Settings() {
+  const establishmentId = getCurrentEstablishmentId();
   const [form, setForm] = useState<SettingsData>(DEFAULTS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,7 +44,7 @@ export default function Settings() {
       const { data } = await supabase
         .from('settings')
         .select('*')
-        .eq('establishment_id', ESTABLISHMENT_ID)
+        .eq('establishment_id', establishmentId)
         .single();
 
       if (data) {
@@ -84,10 +85,25 @@ export default function Settings() {
         monitoring_start_time: form.monitoring_start_time,
         monitoring_end_time:   form.monitoring_end_time,
       })
-      .eq('establishment_id', ESTABLISHMENT_ID);
+      .eq('establishment_id', establishmentId);
 
     setSaving(false);
     if (!error) {
+      await auditService.log({
+        eventType: 'settings.updated',
+        targetType: 'settings',
+        targetId: establishmentId,
+        metadata: {
+          r01_min_people: form.r01_min_people,
+          r01_window_minutes: form.r01_window_minutes,
+          r02_gap_threshold: form.r02_gap_threshold,
+          strict_audit_mode: form.strict_audit_mode,
+          monitoring_start_time: form.monitoring_start_time,
+          monitoring_end_time: form.monitoring_end_time,
+          has_whatsapp: !!form.whatsapp_number,
+          has_telegram: !!(form.telegram_bot_token && form.telegram_chat_id),
+        },
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     }

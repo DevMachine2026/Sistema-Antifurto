@@ -1,23 +1,13 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import { Transaction, PaymentMethod } from '../../types';
+import { extractDate, parseBRL } from './stIngressosParserUtils';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
   import.meta.url,
 ).toString();
 
-function parseBRL(value: string): number {
-  return parseFloat(value.replace(/\./g, '').replace(',', '.'));
-}
-
-function extractDate(text: string): string {
-  const match = text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if (match) {
-    const [, dd, mm, yyyy] = match;
-    return new Date(`${yyyy}-${mm}-${dd}T20:00:00`).toISOString();
-  }
-  return new Date().toISOString();
-}
+export { extractDate, parseBRL } from './stIngressosParserUtils';
 
 export interface ParseResult {
   transactions: Omit<Transaction, 'id' | 'batchId' | 'source' | 'importedAt'>[];

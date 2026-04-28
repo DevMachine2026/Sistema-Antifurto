@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle, CheckCircle2, ShieldAlert, History, MapPin, Clock, MessageCircle } from 'lucide-react';
 import { dataService } from '../services/dataService';
+import { auditService } from '../services/auditService';
 import { notificationService } from '../services/notificationService';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
@@ -31,6 +32,14 @@ export default function AlertsPage() {
 
   const handleResolve = async (id: string) => {
     await dataService.resolveAlert(id, 'Eduardo (Proprietário)');
+    await auditService.log({
+      eventType: 'alert.resolved',
+      targetType: 'alert',
+      targetId: id,
+      metadata: {
+        resolved_by: 'Eduardo (Proprietário)',
+      },
+    });
     await loadAlerts();
   };
 

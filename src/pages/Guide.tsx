@@ -22,11 +22,11 @@ Todos os dados são armazenados em banco de dados seguro e auditável.
 
 ## 2. Como as Integrações Funcionam
 
-### Câmera de Contagem (Entrada)
-A câmera Intelbras envia automaticamente a contagem de pessoas via webhook ISAPI. O sistema recebe e atualiza o dashboard em tempo real — sem intervenção manual.
+### Câmeras de Contagem (cam-area-01 e cam-area-02)
+Duas câmeras Intelbras monitoram áreas distintas do espaço. Cada uma envia sua contagem via webhook ISAPI com seu próprio camera_id. O sistema soma automaticamente a leitura mais recente de cada câmera para calcular a ocupação total — sem intervenção manual.
 
-### Câmera no Caixa (Detecção de Espécie)
-Um Raspberry Pi conectado à câmera do caixa identifica quando um cliente apresenta cédulas. O evento é registrado com data e hora para cruzamento com os lançamentos do ST Ingressos.
+### Câmera na Bilheteria (Detecção de Espécie)
+Um Raspberry Pi conectado à câmera da bilheteria (cam-caixa) identifica quando um cliente apresenta cédulas. O evento é registrado com data e hora para cruzamento com os lançamentos do ST Ingressos.
 
 ### Maquinetas (PagBank)
 Importe o extrato CSV na aba **Importar Dados** ou conecte via webhook para recebimento automático por venda.

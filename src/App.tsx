@@ -12,6 +12,7 @@ import Settings from './pages/Settings';
 import Guide from './pages/Guide';
 import Simulator from './pages/Simulator';
 import Integrations from './pages/Integrations';
+import AuditTrail from './pages/AuditTrail';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -32,6 +33,8 @@ export default function App() {
         return <Integrations />;
       case 'settings':
         return <Settings />;
+      case 'audit':
+        return <AuditTrail />;
       case 'analytics':
         return (
           <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-4">

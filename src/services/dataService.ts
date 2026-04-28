@@ -1,12 +1,12 @@
 import { Transaction, PeopleCountEvent, Alert, ImportBatch, CashPaymentEvent } from '../types';
 import { supabase } from '../lib/supabase';
+import { getCurrentEstablishmentId } from '../lib/tenant';
 import { notificationService } from './notificationService';
 
-// ID do estabelecimento demo criado no schema.sql
-// Quando houver autenticação, este valor virá do contexto do usuário logado
-const ESTABLISHMENT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
-
 class DataService {
+  private get establishmentId(): string {
+    return getCurrentEstablishmentId();
+  }
 
   // ── Leitura ────────────────────────────────────────────────
 
@@ -14,7 +14,7 @@ class DataService {
     const { data, error } = await supabase
       .from('transactions')
       .select('*')
-      .eq('establishment_id', ESTABLISHMENT_ID)
+      .eq('establishment_id', this.establishmentId)
       .order('occurred_at', { ascending: false });
 
     if (error) throw error;
@@ -35,7 +35,7 @@ class DataService {
     const { data, error } = await supabase
       .from('people_count_events')
       .select('*')
-      .eq('establishment_id', ESTABLISHMENT_ID)
+      .eq('establishment_id', this.establishmentId)
       .order('recorded_at', { ascending: true });
 
     if (error) throw error;
@@ -54,7 +54,7 @@ class DataService {
     const { data, error } = await supabase
       .from('alerts')
       .select('*')
-      .eq('establishment_id', ESTABLISHMENT_ID)
+      .eq('establishment_id', this.establishmentId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -75,7 +75,7 @@ class DataService {
     const { data, error } = await supabase
       .from('import_batches')
       .select('*')
-      .eq('establishment_id', ESTABLISHMENT_ID)
+      .eq('establishment_id', this.establishmentId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -101,7 +101,7 @@ class DataService {
       .from('import_batches')
       .insert({
         id: batch.id,
-        establishment_id: ESTABLISHMENT_ID,
+        establishment_id: this.establishmentId,
         source: batch.source,
         filename: batch.filename,
         rows_total: batch.rowsTotal,
@@ -118,7 +118,7 @@ class DataService {
     // 2. Insere as transações
     const rows = newTransactions.map(t => ({
       id: t.id,
-      establishment_id: ESTABLISHMENT_ID,
+      establishment_id: this.establishmentId,
       batch_id: batchData.id,
       source: t.source,
       amount: t.amount,
@@ -139,7 +139,7 @@ class DataService {
     const { data, error } = await supabase
       .from('cash_payment_events')
       .select('*')
-      .eq('establishment_id', ESTABLISHMENT_ID)
+      .eq('establishment_id', this.establishmentId)
       .order('detected_at', { ascending: false });
 
     if (error) throw error;
@@ -156,7 +156,7 @@ class DataService {
 
   async addCashPaymentEvent(event: Omit<CashPaymentEvent, 'id' | 'matched' | 'createdAt'>): Promise<void> {
     const { error } = await supabase.from('cash_payment_events').insert({
-      establishment_id: ESTABLISHMENT_ID,
+      establishment_id: this.establishmentId,
       camera_id: event.cameraId,
       detected_at: event.detectedAt,
       window_minutes: event.windowMinutes,
@@ -170,7 +170,7 @@ class DataService {
   async addPeopleCount(event: PeopleCountEvent): Promise<void> {
     const { error } = await supabase.from('people_count_events').insert({
       id: event.id,
-      establishment_id: ESTABLISHMENT_ID,
+      establishment_id: this.establishmentId,
       camera_id: event.cameraId,
       count_in: event.countIn,
       count_out: event.countOut,
@@ -196,7 +196,7 @@ class DataService {
 
   private async runRules(): Promise<void> {
     const { data, error } = await supabase.rpc('run_fraud_rules', {
-      p_establishment_id: ESTABLISHMENT_ID,
+      p_establishment_id: this.establishmentId,
     });
 
     if (error) {

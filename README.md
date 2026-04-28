@@ -54,6 +54,10 @@ No dashboard do Supabase, vá em **SQL Editor** e execute em ordem:
 supabase/schema.sql               # Schema principal
 supabase/migration_cash_ghost.sql # Tabela cash_payment_events + R05
 supabase/migration_webhooks.sql   # webhook_token na tabela settings
+supabase/migration_rls_production.sql # RLS por tenant (produção)
+supabase/migration_idempotency.sql # deduplicação por external_event_key
+supabase/migration_audit_events.sql # trilha de auditoria operacional
+supabase/rules_integration_tests.sql # testes SQL de integração R01/R02/R05
 ```
 
 Opcionalmente execute `supabase/seed_demo.sql` para dados de demonstração.
@@ -67,6 +71,7 @@ cp .env.example .env
 ```env
 VITE_SUPABASE_URL=https://SEU_PROJETO.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
+VITE_ESTABLISHMENT_ID=aaaaaaaa-0000-0000-0000-000000000001
 ```
 
 ### 4. Deploy das Edge Functions
@@ -96,6 +101,16 @@ Disponível em `http://localhost:5173`
 | **R05** — Cash Ghost | Cédula detectada pela câmera sem lançamento no ST Ingressos | Alta |
 
 As regras rodam no banco via função PostgreSQL `run_fraud_rules()`, acionada automaticamente após cada evento recebido.
+
+### Testes de integração das regras (SQL)
+
+Para validar R01, R02 e R05 de ponta a ponta no banco:
+
+```sql
+supabase/rules_integration_tests.sql
+```
+
+O script cria dados temporários, executa asserts e finaliza com `ROLLBACK` (sem poluir o ambiente).
 
 ---
 
@@ -151,6 +166,10 @@ supabase/
 ├── seed_demo.sql
 ├── migration_cash_ghost.sql     # R05 + cash_payment_events
 ├── migration_webhooks.sql       # webhook_token
+├── migration_rls_production.sql # RLS por tenant (produção)
+├── migration_idempotency.sql    # chaves de idempotência
+├── migration_audit_events.sql   # trilha de auditoria
+├── rules_integration_tests.sql  # testes SQL R01/R02/R05
 └── functions/
     ├── webhook-camera/          # Edge Function — Intelbras ISAPI
     ├── webhook-cash/            # Edge Function — Raspberry Pi

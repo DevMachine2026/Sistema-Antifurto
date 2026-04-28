@@ -2,7 +2,7 @@ import Papa from 'papaparse';
 import { Transaction, PaymentMethod } from '../../types';
 import { ParseResult } from './stIngressosParser';
 
-function detectPaymentMethod(value: string): PaymentMethod {
+export function detectPaymentMethod(value: string): PaymentMethod {
   const v = value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   if (v.includes('credito') || v.includes('credit'))  return 'credit';
   if (v.includes('debito')  || v.includes('debit'))   return 'debit';
@@ -11,13 +11,13 @@ function detectPaymentMethod(value: string): PaymentMethod {
   return 'credit';
 }
 
-function parseAmount(value: string): number {
+export function parseAmount(value: string): number {
   const cleaned = value.replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.');
   const n = parseFloat(cleaned);
   return isNaN(n) ? 0 : n;
 }
 
-function parseDateTime(date: string, time = '12:00:00'): string {
+export function parseDateTime(date: string, time = '12:00:00'): string {
   const parts = date.trim().split(/[\/\-]/);
   if (parts.length === 3) {
     let iso: string;

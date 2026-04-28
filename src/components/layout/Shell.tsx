@@ -10,7 +10,8 @@ import {
   X,
   BookOpen,
   FlaskConical,
-  Plug
+  Plug,
+  ClipboardList
 } from 'lucide-react';
 import { dataService } from '../../services/dataService';
 import { cn } from '../../lib/utils';
@@ -30,6 +31,7 @@ export default function Shell({ children, activeTab, onTabChange }: ShellProps) 
     { id: 'alerts',        label: 'Alertas de Fraude',icon: AlertTriangle },
     { id: 'simulator',     label: 'Simulador Demo',   icon: FlaskConical },
     { id: 'integrations',  label: 'Integrações',      icon: Plug },
+    { id: 'audit',         label: 'Trilha Auditoria', icon: ClipboardList },
     { id: 'guide',         label: 'Guia de Operação', icon: BookOpen },
     { id: 'analytics',     label: 'Analítico',        icon: BarChart3 },
     { id: 'settings',      label: 'Configurações',    icon: Settings },
@@ -87,7 +89,7 @@ export default function Shell({ children, activeTab, onTabChange }: ShellProps) 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="fixed inset-0 bg-bg z-[60] flex flex-col p-6"
+            className="fixed inset-0 bg-bg z-[60] flex flex-col p-6 overflow-y-auto"
           >
             <div className="flex justify-between items-center mb-8">
               <div className="flex items-center gap-2">
@@ -99,7 +101,7 @@ export default function Shell({ children, activeTab, onTabChange }: ShellProps) 
                 <X size={24} />
               </button>
             </div>
-            <nav className="space-y-4">
+            <nav className="space-y-4 pb-6">
               {menuItems.map((item) => (
                 <button
                   key={item.id}

@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Copy, Check, Wifi, WifiOff, Camera, Banknote, ShoppingBag, RefreshCw, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getCurrentEstablishmentId } from '../lib/tenant';
+import { auditService } from '../services/auditService';
 import { cn } from '../lib/utils';
-
-const ESTABLISHMENT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 
 interface IntegrationStatus {
@@ -45,6 +45,7 @@ function StatusBadge({ active }: { active: boolean }) {
 }
 
 export default function Integrations() {
+  const establishmentId = getCurrentEstablishmentId();
   const [token, setToken] = useState('');
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
@@ -62,18 +63,18 @@ export default function Integrations() {
     setLoading(true);
     const [{ data: settings }, { data: people }, { data: cashEvents }, { data: batches }] =
       await Promise.all([
-        supabase.from('settings').select('webhook_token').eq('establishment_id', ESTABLISHMENT_ID).single(),
-        supabase.from('people_count_events').select('recorded_at').eq('establishment_id', ESTABLISHMENT_ID).order('recorded_at', { ascending: false }).limit(1),
-        supabase.from('cash_payment_events').select('created_at').eq('establishment_id', ESTABLISHMENT_ID).order('created_at', { ascending: false }).limit(1),
-        supabase.from('import_batches').select('created_at, source').eq('establishment_id', ESTABLISHMENT_ID).eq('imported_by', 'webhook-st-ingressos').order('created_at', { ascending: false }).limit(1),
+        supabase.from('settings').select('webhook_token').eq('establishment_id', establishmentId).single(),
+        supabase.from('people_count_events').select('recorded_at').eq('establishment_id', establishmentId).order('recorded_at', { ascending: false }).limit(1),
+        supabase.from('cash_payment_events').select('created_at').eq('establishment_id', establishmentId).order('created_at', { ascending: false }).limit(1),
+        supabase.from('import_batches').select('created_at, source').eq('establishment_id', establishmentId).eq('imported_by', 'webhook-st-ingressos').order('created_at', { ascending: false }).limit(1),
       ]);
 
     setToken(settings?.webhook_token ?? '');
 
     const [{ count: peopleCount }, { count: cashCount }, { count: stCount }] = await Promise.all([
-      supabase.from('people_count_events').select('*', { count: 'exact', head: true }).eq('establishment_id', ESTABLISHMENT_ID),
-      supabase.from('cash_payment_events').select('*', { count: 'exact', head: true }).eq('establishment_id', ESTABLISHMENT_ID),
-      supabase.from('import_batches').select('*', { count: 'exact', head: true }).eq('establishment_id', ESTABLISHMENT_ID).eq('imported_by', 'webhook-st-ingressos'),
+      supabase.from('people_count_events').select('*', { count: 'exact', head: true }).eq('establishment_id', establishmentId),
+      supabase.from('cash_payment_events').select('*', { count: 'exact', head: true }).eq('establishment_id', establishmentId),
+      supabase.from('import_batches').select('*', { count: 'exact', head: true }).eq('establishment_id', establishmentId).eq('imported_by', 'webhook-st-ingressos'),
     ]);
 
     setStatus({
@@ -89,7 +90,15 @@ export default function Integrations() {
     setRegenerating(true);
     const newToken = Array.from(crypto.getRandomValues(new Uint8Array(24)))
       .map(b => b.toString(16).padStart(2, '0')).join('');
-    await supabase.from('settings').update({ webhook_token: newToken }).eq('establishment_id', ESTABLISHMENT_ID);
+    await supabase.from('settings').update({ webhook_token: newToken }).eq('establishment_id', establishmentId);
+    await auditService.log({
+      eventType: 'webhook_token.regenerated',
+      targetType: 'settings',
+      targetId: establishmentId,
+      metadata: {
+        token_preview: `${newToken.slice(0, 6)}...${newToken.slice(-4)}`,
+      },
+    });
     setToken(newToken);
     setRegenerating(false);
   }
@@ -105,13 +114,19 @@ export default function Integrations() {
       color: 'text-primary',
       fn: 'webhook-camera',
       status: status.camera,
-      payload: `// Formato Intelbras ISAPI (automático via configuração da câmera):
+      payload: `// Use um camera_id diferente por câmera — o sistema soma
+// automaticamente a leitura mais recente de cada uma.
+//
+// Câmera Área Principal → camera_id: "cam-area-01"
+// Câmera Área Secundária → camera_id: "cam-area-02"
+
+// Formato Intelbras ISAPI (configurado diretamente na câmera):
 POST ${webhookUrl('webhook-camera')}
 Authorization: Bearer {TOKEN}
 Content-Type: application/json
 
 {
-  "channelName": "cam-entrada",
+  "channelName": "cam-area-01",
   "dateTime": "2026-04-28T21:00:00Z",
   "peopleCounting": {
     "enter": 95,
@@ -120,14 +135,16 @@ Content-Type: application/json
   }
 }
 
-// Formato genérico (Raspberry Pi ou outro):
+// Formato genérico:
 {
-  "camera_id": "cam-entrada",
-  "count_in": 95,
-  "count_out": 10,
-  "people_inside": 85,
+  "camera_id": "cam-area-02",
+  "count_in": 42,
+  "count_out": 5,
+  "people_inside": 37,
   "recorded_at": "2026-04-28T21:00:00Z"
-}`,
+}
+
+// R01 dispara quando (cam-area-01 + cam-area-02) > threshold`,
     },
     {
       key: 'cash',

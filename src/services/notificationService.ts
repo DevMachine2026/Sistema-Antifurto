@@ -1,7 +1,6 @@
 import { Alert } from '../types';
 import { supabase } from '../lib/supabase';
-
-const ESTABLISHMENT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
+import { getCurrentEstablishmentId } from '../lib/tenant';
 
 interface NotifConfig {
   whatsapp_number:   string | null;
@@ -31,7 +30,7 @@ class NotificationService {
     const { data } = await supabase
       .from('settings')
       .select('whatsapp_number, telegram_bot_token, telegram_chat_id')
-      .eq('establishment_id', ESTABLISHMENT_ID)
+      .eq('establishment_id', getCurrentEstablishmentId())
       .single();
     this.cache = {
       whatsapp_number:    data?.whatsapp_number    ?? null,
