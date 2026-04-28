@@ -9,11 +9,12 @@ Este guia explica como o sistema monitora o estabelecimento e garante a integrid
 
 ## 1. O que o sistema faz?
 
-O sistema funciona como um **Auditor Digital 24/7**. Ele cruza três fontes de dados em tempo real:
+O sistema funciona como um **Auditor Digital 24/7**. Ele cruza quatro fontes de dados em tempo real:
 
-1. **Câmeras Inteligentes** — Contam quantas pessoas estão no salão
-2. **Maquinetas (PagBank)** — Confirmam o dinheiro que entrou de fato
-3. **Sistema de Consumo (ST Ingressos)** — Registra os pedidos lançados
+1. **Câmera na entrada** — Conta quantas pessoas estão no salão (Intelbras ISAPI)
+2. **Câmera no caixa** — Detecta pagamentos em dinheiro (Raspberry Pi + OpenCV)
+3. **Maquinetas (PagBank)** — Confirma o dinheiro que entrou via cartão/PIX
+4. **Sistema de Consumo (ST Ingressos)** — Registra os pedidos lançados
 
 Todos os dados são armazenados em banco de dados seguro e auditável.
 
@@ -21,26 +22,33 @@ Todos os dados são armazenados em banco de dados seguro e auditável.
 
 ## 2. Como as Integrações Funcionam
 
-### Câmeras (Contagem de Pessoas)
-A cada 30 minutos, o sistema recebe a contagem de pessoas no salão. A câmera usa IA para identificar formas humanas — não grava rostos, apenas conta.
+### Câmera de Contagem (Entrada)
+A câmera Intelbras envia automaticamente a contagem de pessoas via webhook ISAPI. O sistema recebe e atualiza o dashboard em tempo real — sem intervenção manual.
+
+### Câmera no Caixa (Detecção de Espécie)
+Um Raspberry Pi conectado à câmera do caixa identifica quando um cliente apresenta cédulas. O evento é registrado com data e hora para cruzamento com os lançamentos do ST Ingressos.
 
 ### Maquinetas (PagBank)
-Importe o extrato CSV da maquineta na aba **Importar Dados**. O sistema valida automaticamente se os valores batem com os pedidos lançados.
+Importe o extrato CSV na aba **Importar Dados** ou conecte via webhook para recebimento automático por venda.
 
 ### Sistema de Pedidos (ST Ingressos)
-Importe o relatório de consumo pelo mesmo processo. O motor de regras cruza os dois arquivos instantaneamente.
+Importe o relatório PDF de fechamento ou receba vendas em tempo real via webhook. O motor de regras cruza os dados instantaneamente.
 
 ---
 
 ## 3. Alertas Automáticos
 
-### Alerta R01 — "Salão Cheio, Caixa Vazio"
+### R01 — "Salão Cheio, Caixa Vazio"
 - **Cenário:** Mais de 30 pessoas no bar, mas zero vendas nos últimos 30 minutos
 - **Risco:** Consumo sem registro, venda sem lançamento ou falha do sistema de pedidos
 
-### Alerta R02 — "Gap Financeiro"
-- **Cenário:** Valor na maquineta difere do valor lançado no sistema por mais de R$ 200
+### R02 — "Gap Financeiro"
+- **Cenário:** Valor na maquineta difere do ST Ingressos por mais de R$ 200
 - **Risco:** Desvio de valores, cancelamentos abusivos ou erro operacional grave
+
+### R05 — "Cash Ghost" (Espécie Fantasma)
+- **Cenário:** Câmera detecta pagamento em dinheiro mas o ST Ingressos não registra venda em espécie no mesmo período
+- **Risco:** Operador recebe o dinheiro e não lança a venda — desvio direto de caixa
 
 ---
 
@@ -49,36 +57,49 @@ Importe o relatório de consumo pelo mesmo processo. O motor de regras cruza os 
 Quando um alerta crítico é gerado, o sistema dispara **dois canais simultaneamente**:
 
 ### Telegram (automático)
-- A mensagem é enviada **instantaneamente** para o Telegram do responsável
-- Não requer nenhuma interação — chega mesmo com o celular bloqueado
-- Configure o bot token e o Chat ID em **Configurações → Telegram**
+- A mensagem chega **instantaneamente** no celular do responsável
+- Não requer nenhuma interação — funciona com o celular bloqueado
+- Configure em **Configurações → Telegram**
 
 ### WhatsApp (manual)
-- O navegador exibe uma **notificação push** (desktop ou celular)
-- Ao clicar na notificação, abre o WhatsApp com a mensagem já formatada
-- Requer que o navegador esteja aberto e com permissão concedida
-
-O alerta sempre fica registrado na aba **Alertas de Fraude** para auditoria, independente dos canais.
+- O navegador exibe uma notificação push
+- Ao clicar, abre o WhatsApp com a mensagem já formatada
+- Requer que o navegador esteja aberto
 
 ---
 
-## 5. Simulador de Demo
+## 5. Integrações e Webhooks
 
-A aba **Simulador Demo** permite testar o sistema de ponta a ponta sem dados reais:
+A aba **Integrações** centraliza todas as conexões externas:
+
+- **Token de autenticação** — Usado por câmeras e Raspberry Pi para enviar dados com segurança
+- **Câmera contagem** — Status e endpoint para a Intelbras CAM 1200
+- **Detecção de espécie** — Status e payload esperado do Raspberry Pi
+- **ST Ingressos API** — Endpoint para recebimento de vendas em tempo real
+
+Cada integração mostra o status (Ativo / Aguardando), o último evento recebido e a documentação do payload.
+
+---
+
+## 6. Simulador de Demo
+
+A aba **Simulador Demo** testa o sistema de ponta a ponta sem hardware real:
 
 1. Clique em **Reset Demo** para limpar o banco
-2. Ajuste os sliders: pessoas no salão, valor ST Ingressos, valor PagBank
-3. Execute os 4 passos em sequência: Importar ST → Importar PagBank → Acionar Câmera → Executar Regras
-4. Veja o alerta aparecer na aba **Alertas** e a notificação chegar no Telegram
+2. Ajuste os sliders de pessoas, valores ST e PagBank
+3. Execute os 5 passos: ST → PagBank → Câmera → Espécie → Motor de Regras
+4. O passo "Câmera Detecta Espécie" simula um pagamento em dinheiro sem lançamento
+5. Veja os alertas na aba **Alertas** e a notificação chegar no Telegram
 
 ---
 
-## 6. Rotina Recomendada
+## 7. Rotina Recomendada
 
 | Frequência | Ação |
 |-----------|------|
-| A cada turno | Importar CSV do PagBank e ST Ingressos |
-| A cada 30 min | Verificar dashboard (câmera atualiza automaticamente) |
+| Por venda (automático) | ST Ingressos envia via webhook em tempo real |
+| A cada 30 min (automático) | Câmera atualiza contagem de pessoas |
+| A cada turno | Importar CSV do PagBank se não houver webhook |
 | Diariamente | Revisar alertas abertos e marcar como auditados |
 | Semanalmente | Analisar histórico de gaps e padrões por operador |
 `;

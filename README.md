@@ -8,25 +8,26 @@ Sistema inteligente de monitoramento e auditoria em tempo real que cruza dados d
 
 ## Visão Geral
 
-O Sistema Antifraude funciona como um **Auditor Digital 24/7** que monitora três pilares:
+O Sistema Antifraude funciona como um **Auditor Digital 24/7** que monitora quatro pilares:
 
-1. **Câmeras Inteligentes** — Contagem de pessoas em tempo real
-2. **Maquinetas de Pagamento** — Transações financeiras (PagBank)
-3. **Sistema de Pedidos** — Registro de vendas (ST Ingressos)
+1. **Câmeras Inteligentes** — Contagem de pessoas em tempo real (Intelbras ISAPI)
+2. **Câmera no Caixa** — Detecção de pagamento em espécie (Raspberry Pi + OpenCV)
+3. **Maquinetas de Pagamento** — Transações financeiras (PagBank)
+4. **Sistema de Pedidos** — Registro de vendas (ST Ingressos API ou PDF)
 
-Ao cruzar essas informações, o sistema identifica automaticamente inconsistências que podem indicar fraudes, erros operacionais ou falhas de processo.
+Ao cruzar essas informações, o sistema identifica automaticamente inconsistências que indicam fraudes, erros operacionais ou desvios de caixa.
 
 ---
 
 ## Tecnologias
 
-- **Frontend:** React 19 + TypeScript
-- **Banco de Dados:** Supabase (PostgreSQL)
+- **Frontend:** React 19 + TypeScript + Vite 6
+- **Banco de Dados:** Supabase (PostgreSQL + Edge Functions)
 - **Estilização:** TailwindCSS 4
 - **Gráficos:** Recharts
-- **Animações:** Framer Motion (`motion`)
-- **Build:** Vite 6
+- **Animações:** Framer Motion
 - **Ícones:** Lucide React
+- **Parsers:** pdfjs-dist (ST Ingressos PDF) + papaparse (PagBank CSV)
 
 ---
 
@@ -35,6 +36,7 @@ Ao cruzar essas informações, o sistema identifica automaticamente inconsistên
 ### Pré-requisitos
 - Node.js 18+
 - Conta no [Supabase](https://supabase.com)
+- Supabase CLI (para deploy das Edge Functions)
 
 ### 1. Clone e instale
 
@@ -46,9 +48,15 @@ npm install
 
 ### 2. Configure o banco de dados
 
-No dashboard do Supabase, vá em **SQL Editor** e execute o conteúdo de `supabase/schema.sql`.
+No dashboard do Supabase, vá em **SQL Editor** e execute em ordem:
 
-Opcionalmente, execute `supabase/seed_demo.sql` para popular o banco com dados de demonstração.
+```
+supabase/schema.sql               # Schema principal
+supabase/migration_cash_ghost.sql # Tabela cash_payment_events + R05
+supabase/migration_webhooks.sql   # webhook_token na tabela settings
+```
+
+Opcionalmente execute `supabase/seed_demo.sql` para dados de demonstração.
 
 ### 3. Configure as variáveis de ambiente
 
@@ -56,20 +64,26 @@ Opcionalmente, execute `supabase/seed_demo.sql` para popular o banco com dados d
 cp .env.example .env
 ```
 
-Edite o `.env` com suas credenciais do Supabase (Settings → API):
-
 ```env
 VITE_SUPABASE_URL=https://SEU_PROJETO.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJ...
 ```
 
-### 4. Execute
+### 4. Deploy das Edge Functions
+
+```bash
+npx supabase functions deploy webhook-camera --project-ref SEU_PROJECT_REF
+npx supabase functions deploy webhook-cash --project-ref SEU_PROJECT_REF
+npx supabase functions deploy webhook-st-ingressos --project-ref SEU_PROJECT_REF
+```
+
+### 5. Execute
 
 ```bash
 npm run dev
 ```
 
-O sistema estará disponível em `http://localhost:5173`
+Disponível em `http://localhost:5173`
 
 ---
 
@@ -79,8 +93,21 @@ O sistema estará disponível em `http://localhost:5173`
 |-------|---------|------------|
 | **R01** — Salão Cheio, Caixa Vazio | >30 pessoas sem vendas nos últimos 30 min | Alta |
 | **R02** — Gap Financeiro | Divergência PagBank vs ST Ingressos > R$200 | Alta |
+| **R05** — Cash Ghost | Cédula detectada pela câmera sem lançamento no ST Ingressos | Alta |
 
-As regras rodam no banco de dados via função PostgreSQL `run_fraud_rules()`, acionada após cada ingestão de dados.
+As regras rodam no banco via função PostgreSQL `run_fraud_rules()`, acionada automaticamente após cada evento recebido.
+
+---
+
+## Integrações via Webhook
+
+Todas as integrações usam autenticação Bearer token, gerenciado na aba **Integrações** do sistema.
+
+| Integração | Endpoint | Formato |
+|-----------|----------|---------|
+| Câmera contagem (Intelbras) | `/functions/v1/webhook-camera` | Intelbras ISAPI ou genérico |
+| Detecção de espécie (Raspberry Pi) | `/functions/v1/webhook-cash` | JSON customizado |
+| ST Ingressos API | `/functions/v1/webhook-st-ingressos` | JSON único ou array |
 
 ---
 
@@ -88,11 +115,12 @@ As regras rodam no banco de dados via função PostgreSQL `run_fraud_rules()`, a
 
 - **Dashboard** — Métricas em tempo real + gráfico vendas vs. ocupação
 - **Central de Alertas** — Histórico, resolução e auditoria de alertas
-- **Importação CSV** — Upload de extratos PagBank e ST Ingressos
-- **Motor de Regras** — R01 e R02 rodando no banco (PostgreSQL)
-- **Notificações Telegram** — Alertas automáticos via bot (sem interação do usuário)
-- **Notificações WhatsApp** — Push nativo + deep link para envio manual
-- **Simulador Demo** — Ambiente interativo para demonstração e testes
+- **Importação de Arquivos** — PDF do ST Ingressos e CSV do PagBank (parsers reais)
+- **Motor de Regras** — R01, R02 e R05 rodando no banco (PostgreSQL)
+- **Notificações Telegram** — Alertas automáticos via bot
+- **Notificações WhatsApp** — Push nativo + deep link
+- **Simulador Demo** — 5 passos interativos incluindo detecção de espécie
+- **Integrações** — Gestão de webhooks e token de autenticação
 - **Configurações** — Thresholds, canais de notificação e modo de auditoria
 
 ---
@@ -102,23 +130,31 @@ As regras rodam no banco de dados via função PostgreSQL `run_fraud_rules()`, a
 ```
 src/
 ├── lib/
-│   └── supabase.ts          # Client Supabase
+│   ├── supabase.ts              # Client Supabase
+│   └── parsers/
+│       ├── stIngressosParser.ts # Parser PDF ST Ingressos
+│       └── pagbankParser.ts     # Parser CSV PagBank
 ├── services/
-│   ├── dataService.ts       # Acesso ao banco (CRUD + motor de regras)
-│   └── notificationService.ts
+│   ├── dataService.ts           # CRUD + motor de regras
+│   └── notificationService.ts   # Telegram + WhatsApp
 ├── pages/
 │   ├── Dashboard.tsx
 │   ├── Alerts.tsx
 │   ├── Upload.tsx
 │   ├── Settings.tsx
-│   ├── Simulator.tsx        # Demo interativa
+│   ├── Simulator.tsx
+│   ├── Integrations.tsx         # Gestão de webhooks
 │   └── Guide.tsx
-├── components/layout/
-│   └── Shell.tsx
-└── types.ts
+└── components/layout/Shell.tsx
 supabase/
-├── schema.sql               # Tabelas, índices, RLS e funções PL/pgSQL
-└── seed_demo.sql            # Dados de demonstração
+├── schema.sql
+├── seed_demo.sql
+├── migration_cash_ghost.sql     # R05 + cash_payment_events
+├── migration_webhooks.sql       # webhook_token
+└── functions/
+    ├── webhook-camera/          # Edge Function — Intelbras ISAPI
+    ├── webhook-cash/            # Edge Function — Raspberry Pi
+    └── webhook-st-ingressos/    # Edge Function — ST Ingressos API
 ```
 
 ---
@@ -128,14 +164,16 @@ supabase/
 | Componente | Status |
 |-----------|--------|
 | Interface | Completo |
-| Motor de Regras (R01, R02) | Completo |
+| Motor de Regras (R01, R02, R05) | Completo |
 | Banco de Dados (Supabase) | Completo |
 | Notificações Telegram | Completo |
 | Notificações WhatsApp | Completo |
 | Simulador de Demo | Completo |
-| Importação CSV | Funcional (parser mockado) |
-| Integrações Reais (PagBank API, câmeras) | Pendente |
-| Autenticação | Pendente |
+| Parser PDF (ST Ingressos) | Completo |
+| Parser CSV (PagBank) | Completo |
+| Webhooks / Edge Functions | Completo |
+| Página de Integrações | Completo |
+| Autenticação de usuários | Pendente |
 | Multi-estabelecimento | Pendente |
 
 ---
