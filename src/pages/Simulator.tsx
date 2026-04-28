@@ -3,9 +3,10 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   PlayCircle, Users, CreditCard, ShoppingBag,
   CheckCircle2, AlertTriangle, Loader2, Trash2,
-  ChevronRight, Bell
+  ChevronRight, Bell, Banknote
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { dataService } from '../services/dataService';
 import { cn } from '../lib/utils';
 
 const ESTABLISHMENT_ID = 'aaaaaaaa-0000-0000-0000-000000000001';
@@ -41,6 +42,7 @@ export default function Simulator() {
       await supabase.from('alerts').delete().eq('establishment_id', ESTABLISHMENT_ID);
       await supabase.from('transactions').delete().eq('establishment_id', ESTABLISHMENT_ID);
       await supabase.from('people_count_events').delete().eq('establishment_id', ESTABLISHMENT_ID);
+      await supabase.from('cash_payment_events').delete().eq('establishment_id', ESTABLISHMENT_ID);
       await supabase.from('import_batches').delete().eq('establishment_id', ESTABLISHMENT_ID);
       setCompletedSteps(new Set());
       setStepStatus({});
@@ -161,6 +163,25 @@ export default function Simulator() {
     } catch (e: any) {
       addLog(`Erro: ${e.message}`, 'error');
       await setStep('camera', 'error');
+    }
+  }
+
+  async function simulateCashPayment() {
+    await setStep('cash', 'loading');
+    addLog('Câmera no caixa detectando pagamento em espécie...', 'info');
+    try {
+      await dataService.addCashPaymentEvent({
+        cameraId: 'cam-caixa',
+        detectedAt: new Date().toISOString(),
+        windowMinutes: 15,
+      });
+      addLog('✓ Câmera: cédula detectada — evento registrado sem lançamento no ST Ingressos', 'alert');
+      addLog('⚡ R05 será verificado na próxima execução do motor de regras', 'info');
+      await setStep('cash', 'done');
+      setCompletedSteps(prev => new Set(prev).add('cash'));
+    } catch (e: any) {
+      addLog(`Erro: ${e.message}`, 'error');
+      await setStep('cash', 'error');
     }
   }
 
@@ -312,10 +333,21 @@ export default function Simulator() {
             />
 
             <Step
-              id="rules"
+              id="cash"
               number={4}
+              label="Câmera Detecta Espécie"
+              description="Simula câmera no caixa identificando pagamento em dinheiro sem lançamento no ST"
+              icon={Banknote}
+              status={stepStatus['cash'] || 'idle'}
+              done={completedSteps.has('cash')}
+              onClick={simulateCashPayment}
+            />
+
+            <Step
+              id="rules"
+              number={5}
               label="Executar Motor de Regras"
-              description="Cruza todos os dados e gera alertas"
+              description="Cruza todos os dados e gera alertas (R01, R02, R05)"
               icon={PlayCircle}
               status={stepStatus['rules'] || 'idle'}
               done={completedSteps.has('rules')}

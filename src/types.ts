@@ -26,7 +26,15 @@ export interface PeopleCountEvent {
   recordedAt: string;
 }
 
-export type AlertType = 'crowd_no_sales' | 'card_gap' | 'dead_window' | 'velocity_spike' | 'shift_missing_closing';
+export type AlertType =
+  | 'crowd_no_sales'
+  | 'card_gap'
+  | 'dead_window'
+  | 'velocity_spike'
+  | 'shift_missing_closing'
+  | 'operator_void_abuse'
+  | 'cash_ghost';
+
 export type Severity = 'low' | 'medium' | 'high';
 
 export interface Alert {
@@ -37,6 +45,15 @@ export interface Alert {
   context: any;
   resolved: boolean;
   resolvedBy?: string;
+  createdAt: string;
+}
+
+export interface CashPaymentEvent {
+  id: string;
+  cameraId: string;
+  detectedAt: string;
+  windowMinutes: number;
+  matched: boolean;
   createdAt: string;
 }
 

@@ -1,4 +1,4 @@
-import { Transaction, PeopleCountEvent, Alert, ImportBatch } from '../types';
+import { Transaction, PeopleCountEvent, Alert, ImportBatch, CashPaymentEvent } from '../types';
 import { supabase } from '../lib/supabase';
 import { notificationService } from './notificationService';
 
@@ -132,6 +132,38 @@ class DataService {
     if (txError) throw txError;
 
     // 3. Roda o motor de regras no banco
+    await this.runRules();
+  }
+
+  async getCashPaymentEvents(): Promise<CashPaymentEvent[]> {
+    const { data, error } = await supabase
+      .from('cash_payment_events')
+      .select('*')
+      .eq('establishment_id', ESTABLISHMENT_ID)
+      .order('detected_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data ?? []).map(row => ({
+      id: row.id,
+      cameraId: row.camera_id,
+      detectedAt: row.detected_at,
+      windowMinutes: row.window_minutes,
+      matched: row.matched,
+      createdAt: row.created_at,
+    }));
+  }
+
+  async addCashPaymentEvent(event: Omit<CashPaymentEvent, 'id' | 'matched' | 'createdAt'>): Promise<void> {
+    const { error } = await supabase.from('cash_payment_events').insert({
+      establishment_id: ESTABLISHMENT_ID,
+      camera_id: event.cameraId,
+      detected_at: event.detectedAt,
+      window_minutes: event.windowMinutes,
+    });
+
+    if (error) throw error;
+
     await this.runRules();
   }
 
