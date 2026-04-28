@@ -88,7 +88,7 @@ npx supabase functions deploy webhook-st-ingressos --project-ref SEU_PROJECT_REF
 npm run dev
 ```
 
-Disponível em `http://localhost:5173`
+Disponível em `http://localhost:3000`
 
 ---
 
@@ -137,6 +137,7 @@ Todas as integrações usam autenticação Bearer token, gerenciado na aba **Int
 - **Simulador Demo** — 5 passos interativos incluindo detecção de espécie
 - **Integrações** — Gestão de webhooks e token de autenticação
 - **Configurações** — Thresholds, canais de notificação e modo de auditoria
+- **Trilha de Auditoria** — Histórico de ações críticas (settings, token e resolução de alertas)
 
 ---
 
@@ -151,7 +152,8 @@ src/
 │       └── pagbankParser.ts     # Parser CSV PagBank
 ├── services/
 │   ├── dataService.ts           # CRUD + motor de regras
-│   └── notificationService.ts   # Telegram + WhatsApp
+│   ├── notificationService.ts   # Telegram + WhatsApp
+│   └── auditService.ts          # Persistência de eventos de auditoria
 ├── pages/
 │   ├── Dashboard.tsx
 │   ├── Alerts.tsx
@@ -159,6 +161,7 @@ src/
 │   ├── Settings.tsx
 │   ├── Simulator.tsx
 │   ├── Integrations.tsx         # Gestão de webhooks
+│   ├── AuditTrail.tsx           # Trilha de auditoria operacional
 │   └── Guide.tsx
 └── components/layout/Shell.tsx
 supabase/

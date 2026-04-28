@@ -81,7 +81,19 @@ Cada integração mostra o status (Ativo / Aguardando), o último evento recebid
 
 ---
 
-## 6. Simulador de Demo
+## 6. Trilha de Auditoria
+
+A aba **Trilha Auditoria** registra ações críticas do sistema para rastreabilidade operacional:
+
+- settings.updated — quando thresholds/canais são alterados
+- webhook_token.regenerated — quando o token de integração é rotacionado
+- alert.resolved — quando um alerta é auditado e marcado como resolvido
+
+Use essa trilha para revisão diária, investigação de incidentes e comprovação de governança.
+
+---
+
+## 7. Simulador de Demo
 
 A aba **Simulador Demo** testa o sistema de ponta a ponta sem hardware real:
 
@@ -93,7 +105,7 @@ A aba **Simulador Demo** testa o sistema de ponta a ponta sem hardware real:
 
 ---
 
-## 7. Rotina Recomendada
+## 8. Rotina Recomendada
 
 | Frequência | Ação |
 |-----------|------|
