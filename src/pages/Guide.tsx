@@ -1,120 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import { BookOpen, ChevronRight, HelpCircle } from 'lucide-react';
-
-const guideContent = `# Guia do Sistema Antifraude
-
-Este guia explica como o sistema monitora o estabelecimento e garante a integridade da operação.
-
----
-
-## 1. O que o sistema faz?
-
-O sistema funciona como um **Auditor Digital 24/7**. Ele cruza quatro fontes de dados em tempo real:
-
-1. **Câmera na entrada** — Conta quantas pessoas estão no salão (Intelbras ISAPI)
-2. **Câmera no caixa** — Detecta pagamentos em dinheiro (Raspberry Pi + OpenCV)
-3. **Maquinetas (PagBank)** — Confirma o dinheiro que entrou via cartão/PIX
-4. **Sistema de Consumo (ST Ingressos)** — Registra os pedidos lançados
-
-Todos os dados são armazenados em banco de dados seguro e auditável.
-
----
-
-## 2. Como as Integrações Funcionam
-
-### Câmeras de Contagem (cam-area-01 e cam-area-02)
-Duas câmeras Intelbras monitoram áreas distintas do espaço. Cada uma envia sua contagem via webhook ISAPI com seu próprio camera_id. O sistema soma automaticamente a leitura mais recente de cada câmera para calcular a ocupação total — sem intervenção manual.
-
-### Câmera na Bilheteria (Detecção de Espécie)
-Um Raspberry Pi conectado à câmera da bilheteria (cam-caixa) identifica quando um cliente apresenta cédulas. O evento é registrado com data e hora para cruzamento com os lançamentos do ST Ingressos.
-
-### Maquinetas (PagBank)
-Importe o extrato CSV na aba **Importar Dados** ou conecte via webhook para recebimento automático por venda.
-
-### Sistema de Pedidos (ST Ingressos)
-Importe o relatório PDF de fechamento ou receba vendas em tempo real via webhook. O motor de regras cruza os dados instantaneamente.
-
----
-
-## 3. Alertas Automáticos
-
-### R01 — "Salão Cheio, Caixa Vazio"
-- **Cenário:** Mais de 30 pessoas no bar, mas zero vendas nos últimos 30 minutos
-- **Risco:** Consumo sem registro, venda sem lançamento ou falha do sistema de pedidos
-
-### R02 — "Gap Financeiro"
-- **Cenário:** Valor na maquineta difere do ST Ingressos por mais de R$ 200
-- **Risco:** Desvio de valores, cancelamentos abusivos ou erro operacional grave
-
-### R05 — "Cash Ghost" (Espécie Fantasma)
-- **Cenário:** Câmera detecta pagamento em dinheiro mas o ST Ingressos não registra venda em espécie no mesmo período
-- **Risco:** Operador recebe o dinheiro e não lança a venda — desvio direto de caixa
-
----
-
-## 4. Notificações
-
-Quando um alerta crítico é gerado, o sistema dispara **dois canais simultaneamente**:
-
-### Telegram (automático)
-- A mensagem chega **instantaneamente** no celular do responsável
-- Não requer nenhuma interação — funciona com o celular bloqueado
-- Configure em **Configurações → Telegram**
-
-### WhatsApp (manual)
-- O navegador exibe uma notificação push
-- Ao clicar, abre o WhatsApp com a mensagem já formatada
-- Requer que o navegador esteja aberto
-
----
-
-## 5. Integrações e Webhooks
-
-A aba **Integrações** centraliza todas as conexões externas:
-
-- **Token de autenticação** — Usado por câmeras e Raspberry Pi para enviar dados com segurança
-- **Câmera contagem** — Status e endpoint para a Intelbras CAM 1200
-- **Detecção de espécie** — Status e payload esperado do Raspberry Pi
-- **ST Ingressos API** — Endpoint para recebimento de vendas em tempo real
-
-Cada integração mostra o status (Ativo / Aguardando), o último evento recebido e a documentação do payload.
-
----
-
-## 6. Trilha de Auditoria
-
-A aba **Trilha Auditoria** registra ações críticas do sistema para rastreabilidade operacional:
-
-- settings.updated — quando thresholds/canais são alterados
-- webhook_token.regenerated — quando o token de integração é rotacionado
-- alert.resolved — quando um alerta é auditado e marcado como resolvido
-
-Use essa trilha para revisão diária, investigação de incidentes e comprovação de governança.
-
----
-
-## 7. Simulador de Demo
-
-A aba **Simulador Demo** testa o sistema de ponta a ponta sem hardware real:
-
-1. Clique em **Reset Demo** para limpar o banco
-2. Ajuste os sliders de pessoas, valores ST e PagBank
-3. Execute os 5 passos: ST → PagBank → Câmera → Espécie → Motor de Regras
-4. O passo "Câmera Detecta Espécie" simula um pagamento em dinheiro sem lançamento
-5. Veja os alertas na aba **Alertas** e a notificação chegar no Telegram
-
----
-
-## 8. Rotina Recomendada
-
-| Frequência | Ação |
-|-----------|------|
-| Por venda (automático) | ST Ingressos envia via webhook em tempo real |
-| A cada 30 min (automático) | Câmera atualiza contagem de pessoas |
-| A cada turno | Importar CSV do PagBank se não houver webhook |
-| Diariamente | Revisar alertas abertos e marcar como auditados |
-| Semanalmente | Analisar histórico de gaps e padrões por operador |
-`;
+import guideContent from '../GUIDE.md?raw';
 
 export default function Guide() {
   return (
@@ -129,9 +15,38 @@ export default function Guide() {
         </div>
       </div>
 
-      <div className="bg-surface rounded-lg border border-border p-8 lg:p-12 shadow-sm prose prose-invert prose-blue max-w-none">
+      <div className="bg-surface rounded-lg border border-border px-6 py-8 lg:px-10 lg:py-10 shadow-sm">
         <div className="markdown-body">
-          <ReactMarkdown>{guideContent}</ReactMarkdown>
+          <ReactMarkdown
+            components={{
+              h1: ({ children }) => (
+                <h1 className="text-3xl font-black tracking-tight text-text mb-6 leading-tight">{children}</h1>
+              ),
+              h2: ({ children }) => (
+                <h2 className="text-xl font-bold text-text mt-10 mb-4 leading-snug">{children}</h2>
+              ),
+              h3: ({ children }) => (
+                <h3 className="text-base font-bold text-text mt-7 mb-3">{children}</h3>
+              ),
+              p: ({ children }) => (
+                <p className="text-[15px] leading-8 text-text/95 mb-5 max-w-3xl">{children}</p>
+              ),
+              ul: ({ children }) => (
+                <ul className="list-disc pl-6 mb-6 space-y-2 text-[15px] leading-8 text-text/95 max-w-3xl">{children}</ul>
+              ),
+              ol: ({ children }) => (
+                <ol className="list-decimal pl-6 mb-6 space-y-2 text-[15px] leading-8 text-text/95 max-w-3xl">{children}</ol>
+              ),
+              li: ({ children }) => <li className="pl-1">{children}</li>,
+              hr: () => <hr className="my-8 border-border/70" />,
+              strong: ({ children }) => <strong className="font-bold text-text">{children}</strong>,
+              code: ({ children }) => (
+                <code className="px-1.5 py-0.5 rounded bg-surface-alt text-primary font-mono text-[13px]">{children}</code>
+              ),
+            }}
+          >
+            {guideContent}
+          </ReactMarkdown>
         </div>
       </div>
       
