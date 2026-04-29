@@ -4,7 +4,6 @@ import { getCurrentEstablishmentId } from '../lib/tenant';
 
 interface NotifConfig {
   whatsapp_number:   string | null;
-  telegram_bot_token: string | null;
   telegram_chat_id:   string | null;
 }
 
@@ -29,12 +28,11 @@ class NotificationService {
     if (this.cache) return this.cache;
     const { data } = await supabase
       .from('settings')
-      .select('whatsapp_number, telegram_bot_token, telegram_chat_id')
+      .select('whatsapp_number, telegram_chat_id')
       .eq('establishment_id', getCurrentEstablishmentId())
       .single();
     this.cache = {
       whatsapp_number:    data?.whatsapp_number    ?? null,
-      telegram_bot_token: data?.telegram_bot_token ?? null,
       telegram_chat_id:   data?.telegram_chat_id   ?? null,
     };
     return this.cache;
@@ -51,26 +49,20 @@ class NotificationService {
       `*Hora:* ${new Date(alert.createdAt).toLocaleTimeString('pt-br')}\n\n` +
       `_Acesse o dashboard para auditar._`;
 
-    // ── Canal 1: Telegram (automático, sem interação) ──────────
-    if (config.telegram_bot_token && config.telegram_chat_id) {
+    // ── Canal 1: Telegram (automático, via Edge Function segura) ──────────
+    if (config.telegram_chat_id) {
       try {
-        const res = await fetch(
-          `https://api.telegram.org/bot${config.telegram_bot_token}/sendMessage`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id:    config.telegram_chat_id,
-              text,
-              parse_mode: 'Markdown',
-            }),
-          }
-        );
-        if (res.ok) {
+        const { error } = await supabase.functions.invoke('send-telegram', {
+          body: {
+            establishment_id: getCurrentEstablishmentId(),
+            message: text,
+            chat_id: config.telegram_chat_id,
+          },
+        });
+        if (!error) {
           console.log(`[TELEGRAM] Alerta enviado: ${alert.type}`);
         } else {
-          const err = await res.json();
-          console.error('[TELEGRAM] Erro:', err.description);
+          console.error('[TELEGRAM] Erro ao invocar Edge Function:', error.message);
         }
       } catch (e) {
         console.error('[TELEGRAM] Falha na requisição:', e);
@@ -93,7 +85,7 @@ class NotificationService {
       }
     }
 
-    if (!config.telegram_bot_token && !config.whatsapp_number) {
+    if (!config.telegram_chat_id && !config.whatsapp_number) {
       console.warn('[NOTIF] Nenhum canal configurado. Configure em Configurações.');
     }
   }

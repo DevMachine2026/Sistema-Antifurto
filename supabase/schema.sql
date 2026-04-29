@@ -38,7 +38,6 @@ CREATE TABLE IF NOT EXISTS settings (
   id                      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   establishment_id        uuid NOT NULL REFERENCES establishments(id) ON DELETE CASCADE,
   whatsapp_number         text,                   -- ex: "5585991993833"
-  telegram_bot_token      text,                   -- token do @BotFather
   telegram_chat_id        text,                   -- chat_id do destinatário
   r01_min_people          integer NOT NULL DEFAULT 30,
   r01_window_minutes      integer NOT NULL DEFAULT 30,

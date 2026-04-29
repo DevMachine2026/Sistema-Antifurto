@@ -57,6 +57,8 @@ supabase/migration_webhooks.sql   # webhook_token na tabela settings
 supabase/migration_rls_production.sql # RLS por tenant (produção)
 supabase/migration_idempotency.sql # deduplicação por external_event_key
 supabase/migration_audit_events.sql # trilha de auditoria operacional
+supabase/migration_remove_telegram_bot_token.sql # remove token legado da tabela settings
+supabase/migration_rls_audit_hardening.sql # hardening RLS de audit_events
 supabase/rules_integration_tests.sql # testes SQL de integração R01/R02/R05
 ```
 
@@ -74,12 +76,21 @@ VITE_SUPABASE_ANON_KEY=eyJ...
 VITE_ESTABLISHMENT_ID=aaaaaaaa-0000-0000-0000-000000000001
 ```
 
+Para operacao com 1 bar, mantenha `VITE_ESTABLISHMENT_ID` fixo no UUID desse estabelecimento.
+
 ### 4. Deploy das Edge Functions
 
 ```bash
 npx supabase functions deploy webhook-camera --project-ref SEU_PROJECT_REF
 npx supabase functions deploy webhook-cash --project-ref SEU_PROJECT_REF
 npx supabase functions deploy webhook-st-ingressos --project-ref SEU_PROJECT_REF
+npx supabase functions deploy send-telegram --project-ref SEU_PROJECT_REF
+```
+
+Configure também o segredo do bot Telegram no backend:
+
+```bash
+supabase secrets set TELEGRAM_BOT_TOKEN=1234567890:AAF... --project-ref SEU_PROJECT_REF
 ```
 
 ### 5. Execute
@@ -172,11 +183,15 @@ supabase/
 ├── migration_rls_production.sql # RLS por tenant (produção)
 ├── migration_idempotency.sql    # chaves de idempotência
 ├── migration_audit_events.sql   # trilha de auditoria
+├── migration_remove_telegram_bot_token.sql # remove token legado da tabela settings
+├── migration_rls_audit_hardening.sql # remove policy permissiva em audit_events
+├── rls_validation_check.sql     # checklist SQL para validar isolamento RLS
 ├── rules_integration_tests.sql  # testes SQL R01/R02/R05
 └── functions/
     ├── webhook-camera/          # Edge Function — Intelbras ISAPI
     ├── webhook-cash/            # Edge Function — Raspberry Pi
-    └── webhook-st-ingressos/    # Edge Function — ST Ingressos API
+    ├── webhook-st-ingressos/    # Edge Function — ST Ingressos API
+    └── send-telegram/           # Edge Function — envio seguro Telegram
 ```
 
 ---
@@ -197,6 +212,15 @@ supabase/
 | Página de Integrações | Completo |
 | Autenticação de usuários | Pendente |
 | Multi-estabelecimento | Pendente |
+
+---
+
+## Operacao
+
+- Checklist atualizado de go-live: `CHECKLIST_PRODUCAO.md`
+- Runbook de incidente: `RUNBOOK_INCIDENTES.md`
+- Queries de observabilidade: `supabase/observability_queries.sql`
+- Guia de uso operacional: `src/GUIDE.md`
 
 ---
 

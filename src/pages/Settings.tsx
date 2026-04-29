@@ -8,7 +8,6 @@ import { cn } from '../lib/utils';
 
 interface SettingsData {
   whatsapp_number: string;
-  telegram_bot_token: string;
   telegram_chat_id: string;
   r01_min_people: number;
   r01_window_minutes: number;
@@ -20,7 +19,6 @@ interface SettingsData {
 
 const DEFAULTS: SettingsData = {
   whatsapp_number: '',
-  telegram_bot_token: '',
   telegram_chat_id: '',
   r01_min_people: 30,
   r01_window_minutes: 30,
@@ -50,7 +48,6 @@ export default function Settings() {
       if (data) {
         setForm({
           whatsapp_number:       data.whatsapp_number       ?? '',
-          telegram_bot_token:    data.telegram_bot_token    ?? '',
           telegram_chat_id:      data.telegram_chat_id      ?? '',
           r01_min_people:        data.r01_min_people,
           r01_window_minutes:    data.r01_window_minutes,
@@ -76,7 +73,6 @@ export default function Settings() {
       .from('settings')
       .update({
         whatsapp_number:       form.whatsapp_number    || null,
-        telegram_bot_token:    form.telegram_bot_token || null,
         telegram_chat_id:      form.telegram_chat_id   || null,
         r01_min_people:        form.r01_min_people,
         r01_window_minutes:    form.r01_window_minutes,
@@ -101,7 +97,7 @@ export default function Settings() {
           monitoring_start_time: form.monitoring_start_time,
           monitoring_end_time: form.monitoring_end_time,
           has_whatsapp: !!form.whatsapp_number,
-          has_telegram: !!(form.telegram_bot_token && form.telegram_chat_id),
+          has_telegram: !!form.telegram_chat_id,
         },
       });
       setSaved(true);
@@ -113,26 +109,20 @@ export default function Settings() {
     setTesting(true);
     setTestResult(null);
 
-    // Testa Telegram diretamente para ter feedback imediato
-    if (form.telegram_bot_token && form.telegram_chat_id) {
+    // Testa Telegram via Edge Function (token fica no backend)
+    if (form.telegram_chat_id) {
       try {
-        const res = await fetch(
-          `https://api.telegram.org/bot${form.telegram_bot_token}/sendMessage`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              chat_id: form.telegram_chat_id,
-              text: '✅ *SISTEMA ANTIFRAUDE — TESTE*\n\nNotificação funcionando corretamente!\n\n_Dev Machine_',
-              parse_mode: 'Markdown',
-            }),
-          }
-        );
-        const json = await res.json();
-        if (json.ok) {
+        const { error } = await supabase.functions.invoke('send-telegram', {
+          body: {
+            establishment_id: establishmentId,
+            chat_id: form.telegram_chat_id,
+            message: '✅ *SISTEMA ANTIFRAUDE — TESTE*\n\nNotificação funcionando corretamente!\n\n_Dev Machine_',
+          },
+        });
+        if (!error) {
           setTestResult({ ok: true, msg: 'Mensagem enviada no Telegram!' });
         } else {
-          setTestResult({ ok: false, msg: `Telegram erro: ${json.description}` });
+          setTestResult({ ok: false, msg: `Telegram erro: ${error.message}` });
         }
       } catch (e: any) {
         setTestResult({ ok: false, msg: `Falha na requisição: ${e.message}` });
@@ -224,21 +214,9 @@ export default function Settings() {
       <Section icon={Send} title="Notificações Telegram (Automático)" color="primary">
         <p className="text-text-dim text-xs mb-4 leading-relaxed">
           Envio automático — a mensagem chega no Telegram sem nenhum clique.
-          Crie um bot em <strong className="text-text">@BotFather</strong> e cole as credenciais abaixo.
+          O token do bot fica protegido no backend (Supabase Secret).
         </p>
         <div className="space-y-3">
-          <label className="block">
-            <span className="text-[10px] uppercase font-black text-text-dim tracking-widest block mb-1.5">
-              Bot Token (do @BotFather)
-            </span>
-            <input
-              type="text"
-              value={form.telegram_bot_token}
-              onChange={e => set('telegram_bot_token', e.target.value.trim())}
-              placeholder="1234567890:AAF..."
-              className="w-full bg-surface-alt border border-border rounded px-4 py-2.5 text-text font-mono text-sm focus:outline-none focus:border-primary transition-colors"
-            />
-          </label>
           <label className="block">
             <span className="text-[10px] uppercase font-black text-text-dim tracking-widest block mb-1.5">
               Chat ID (seu ID no Telegram)
@@ -253,7 +231,7 @@ export default function Settings() {
               />
               <button
                 onClick={testNotification}
-                disabled={testing || !form.telegram_bot_token || !form.telegram_chat_id}
+                disabled={testing || !form.telegram_chat_id}
                 className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 bg-primary/10 border border-primary/30 text-primary rounded font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all disabled:opacity-40"
               >
                 {testing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
@@ -261,8 +239,7 @@ export default function Settings() {
               </button>
             </div>
             <p className="text-[10px] text-text-dim mt-1.5">
-              Para obter: envie qualquer mensagem ao seu bot e acesse
-              <span className="font-mono text-primary"> api.telegram.org/bot&#123;TOKEN&#125;/getUpdates</span>
+              Para obter: envie qualquer mensagem ao bot e consulte updates do Telegram para descobrir seu chat_id.
             </p>
           </label>
         {testResult && (
