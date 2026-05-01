@@ -114,7 +114,7 @@ export default function UploadPage() {
           <div>
             <h2 className="text-xl font-bold text-text uppercase tracking-tight">Central de Ingestão</h2>
             <p className="text-text-dim text-sm mt-1 font-medium">
-              Arraste o relatório do ST Ingressos (.pdf) ou extrato do PagBank (.csv).
+              Arraste o relatório do seu sistema de vendas (.pdf) ou extrato do PagBank (.csv).
             </p>
           </div>
           <button
@@ -142,7 +142,7 @@ export default function UploadPage() {
                 {loading ? 'Processando arquivo...' : 'Solte o arquivo aqui'}
               </p>
               <p className="text-[11px] text-text-dim mt-1 uppercase tracking-tight">
-                ST Ingressos (.pdf) · PagBank (.csv) — detecção automática
+                Sistema de Vendas (.pdf) · PagBank (.csv) — detecção automática
               </p>
             </div>
             <button
@@ -165,7 +165,7 @@ export default function UploadPage() {
                 <FileText className="text-primary shrink-0" />
                 <div>
                   <p className="text-xs font-bold text-text uppercase tracking-widest">
-                    {parseResult.source === 'st_ingressos' ? 'ST Ingressos — Bilheteria' : 'PagBank — Financeiro'}
+                    {parseResult.source === 'st_ingressos' ? 'Sistema de Vendas — Bilheteria / PDV' : 'PagBank — Financeiro'}
                   </p>
                   <p className="text-[11px] text-text-dim font-mono">{parseResult.filename}</p>
                 </div>

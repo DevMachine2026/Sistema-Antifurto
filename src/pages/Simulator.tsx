@@ -56,7 +56,7 @@ export default function Simulator() {
 
   async function simulateSTIngressos() {
     await setStep('st', 'loading');
-    addLog(`Importando ${Math.ceil(stAmount / 180)} transações do ST Ingressos...`, 'info');
+    addLog(`Importando ${Math.ceil(stAmount / 180)} transações do Sistema de Vendas...`, 'info');
     try {
       const { data: batch } = await supabase
         .from('import_batches')
@@ -87,7 +87,7 @@ export default function Simulator() {
       }));
 
       await supabase.from('transactions').insert(txs);
-      addLog(`✓ ${count} transações registradas — Total: R$ ${stAmount.toFixed(2)} (ST Ingressos)`, 'success');
+      addLog(`✓ ${count} transações registradas — Total: R$ ${stAmount.toFixed(2)} (Sistema de Vendas)`, 'success');
       await setStep('st', 'done');
       setCompletedSteps(prev => new Set(prev).add('st'));
     } catch (e: any) {
@@ -133,7 +133,7 @@ export default function Simulator() {
 
       const gap = Math.abs(stAmount - pagbankAmount);
       if (gap > 200) {
-        addLog(`⚡ Gap detectado: R$ ${gap.toFixed(2)} entre ST Ingressos e PagBank`, 'alert');
+        addLog(`⚡ Gap detectado: R$ ${gap.toFixed(2)} entre Sistema de Vendas e PagBank`, 'alert');
       }
 
       await setStep('pagbank', 'done');
@@ -175,7 +175,7 @@ export default function Simulator() {
         detectedAt: new Date().toISOString(),
         windowMinutes: 15,
       });
-      addLog('✓ Câmera: cédula detectada — evento registrado sem lançamento no ST Ingressos', 'alert');
+      addLog('✓ Câmera: cédula detectada — evento registrado sem lançamento no Sistema de Vendas', 'alert');
       addLog('⚡ R05 será verificado na próxima execução do motor de regras', 'info');
       await setStep('cash', 'done');
       setCompletedSteps(prev => new Set(prev).add('cash'));
@@ -260,7 +260,7 @@ export default function Simulator() {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <label className="text-[12px] font-bold text-text uppercase tracking-wider flex items-center gap-2">
-                  <ShoppingBag size={14} className="text-primary" /> Total ST Ingressos (consumo)
+                  <ShoppingBag size={14} className="text-primary" /> Total Sistema de Vendas (consumo)
                 </label>
                 <span className="font-mono font-black text-text">R$ {stAmount.toFixed(2)}</span>
               </div>
@@ -302,7 +302,7 @@ export default function Simulator() {
             <Step
               id="st"
               number={1}
-              label="Importar ST Ingressos"
+              label="Importar Sistema de Vendas"
               description={`Registra R$ ${stAmount.toFixed(2)} em consumo no sistema de pedidos`}
               icon={ShoppingBag}
               status={stepStatus['st'] || 'idle'}
@@ -336,7 +336,7 @@ export default function Simulator() {
               id="cash"
               number={4}
               label="Câmera Detecta Espécie"
-              description="Simula câmera no caixa identificando pagamento em dinheiro sem lançamento no ST"
+              description="Simula câmera no caixa identificando pagamento em dinheiro sem lançamento no sistema de vendas"
               icon={Banknote}
               status={stepStatus['cash'] || 'idle'}
               done={completedSteps.has('cash')}

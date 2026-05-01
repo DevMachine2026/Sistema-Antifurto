@@ -109,7 +109,7 @@ export default function Integrations() {
     {
       key: 'camera',
       label: 'Câmera Contagem de Pessoas',
-      sublabel: 'Intelbras CAM 1200 / ISAPI',
+      sublabel: 'ISAPI · ONVIF · Raspberry Pi',
       icon: Camera,
       color: 'text-primary',
       fn: 'webhook-camera',
@@ -120,7 +120,7 @@ export default function Integrations() {
 // Câmera Área Principal → camera_id: "cam-area-01"
 // Câmera Área Secundária → camera_id: "cam-area-02"
 
-// Formato Intelbras ISAPI (configurado diretamente na câmera):
+// Formato genérico ISAPI (configurado diretamente na câmera):
 POST ${webhookUrl('webhook-camera')}
 Authorization: Bearer {TOKEN}
 Content-Type: application/json
@@ -170,8 +170,8 @@ Content-Type: application/json
     },
     {
       key: 'st',
-      label: 'ST Ingressos API',
-      sublabel: 'Vendas em tempo real',
+      label: 'Sistema de Vendas / PDV',
+      sublabel: 'Webhook · API · PDF / CSV',
       icon: ShoppingBag,
       color: 'text-success',
       fn: 'webhook-st-ingressos',
@@ -198,7 +198,7 @@ Content-Type: application/json
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-2xl font-bold text-text uppercase tracking-tight">Integrações</h2>
-          <p className="text-text-dim text-sm mt-1">Webhooks para câmeras, Raspberry Pi e ST Ingressos API.</p>
+          <p className="text-text-dim text-sm mt-1">Webhooks para câmeras IP, Raspberry Pi e sistema de vendas (PDV).</p>
         </div>
         <button onClick={load} disabled={loading} className="flex items-center gap-2 px-3 py-2 bg-surface-alt border border-border rounded text-[10px] uppercase font-black tracking-widest text-text-dim hover:text-text transition-colors disabled:opacity-50">
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Atualizar

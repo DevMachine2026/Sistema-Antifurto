@@ -37,3 +37,9 @@ export function setCurrentEstablishmentId(establishmentId: string): void {
     window.localStorage.setItem(STORAGE_KEY, normalized);
   }
 }
+
+export function clearCurrentEstablishmentId(): void {
+  if (typeof window !== 'undefined') {
+    window.localStorage.removeItem(STORAGE_KEY);
+  }
+}

@@ -8,7 +8,7 @@ import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
 import { Alert } from '../types';
 
-export default function AlertsPage() {
+export default function AlertsPage({ establishmentName }: { establishmentName?: string }) {
   const [filter, setFilter] = useState<'all' | 'unresolved' | 'resolved'>('unresolved');
   const [allAlerts, setAllAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,7 +80,7 @@ export default function AlertsPage() {
             </motion.div>
           ) : (
             filteredAlerts.map(alert => (
-              <AlertCard key={alert.id} alert={alert} onResolve={handleResolve} />
+              <AlertCard key={alert.id} alert={alert} onResolve={handleResolve} establishmentName={establishmentName} />
             ))
           )}
         </AnimatePresence>
@@ -106,9 +106,10 @@ function FilterBtn({ active, onClick, label, count }: any) {
 interface AlertCardProps {
   alert: Alert;
   onResolve: (id: string) => void;
+  establishmentName?: string;
 }
 
-function AlertCard({ alert, onResolve }: AlertCardProps) {
+function AlertCard({ alert, onResolve, establishmentName }: AlertCardProps) {
   const isHigh = alert.severity === 'high';
 
   return (
@@ -151,7 +152,7 @@ function AlertCard({ alert, onResolve }: AlertCardProps) {
             <div className="bg-surface-alt p-3 rounded border border-border">
               <p className="text-[10px] uppercase font-bold text-text-dim tracking-widest">Local</p>
               <div className="flex items-center gap-1.5 mt-1 font-bold text-text">
-                <MapPin size={12} className="text-primary" /> Bar Central
+                <MapPin size={12} className="text-primary" /> {establishmentName ?? 'Estabelecimento'}
               </div>
             </div>
             <div className="bg-surface-alt p-3 rounded border border-border">

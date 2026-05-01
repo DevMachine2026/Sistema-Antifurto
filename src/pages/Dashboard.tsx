@@ -6,35 +6,60 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { dataService } from '../services/dataService';
+import { supabase } from '../lib/supabase';
+import { getCurrentEstablishmentId } from '../lib/tenant';
 import { formatCurrency, cn } from '../lib/utils';
-import { Transaction, PeopleCountEvent, Alert } from '../types';
+import { Transaction, PeopleCountEvent, Alert, ImportBatch } from '../types';
 import { format, parseISO } from 'date-fns';
 
 export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [people, setPeople] = useState<PeopleCountEvent[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [lastBatch, setLastBatch] = useState<ImportBatch | null>(null);
   const [loading, setLoading] = useState(true);
   const [chartReady, setChartReady] = useState(false);
 
   useEffect(() => { setChartReady(true); }, []);
 
   useEffect(() => {
+    let active = true;
+
     async function load() {
       try {
-        const [txs, ppl, als] = await Promise.all([
+        const [txs, ppl, als, batches] = await Promise.all([
           dataService.getTransactions(),
           dataService.getPeopleCount(),
           dataService.getAlerts(),
+          dataService.getBatches(),
         ]);
+        if (!active) return;
         setTransactions(txs);
         setPeople(ppl);
         setAlerts(als.filter(a => !a.resolved));
+        setLastBatch(batches[0] ?? null);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
+
     load();
+
+    const estId = getCurrentEstablishmentId();
+    const filter = estId ? `establishment_id=eq.${estId}` : undefined;
+
+    const channel = supabase
+      .channel('dashboard-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'people_count_events', ...(filter && { filter }) }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'alerts',              ...(filter && { filter }) }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions',        ...(filter && { filter }) }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'import_batches',      ...(filter && { filter }) }, () => load())
+      .subscribe();
+
+    return () => {
+      active = false;
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const stats = useMemo(() => {
@@ -104,8 +129,8 @@ export default function Dashboard() {
             </h3>
             <div className="text-[10px] text-text-dim uppercase font-mono">Varredura: 30 min</div>
           </div>
-          <div className="h-[300px]">
-            {chartReady && <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+          <div className="h-[300px] w-full">
+            {chartReady && <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
@@ -162,12 +187,23 @@ export default function Dashboard() {
           </div>
           <div className="p-4 bg-surface-alt mt-auto border-t border-border">
             <div className="text-[10px] text-text-dim uppercase tracking-[0.5px] mb-1">Última Importação</div>
-            <div className="text-[12px] font-mono text-text truncate">
-              ST_INGRESSOS_{format(new Date(), 'ddMMyy')}.csv
-            </div>
-            <div className="inline-block mt-2 px-2 py-0.5 rounded bg-surface border border-border text-[10px] text-success font-bold uppercase tracking-wider">
-              Lote #000{transactions.length} • OK
-            </div>
+            {lastBatch ? (
+              <>
+                <div className="text-[12px] font-mono text-text truncate">
+                  {lastBatch.filename}
+                </div>
+                <div className="text-[10px] text-text-dim font-mono mt-0.5">
+                  {format(parseISO(lastBatch.createdAt), 'dd/MM/yy HH:mm')}
+                </div>
+                <div className={`inline-block mt-2 px-2 py-0.5 rounded bg-surface border border-border text-[10px] font-bold uppercase tracking-wider ${lastBatch.status === 'failed' ? 'text-danger border-danger/30' : 'text-success'}`}>
+                  Lote #{String(lastBatch.rowsImported).padStart(4, '0')} • {lastBatch.status === 'failed' ? 'ERRO' : 'OK'}
+                </div>
+              </>
+            ) : (
+              <div className="text-[12px] font-mono text-text-dim">
+                Nenhuma importação registrada
+              </div>
+            )}
           </div>
         </div>
       </div>

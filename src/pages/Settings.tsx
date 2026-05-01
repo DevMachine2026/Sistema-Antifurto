@@ -116,7 +116,7 @@ export default function Settings() {
           body: {
             establishment_id: establishmentId,
             chat_id: form.telegram_chat_id,
-            message: '✅ *SISTEMA ANTIFRAUDE — TESTE*\n\nNotificação funcionando corretamente!\n\n_Dev Machine_',
+            message: '✅ *Olho Vivo — TESTE*\n\nNotificação funcionando corretamente!\n\n_Dev Machine_',
           },
         });
         if (!error) {
@@ -305,7 +305,7 @@ export default function Settings() {
             </span>
           </div>
           <p className="text-[10px] text-text-dim mt-1.5">
-            Alerta dispara quando diferença entre PagBank e ST Ingressos ultrapassar este valor.
+            Alerta dispara quando diferença entre PagBank e o sistema de vendas ultrapassar este valor.
           </p>
         </label>
       </Section>
@@ -365,8 +365,7 @@ export default function Settings() {
 
       <div className="pt-4 border-t border-border/30 text-center">
         <p className="text-xs text-text-dim">
-          Sistema desenvolvido por <span className="text-primary font-semibold">Dev Machine</span>
-          <span className="mx-2">·</span>Versão 1.0
+          Olho Vivo · Desenvolvido por <span className="text-primary font-semibold">Dev Machine</span> · Versão 1.0
         </p>
       </div>
     </div>
