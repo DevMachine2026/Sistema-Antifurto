@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { Transaction, PaymentMethod } from '../../types';
+import { PaymentMethod } from '../../types';
 import { ParseResult } from './stIngressosParser';
 
 export function detectPaymentMethod(value: string): PaymentMethod {
@@ -12,8 +12,22 @@ export function detectPaymentMethod(value: string): PaymentMethod {
 }
 
 export function parseAmount(value: string): number {
-  const cleaned = value.replace(/[R$\s]/g, '').replace(/\./g, '').replace(',', '.');
-  const n = parseFloat(cleaned);
+  const v = value.replace(/[R$\s]/g, '');
+  let normalized: string;
+  if (v.includes(',') && v.includes('.')) {
+    // Formato BR: 1.234,56 → remover pontos, trocar vírgula por ponto
+    normalized = v.replace(/\./g, '').replace(',', '.');
+  } else if (v.includes(',') && !v.includes('.')) {
+    // Só vírgula: pode ser decimal BR (120,50) ou milhar (1,234)
+    const parts = v.split(',');
+    normalized = parts.length === 2 && parts[1].length <= 2
+      ? v.replace(',', '.')   // decimal
+      : v.replace(',', '');   // milhar sem decimal
+  } else {
+    // Só ponto ou nenhum separador: formato americano ou inteiro
+    normalized = v;
+  }
+  const n = parseFloat(normalized);
   return isNaN(n) ? 0 : n;
 }
 
@@ -53,8 +67,7 @@ export async function parsePagBankCSV(file: File): Promise<ParseResult> {
     return { transactions: [], filename: file.name, totalAmount: 0, errors };
   }
 
-  // Mapeamento flexível de colunas
-  const headers = Object.keys(rows[0]).map(h => h.toLowerCase().trim());
+
 
   const col = (row: Record<string, string>, ...candidates: string[]) => {
     for (const c of candidates) {
