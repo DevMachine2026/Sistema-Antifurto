@@ -1,0 +1,599 @@
+{
+  "common": {
+    "brand": "Olho Vivo",
+    "brandVersion": "Olho Vivo · v1.0 · Dev Machine",
+    "admin": "Admin",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "establishment": "Business",
+    "myBusiness": "My Business",
+    "systemActive": "System active",
+    "active": "Active",
+    "inactive": "Inactive",
+    "adminPanel": "Admin Panel",
+    "signOut": "Sign out",
+    "logout": "Log out",
+    "monitoring": "Monitoring",
+    "save": "Save",
+    "saving": "Saving...",
+    "saved": "Saved!",
+    "cancel": "Cancel",
+    "refresh": "Refresh",
+    "test": "Test",
+    "hide": "Hide",
+    "show": "Show",
+    "hidePassword": "Hide password",
+    "showPassword": "Show password",
+    "minChars": "Minimum {{count}} characters",
+    "ok": "OK",
+    "status": "Status",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "importData": "Import Data",
+    "fraudAlerts": "Fraud Alerts",
+    "simulator": "Demo Simulator",
+    "integrations": "Integrations",
+    "auditTrail": "Audit Trail",
+    "cameras": "Cameras",
+    "guide": "Operation Guide",
+    "analytics": "Analytics",
+    "settings": "Settings"
+  },
+  "errors": {
+    "invalidEmail": "Please enter a valid email.",
+    "invalidEmailFormat": "Invalid email format.",
+    "passwordRange": "Password must be between {{min}} and {{max}} characters.",
+    "invalidCredentials": "Invalid email or password.",
+    "passwordsDontMatch": "Passwords do not match.",
+    "cantUpdatePassword": "Could not update password. Request a new link.",
+    "cantSendEmail": "Could not send email. Please try again."
+  },
+  "app": {
+    "pendingAccess": "Pending access",
+    "pendingAccessDesc": "Your user is not yet linked to a business. This usually happens if the automatic registration migration was not applied to the database, or if the account was created without a business name.",
+    "adminCanLink": "Platform administrators can also link you manually.",
+    "registerMyStore": "Register my business",
+    "inDevelopment": "In Development",
+    "inDevelopmentDesc": "The advanced predictive analytics tool will be available in Phase 2 of the project."
+  },
+  "shell": {
+    "activeEstablishment": "Active business",
+    "simulateR01": "Simulate R01",
+    "simulationAlertMsg": "R01 Alert Simulation triggered! Check the Alerts tab."
+  },
+  "adminShell": {
+    "adminPlatform": "Platform Admin"
+  },
+  "login": {
+    "title": "Platform Access",
+    "subtitle": "Enter your credentials to continue.",
+    "forgotPassword": "Forgot my password",
+    "loginButton": "Sign in",
+    "noAccount": "Don't have an account yet?",
+    "emailPlaceholder": "your@email.com",
+    "reset": {
+      "title": "Set new password",
+      "subtitle": "Choose a secure password for your account.",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm password",
+      "repeatPassword": "Repeat password",
+      "saveButton": "Save password"
+    },
+    "forgot": {
+      "title": "Recover access",
+      "subtitle": "We will send a link to reset your password.",
+      "sendButton": "Send recovery link",
+      "backToLogin": "Back to login",
+      "emailSentMsg": "If this email is registered, you will receive instructions shortly. Check your spam folder."
+    },
+    "brand": {
+      "tagline": "Full control over your business.",
+      "desc": "Real-time anomaly detection crossing cameras, payment terminals and ticketing systems.",
+      "copyright": "© 2026 Dev Machine · v1.0 MVP"
+    },
+    "features": {
+      "r01": {
+        "label": "People Counting (R01)",
+        "desc": "Cameras cross actual flow with room capacity in real time."
+      },
+      "r02": {
+        "label": "Financial Gap (R02)",
+        "desc": "Automatic reconciliation between payment terminal and sales system."
+      },
+      "r05": {
+        "label": "Cash Ghost (R05)",
+        "desc": "Detection of cash payments not recorded in the system."
+      }
+    }
+  },
+  "register": {
+    "title": "Business registration",
+    "desc": "For bar or business owners who will monitor their own establishment. An account and a business are created automatically.",
+    "backToLogin": "Back to login",
+    "yourName": "Your name",
+    "namePlaceholder": "Responsible person's name",
+    "businessName": "Business name",
+    "businessPlaceholder": "E.g.: Downtown Bar",
+    "createAccount": "Create account",
+    "nameRequired": "Please enter your name (minimum 2 characters).",
+    "businessRequired": "Please enter the business name (minimum 2 characters).",
+    "cantCreateAccount": "Could not create the account.",
+    "emailConfirmation": "Account created. If the project requires email confirmation, open the message sent and click the link before signing in."
+  },
+  "dashboard": {
+    "loading": "Loading data...",
+    "systemConsumption": "Consumption (Systems)",
+    "cardPayments": "Payments (Terminal)",
+    "auditGap": "Audit Gap (R02)",
+    "clientsInRoom": "Clients in Room",
+    "people": "{{count}} people",
+    "chartTitle": "DYNAMICS_CROSSING :: CONSUMPTION VS FLOW",
+    "scanInterval": "Scan: 30 min",
+    "processedSales": "Processed Sales",
+    "salesChart": "Sales (R$)",
+    "peopleChart": "People",
+    "cameraFlow": "Camera Flow (R01)",
+    "anomalyAlerts": "Anomaly Alerts",
+    "systemClean": "SYSTEM_CLEAN :: WAITING_EVENTS",
+    "highCriticality": "HIGH CRITICALITY",
+    "medium": "MEDIUM",
+    "lastImport": "Last Import",
+    "noImports": "No imports recorded",
+    "batchOk": "OK",
+    "batchError": "ERROR"
+  },
+  "upload": {
+    "title": "Ingestion Center",
+    "instructions": "Drag your sales system report (.pdf) or PagBank statement (.csv).",
+    "pagbankTemplate": "PagBank Template",
+    "processing": "Processing file...",
+    "dropHere": "Drop file here",
+    "autoDetection": "Sales System (.pdf) · PagBank (.csv) — automatic detection",
+    "browseFile": "Browse File",
+    "stIngressosLabel": "Sales System — Ticketing / POS",
+    "pagbankLabel": "PagBank — Financial",
+    "cancel": "[ Cancel ]",
+    "colValue": "Value",
+    "colMethod": "Method",
+    "colDateTime": "Date/Time",
+    "colStatus": "Status",
+    "methods": {
+      "credit": "Credit",
+      "debit": "Debit",
+      "pix": "PIX",
+      "cash": "Cash"
+    },
+    "totalRecords": "Total · {{count}} record(s)",
+    "confirmImport": "Confirm Import",
+    "importSuccess": "Import completed successfully!",
+    "importError": "Import error: {{message}}",
+    "auditLog": "Audit Log",
+    "noImports": "No imports recorded.",
+    "recordCount": "{{count}} records",
+    "imported": "Imported"
+  },
+  "alerts": {
+    "loading": "Loading alerts...",
+    "title": "Audit Center",
+    "subtitle": "Anomaly rules executed by the local AI engine.",
+    "filterActive": "Active",
+    "filterResolved": "Resolved",
+    "filterAll": "All",
+    "safeOperation": "Safe Operation",
+    "noDeviations": "No deviations detected for the applied filters.",
+    "criticalPriority": "Critical — Audit Priority",
+    "mediumInvestigation": "Medium — Investigation Recommended",
+    "financialSystems": "external financial systems",
+    "presenceSensors": "presence and sales sensors",
+    "anomalyDetected": "The rules engine detected this anomalous behavior based on cross-referencing data from {{source}}.",
+    "local": "Local",
+    "ruleCode": "Rule_Code",
+    "divergenceGap": "Divergence_Gap",
+    "auditedValidated": "Audited & Validated",
+    "notifyStaff": "Notify Staff",
+    "resolvedBy": "Resolved by {{name}}",
+    "highCriticality": "HIGH CRITICALITY",
+    "medium": "MEDIUM"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Rule engine thresholds and notifications.",
+    "test": "Test",
+    "whatsapp": {
+      "title": "WhatsApp Notifications",
+      "desc": "Critical alerts trigger a browser push notification. When clicked, WhatsApp opens with the message ready for the number below.",
+      "label": "WhatsApp number (with area code and country code)",
+      "placeholder": "5585999990000",
+      "hint": "Ex: 5585991993833 (55 = Brazil, 85 = Fortaleza)"
+    },
+    "telegram": {
+      "title": "Telegram Notifications (Automatic)",
+      "desc": "Automatic delivery — the message arrives in Telegram without any click. The bot token is protected in the backend (Supabase Secret).",
+      "label": "Chat ID (your Telegram ID)",
+      "placeholder": "123456789",
+      "hint": "To get it: send any message to the bot and check Telegram updates to find your chat_id."
+    },
+    "r01": {
+      "title": "Rule R01 — Full Room, Empty Register",
+      "minPeople": "Minimum people to activate",
+      "window": "Window without sales (minutes)"
+    },
+    "r02": {
+      "title": "Rule R02 — Financial Gap",
+      "threshold": "Divergence threshold (R$)",
+      "thresholdHint": "Alert fires when the difference between PagBank and the sales system exceeds this value."
+    },
+    "monitoring": {
+      "title": "Monitoring Window",
+      "start": "Start",
+      "end": "End",
+      "hint": "Outside this window the engine still runs, but with lower priority."
+    },
+    "strictMode": {
+      "title": "Strict Audit Mode",
+      "desc": "Increases rule sensitivity. Recommended for high-density events (500+ people).",
+      "deactivate": "Active — Click to Deactivate",
+      "activate": "Activate Maximum Sensitivity"
+    },
+    "footerPrefix": "Olho Vivo · Developed by",
+    "footerBrand": "Dev Machine",
+    "footerSuffix": "· Version 1.0",
+    "telegramSent": "Message sent on Telegram!",
+    "telegramError": "Telegram error: {{message}}",
+    "requestError": "Request failed: {{message}}",
+    "pushSent": "Push triggered — click the browser notification to open WhatsApp.",
+    "noChannelConfigured": "Configure at least Telegram or WhatsApp before testing."
+  },
+  "admin": {
+    "title": "Client Management",
+    "subtitle": "Registered merchants. Operational data from each client is private and isolated.",
+    "totalClients": "Total Clients",
+    "activeLabel": "Active",
+    "inactiveLabel": "Inactive",
+    "cols": {
+      "establishment": "Establishment",
+      "address": "Address",
+      "users": "Users",
+      "since": "Since",
+      "status": "Status"
+    },
+    "loading": "Loading clients...",
+    "noClients": "No registered clients",
+    "loadError": "Error loading establishments.",
+    "users_one": "{{count}} user",
+    "users_other": "{{count}} users",
+    "active": "Active",
+    "inactive": "Inactive",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "clients_one": "client",
+    "clients_other": "clients",
+    "actives_one": "active",
+    "actives_other": "active",
+    "inactives_one": "inactive",
+    "inactives_other": "inactive"
+  },
+  "auditTrail": {
+    "title": "Audit Trail",
+    "subtitle": "Record of critical operational actions by establishment.",
+    "noEvents": "No audit events",
+    "noEventsDesc": "Events appear here after alert resolution and critical changes.",
+    "cols": {
+      "when": "When",
+      "event": "Event",
+      "actor": "Actor",
+      "target": "Target",
+      "details": "Details"
+    }
+  },
+  "simulator": {
+    "title": "Interactive Simulator",
+    "subtitle": "Trigger each event and watch the system react in real time.",
+    "resetDemo": "Reset Demo",
+    "configureScenario": "1. Configure the Scenario",
+    "executeEvents": "2. Execute Events (in order)",
+    "peopleLabel": "People in Room (camera)",
+    "r01Hint": "R01 fires if >30 people without sales in the last 30 min",
+    "stLabel": "Sales System Total (consumption)",
+    "pagbankLabel": "PagBank Total (terminal)",
+    "gapLabel": "Financial Gap (R02)",
+    "fraud": "⚠ FRAUD",
+    "okStatus": "✓ OK",
+    "nextStep": "Next step",
+    "openAlertsPrefix": "Open the",
+    "openAlertsSuffix": "tab to see the generated alerts",
+    "realtimeLog": "Real-time Log",
+    "waitingEvents": "Waiting for events...",
+    "steps": {
+      "st": {
+        "label": "Import Sales System",
+        "desc": "Records R$ {{amount}} in consumption in the order system"
+      },
+      "pagbank": {
+        "label": "Import PagBank",
+        "desc": "Records R$ {{amount}} in the card terminal"
+      },
+      "camera": {
+        "label": "Trigger Camera",
+        "desc": "Records {{count}} people in the room now"
+      },
+      "cash": {
+        "label": "Camera Detects Cash",
+        "desc": "Simulates camera at register identifying cash payment without entry in the sales system"
+      },
+      "rules": {
+        "label": "Run Rules Engine",
+        "desc": "Crosses all data and generates alerts (R01, R02, R05)"
+      }
+    },
+    "log": {
+      "clearing": "Clearing database...",
+      "resetDone": "System reset. Database cleared. Ready for demo.",
+      "resetError": "Reset error: {{message}}",
+      "importingTransactions": "Importing {{count}} transactions from Sales System...",
+      "stDone": "✓ {{count}} transactions recorded — Total: R$ {{amount}} (Sales System)",
+      "importingPagbank": "Importing {{count}} PagBank transactions...",
+      "pagbankDone": "✓ {{count}} transactions recorded — Total: R$ {{amount}} (PagBank)",
+      "gapDetected": "⚡ Gap detected: R$ {{amount}} between Sales System and PagBank",
+      "cameraRecording": "Camera recording {{count}} people in the room...",
+      "cameraDone": "✓ Camera: {{count}} people confirmed in the room",
+      "cashDetecting": "Camera at register detecting cash payment...",
+      "cashDone": "✓ Camera: bill detected — event recorded without entry in Sales System",
+      "cashR05": "⚡ R05 will be checked on next rules engine run",
+      "runningRules": "Running anti-fraud rules engine...",
+      "noAnomalies": "Engine executed — no new anomalies detected.",
+      "alertFired": "🚨 ALERT FIRED: {{desc}}",
+      "alertsCreated": "{{count}} alert(s) created — check the FRAUD ALERTS tab",
+      "error": "Error: {{message}}"
+    }
+  },
+  "integrations": {
+    "title": "Integrations",
+    "subtitle": "Webhooks for IP cameras, Raspberry Pi and sales system (POS).",
+    "authToken": "Authentication Token",
+    "authTokenDesc": "Use this token in the Authorization: Bearer ... header of all requests.",
+    "regenerate": "Regenerate",
+    "endpoint": "Endpoint",
+    "payload": "Payload",
+    "showDocs": "View docs",
+    "closeDocs": "Close",
+    "waiting": "Waiting",
+    "lastEvent": "Last event: {{date}} · {{count}} total",
+    "camera": {
+      "label": "People Counting Camera",
+      "sublabel": "ISAPI · ONVIF · Raspberry Pi"
+    },
+    "cash": {
+      "label": "Cash Detection",
+      "sublabel": "Raspberry Pi + OpenCV"
+    },
+    "st": {
+      "label": "Sales System / POS",
+      "sublabel": "Webhook · API · PDF / CSV"
+    }
+  },
+  "selectEstablishment": {
+    "title": "Select Establishment",
+    "subtitle": "Choose which business you want to manage now.",
+    "establishment": "Establishment"
+  },
+  "guide": {
+    "title": "Operation Manual",
+    "subtitle": "Understand how audit rules and hardware work.",
+    "support": {
+      "title": "Technical Support",
+      "problem": "Problems with Cameras?",
+      "hint": "Sync the hardware in the Settings tab."
+    },
+    "tip": {
+      "title": "Security Tip",
+      "problem": "Register Closing",
+      "hint": "Always upload the PagBank CSV at the end of each shift."
+    }
+  },
+  "landing": {
+    "nav": {
+      "login": "Sign in",
+      "start": "Get started"
+    },
+    "hero": {
+      "badge": "Real-time monitoring",
+      "headlinePrefix": "Detect deviations in your",
+      "headlineHighlight": "business",
+      "headlineSuffix": "before they cost you.",
+      "desc": "Smart system for any type of business — bars, restaurants, events, retail, and franchises. Crosses cameras, payment terminals and sales systems in real time.",
+      "cta": "Register my business",
+      "alreadyHaveAccount": "I already have an account"
+    },
+    "sectors": {
+      "restaurants": "Restaurants",
+      "nightClubs": "Night Clubs",
+      "barsAndPubs": "Bars & Pubs",
+      "retail": "Retail",
+      "events": "Events",
+      "franchises": "Franchises"
+    },
+    "stats": {
+      "alertTime": { "value": "< 1min", "label": "Alert time", "sub": "From event to notification" },
+      "rules": { "value": "3", "label": "Detection rules", "sub": "R01 · R02 · R05" },
+      "isolation": { "value": "100%", "label": "Data isolation", "sub": "Per establishment" },
+      "monitoring": { "value": "24/7", "label": "Monitoring", "sub": "Database engine" }
+    },
+    "problem": {
+      "badge": "The Problem",
+      "title": "How much have you lost without noticing?",
+      "desc": "In any operation with people flow and money, deviation rarely happens in a single large transaction. It occurs in small repeated gaps shift after shift — bills that disappear, unrecorded sales, differences that never show up in closing.",
+      "cases": {
+        "fullRoom": {
+          "title": "Full venue, incompatible register",
+          "desc": "The camera counts 90 clients, the register records consumption for 40. The difference comes out of your profit."
+        },
+        "gapMachine": {
+          "title": "Terminal doesn't match the system",
+          "desc": "R$ 5,140 on the terminal, R$ 4,820 in the system. The R$ 320 difference goes unanswered."
+        },
+        "cashManipulated": {
+          "title": "Cash handled without record",
+          "desc": "Camera detects bills being counted. No corresponding entry found."
+        }
+      }
+    },
+    "rules": {
+      "badge": "Rules Engine",
+      "title": "Three rules. Zero margin for deviation.",
+      "desc": "Rules run directly in the PostgreSQL database, without depending on the frontend. Each event triggers detection instantly.",
+      "r01": { "title": "Movement Without Register", "desc": "Cameras cross the actual space occupancy with registered sales. If customer flow doesn't reflect in the register, the alert fires immediately." },
+      "r02": { "title": "Financial Gap", "desc": "Automatic reconciliation between the amount received at the terminal and recorded in the sales system. Any divergence is flagged." },
+      "r05": { "title": "Cash Ghost", "desc": "Dedicated camera detects bill manipulation. If there is no corresponding entry in the system, a high criticality alert is fired." }
+    },
+    "how": {
+      "badge": "Installation",
+      "title": "Complete setup in less than a day.",
+      "step1": { "title": "Install the cameras", "desc": "Cameras with ISAPI support connect automatically via webhook. Any model can be integrated via Raspberry Pi." },
+      "step2": { "title": "Connect your systems", "desc": "Integrate your sales system via webhook or import CSV reports. No extra development." },
+      "step3": { "title": "Receive real-time alerts", "desc": "The rules engine runs in the database and notifies via Telegram and WhatsApp before the shift closes." }
+    },
+    "integrations": {
+      "badge": "Compatibility",
+      "title": "Integrates with what you already use.",
+      "camera": { "name": "IP Camera", "desc": "ISAPI · ONVIF · Webhook" },
+      "pos": { "name": "Sales System", "desc": "POS · API · PDF" },
+      "gateway": { "name": "Terminal / Gateway", "desc": "CSV · API · Webhook" },
+      "telegram": { "name": "Telegram", "desc": "Automatic alerts" },
+      "whatsapp": { "name": "WhatsApp", "desc": "Push + deep link" },
+      "raspberry": { "name": "Raspberry Pi", "desc": "Cash detection" }
+    },
+    "cta": {
+      "badge": "Production ready",
+      "title": "Start protecting your business today.",
+      "desc": "Register your establishment, connect the cameras and the system starts monitoring immediately.",
+      "cta": "Register my business",
+      "alreadyHaveAccount": "I already have an account"
+    },
+    "footer": {
+      "copyright": "© 2026 Dev Machine · All rights reserved"
+    }
+  },
+  "cameras": {
+    "title": "Cameras",
+    "subtitle": "Manage and configure your establishment's cameras.",
+    "addCamera": "Add camera",
+    "edit": "Edit",
+    "brand": "Brand",
+    "brandGeneric": "Generic",
+    "lastEvent": "Last event",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "saving": "Saving...",
+    "saveAndConfigure": "Save & configure",
+    "testConnection": "Test connection",
+    "skipTest": "Skip test and finish",
+    "finish": "Finish",
+    "deleteConfirm": "Remove this camera? Historical events will not be deleted.",
+    "errorName": "Please enter a name for the camera.",
+    "errorId": "Please enter an ID for the camera.",
+    "errorDuplicateId": "A camera with this ID already exists. Choose a different one.",
+    "httpsWarning": "To scan the local network, access the system via HTTP (e.g. http://localhost:3000). On HTTPS, the browser blocks requests to private IPs.",
+    "calibrating": "Checking browser compatibility...",
+    "scanBlocked": "Your browser (Brave or Firefox with strict protection) blocked the automatic scan. Enter the camera IP manually below.",
+    "scanNoResults": "No devices found on the network. Make sure you are on the bar's Wi-Fi and enter the IP manually.",
+    "autoScan": "Scan network automatically",
+    "autoScanDesc": "Detects cameras on the same Wi-Fi in ~10 seconds.",
+    "manualEntry": "Enter IP manually",
+    "manualEntryDesc": "Type the camera's IP and port directly.",
+    "subnetLabel": "Camera subnet",
+    "subnetDetected": "Subnet auto-detected: {{subnet}}",
+    "startScan": "Start scan",
+    "scanningNet": "Scanning network...",
+    "scanningWait": "Please wait, scanning IP addresses...",
+    "foundSoFar": "{{count}} device(s) found so far",
+    "cancelScan": "Cancel",
+    "noCandidates": "No devices found. Make sure you are on the same network as the cameras.",
+    "tryScanAgain": "Try again",
+    "foundDevices": "{{count}} device(s) found. Select the camera:",
+    "addManually": "Add manually",
+    "ports": "Ports",
+    "likelyCamera": "Likely a camera",
+    "probablyCameras": "Probable cameras",
+    "otherDevices": "Other devices ({{count}})",
+    "foundHint": "Click \"Open interface\" to view the device in your browser and confirm it's your camera.",
+    "openInterface": "Open interface",
+    "selectThis": "This is my camera",
+    "selected": "Selected",
+    "savedSuccess": "{{name}} saved successfully!",
+    "configureDesc": "Configure the camera to send events to the system. Copy the details below and set them up in the camera's admin panel.",
+    "testDesc": "After configuring the camera, click below and walk in front of it to confirm the connection.",
+    "waitForEvent": "Wait for first event",
+    "testWaiting": "Waiting for camera event... (up to 60s)",
+    "testWaitingHint": "Walk in front of the camera or wait for an automatic count.",
+    "testOk": "Camera connected successfully!",
+    "testOkDesc": "The system is receiving events from this camera.",
+    "testTimeout": "No event received in 60 seconds. Check your settings and try again.",
+    "testRetry": "Try again",
+    "status": {
+      "pending": "Pending",
+      "online": "Online",
+      "offline": "Offline"
+    },
+    "type": {
+      "label": "Type",
+      "counting": "People counting",
+      "cash": "Cash detection"
+    },
+    "delete": "Remove camera",
+    "wizard": {
+      "brand": "What's the brand?",
+      "brandDesc": "Select your camera brand to get the right instructions.",
+      "ip": "{{brand}} camera IP",
+      "ipLabel": "Camera IP address",
+      "portHint": "Default port: 80. Intelbras/Hikvision SDK: 8000. Dahua SDK: 37777.",
+      "ipRequired": "Please enter the camera's IP address.",
+      "howToFindIp": "How to find your {{brand}}'s IP",
+      "dontKnowIp": "I don't know the IP — scan network",
+      "scanDesc": "We'll scan the network",
+      "cameraFound": "{{count}} camera(s) found",
+      "name": "Camera name",
+      "configure": "Configure webhook",
+      "test": "Test connection",
+      "continue": "Continue"
+    },
+    "form": {
+      "name": "Camera name",
+      "namePlaceholder": "E.g.: Main Entrance",
+      "cameraId": "Camera ID",
+      "cameraIdHint": "Auto-generated. This will be the channelName in the camera's ISAPI config.",
+      "port": "Port"
+    },
+    "cfg": {
+      "endpoint": "Webhook URL",
+      "token": "Authentication token",
+      "channelId": "Camera ID (channelName)",
+      "steps": "How to configure — {{brand}}",
+      "intelbras": {
+        "1": "Access the camera's web panel via its IP in the browser.",
+        "2": "Go to Configuration → Events → People Counting → Webhook.",
+        "3": "In the channelName field (or Channel Name), enter: {{cameraId}}",
+        "4": "Paste the webhook URL and the Bearer token in the authentication field. Save."
+      },
+      "dahua": {
+        "1": "Access the camera's web panel via its IP in the browser.",
+        "2": "Go to Configuration → Events → People Counting → HTTP Report.",
+        "3": "In the server ID or channel name field, enter: {{cameraId}}"
+      },
+      "generic": {
+        "1": "Access the camera's web panel and find the webhook or HTTP push section.",
+        "2": "Paste the webhook URL and add the header Authorization: Bearer <token>.",
+        "3": "In the identifier or channel name field, use: {{cameraId}}"
+      }
+    },
+    "empty": {
+      "title": "No cameras configured",
+      "desc": "Add cameras so the system can monitor movement in your establishment.",
+      "cta": "Set up cameras now"
+    }
+  }
+}
