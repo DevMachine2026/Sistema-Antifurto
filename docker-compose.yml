@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+      - "8554:8554"
+      - "9997:9997"
+    volumes:
+      - ./server/mediamtx.yml:/mediamtx.yml
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - MEDIAMTX_API=http://127.0.0.1:9997
+      - PORT=3456
+    depends_on:
+      - mediamtx
