@@ -3,7 +3,7 @@ import Hls from 'hls.js';
 import { Camera as CameraIcon } from 'lucide-react';
 import { Camera } from '../types';
 
-const BACKEND = 'http://localhost:3456';
+const BACKEND = import.meta.env.VITE_API_URL ?? 'http://localhost:3456';
 
 type PlayerState = 'loading' | 'hls' | 'snapshot' | 'error' | 'offline';
 
@@ -36,14 +36,18 @@ export function CameraPlayer({ cameraId, ip, status, height }: Props) {
       try {
         const res = await fetch(`${BACKEND}/api/streams/${cameraId}/hls-url`);
         if (!res.ok) throw new Error('no-hls');
-        const { url } = await res.json() as { url: string };
+        const data = await res.json() as { hlsUrl: string };
+        const url = data.hlsUrl;
         if (cancelled) return;
 
         const video = videoRef.current;
         if (!video) return;
 
         if (Hls.isSupported()) {
-          const hls = new Hls({ enableWorker: false });
+          const hls = new Hls({
+            enableWorker: false,
+            xhrSetup: (xhr) => { xhr.withCredentials = true; },
+          });
           hlsRef.current = hls;
           hls.loadSource(url);
           hls.attachMedia(video);

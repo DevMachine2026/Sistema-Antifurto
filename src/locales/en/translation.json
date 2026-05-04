@@ -41,7 +41,31 @@
     "cameras": "Cameras",
     "guide": "Operation Guide",
     "analytics": "Analytics",
-    "settings": "Settings"
+    "settings": "Settings",
+    "readiness": "Readiness"
+  },
+  "readiness": {
+    "title": "System readiness",
+    "subtitle": "Verify essentials before going live. This page only reads your business data — changes are in Settings and Integrations.",
+    "refresh": "Refresh checklist",
+    "summaryOk": "Critical base OK: webhook token and alert channels are set, and you already have people counting or sales data.",
+    "summaryWarn": "Critical items missing: set the token under Integrations and configure Telegram or WhatsApp under Settings.",
+    "items": {
+      "webhookToken": "Bearer token for webhooks",
+      "notifications": "Telegram or WhatsApp for alerts",
+      "cameraIngest": "People counting events received",
+      "cashIngest": "Cash-at-register events",
+      "salesIngest": "Sales imported (PagBank/ST)",
+      "streamReady": "Live camera (online status)"
+    },
+    "hints": {
+      "integrations": "Integrations menu — copy the token into the camera or Raspberry.",
+      "settings": "Settings menu — Telegram chat ID and/or WhatsApp number (API on the server).",
+      "cameraOrIntegrations": "Wait for the first camera webhook event or use the Simulator to test.",
+      "cashWebhook": "Send a test via the cash webhook or wait for a real detection.",
+      "uploadOrSt": "Import PagBank CSV, ST PDF, or configure the ST Ingressos webhook.",
+      "camerasOnline": "Cameras menu — register and set online when HLS works on the Raspberry."
+    }
   },
   "errors": {
     "invalidEmail": "Please enter a valid email.",
@@ -244,8 +268,9 @@
     "footerSuffix": "· Version 1.0",
     "telegramSent": "Message sent on Telegram!",
     "telegramError": "Telegram error: {{message}}",
+    "whatsappSent": "Message sent on WhatsApp!",
+    "whatsappError": "WhatsApp error: {{message}}",
     "requestError": "Request failed: {{message}}",
-    "pushSent": "Push triggered — click the browser notification to open WhatsApp.",
     "noChannelConfigured": "Configure at least Telegram or WhatsApp before testing."
   },
   "admin": {

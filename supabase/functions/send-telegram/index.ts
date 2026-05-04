@@ -1,9 +1,12 @@
 // @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// supabase-js envia x-client-info no invoke; sem isso o preflight falha no browser (ex.: localhost).
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
+  'Access-Control-Allow-Headers':
+    'authorization, apikey, content-type, x-client-info, prefer, x-supabase-api-version',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 Deno.serve(async (req) => {

@@ -188,6 +188,98 @@ npx supabase functions deploy send-telegram --project-ref SEU_REF
 supabase secrets set TELEGRAM_BOT_TOKEN=xxx --project-ref SEU_REF
 ```
 
+**Notificações após regras (atualizado):**
+As Edge Functions `webhook-camera`, `webhook-cash` e `webhook-st-ingressos` chamam `run_fraud_rules` e, quando há linhas retornadas, disparam `send-telegram` / `send-whatsapp` via `notify.ts` **dentro da pasta de cada função** (o deploy pelo **dashboard** do Supabase não inclui `../_shared`; manter as três cópias de `notify.ts` alinhadas ao alterar a lógica).
+Importação de CSV pelo app ainda roda `run_fraud_rules` no cliente e dispara `notificationService.sendAlert` (Edge Functions com sessão do usuário).
+
+**WhatsApp (API no servidor):**
+Existe Edge Function `send-whatsapp` (Evolution/Z-API compatível via `WHATSAPP_API_URL` / `WHATSAPP_API_TOKEN`). O cliente escolhe Telegram, WhatsApp ou ambos em Configurações.
+
+---
+
+## 8.1. Infraestrutura de Streaming (câmeras ao vivo)
+
+Adicionada em mai/2026. Usada para exibir vídeo ao vivo das câmeras no frontend.
+
+**Stack de streaming:**
+
+| Componente | Função |
+|---|---|
+| `mediamtx` (binário `/mediamtx`) | Servidor RTSP→HLS. Porta RTSP: 8554, HLS: 8888, API: 9997 |
+| `ffmpeg` | Captura webcam (`/dev/video0`) e publica em RTSP. Usado para testes locais. |
+| `server/` (Node.js/Express) | Backend local. Porta 3456. Registra câmeras no MediaMTX e serve URLs HLS ao frontend. |
+| `docker-compose.yml` | Orquestração para deploy no Raspberry Pi (mediamtx + backend) |
+
+**Fluxo de vídeo:**
+```
+Câmera IP (RTSP) ou webcam+ffmpeg
+  → MediaMTX (RTSP :8554)
+    → HLS (http://HOST:8888/CAMERA_ID/index.m3u8)
+      → CameraPlayer.tsx (hls.js)
+        → exibe no browser com badge "AO VIVO"
+```
+
+**Variáveis de ambiente críticas do backend (`server/.env`):**
+
+```env
+MEDIAMTX_API=http://127.0.0.1:9997        # API interna do MediaMTX (não exposta ao browser)
+MEDIAMTX_HLS_URL=http://IP_DO_PI:8888     # URL que o BROWSER usa para acessar HLS — deve ser o IP real do Pi
+PORT=3456
+SUPABASE_URL=...
+SUPABASE_ANON_KEY=...
+FRONTEND_URL=https://sistema-antifurto.vercel.app
+```
+
+**Bug corrigido — cookie check do MediaMTX:**
+MediaMTX faz redirect 302 com `Set-Cookie: cookieCheck=1` antes de servir o HLS.
+`hls.js` sem credenciais nunca envia o cookie de volta → loop de redirect → stream não carrega.
+Correção em `src/components/CameraPlayer.tsx`:
+```js
+const hls = new Hls({
+  enableWorker: false,
+  xhrSetup: (xhr) => { xhr.withCredentials = true; },
+});
+```
+
+**CORS em produção (`server/mediamtx.yml`):**
+Com `withCredentials: true`, o browser exige `Access-Control-Allow-Origin` específico (não `*`).
+O `mediamtx.yml` já tem configurado:
+```yaml
+hlsAllowOrigins:
+  - https://sistema-antifurto.vercel.app
+  - http://localhost:3000
+  - http://localhost:5173
+```
+Se adicionar outros domínios (staging, preview Vercel), incluir aqui e reiniciar o Docker no Pi.
+
+**Como a contagem de pessoas funciona:**
+O sistema **não faz visão computacional** — delega para o firmware da câmera.
+Câmeras Intelbras/Hikvision/Dahua com "People Counting" ativo usam linha de cruzamento:
+- Pessoa entra → `count_in + 1`
+- Pessoa sai → `count_out + 1`
+- `people_inside = count_in - count_out`
+A câmera envia os valores via webhook (formato Intelbras ISAPI ou JSON genérico).
+Deduplicação por `external_event_key` (hash SHA-256 do payload) previne dupla contagem por falha de rede.
+A webcam de teste **não tem esse firmware** — só exibe vídeo.
+
+**Teste local com webcam:**
+```bash
+# Iniciar MediaMTX nativo
+/mediamtx &
+
+# Capturar webcam e publicar no MediaMTX
+ffmpeg -f v4l2 -i /dev/video0 -vf format=yuv420p \
+  -vcodec libx264 -preset ultrafast -tune zerolatency \
+  -rtsp_transport tcp -f rtsp rtsp://localhost:8554/teste
+
+# Iniciar backend
+cd server && npx ts-node-dev --respawn --transpile-only index.ts
+
+# Frontend
+npm run dev
+```
+A câmera deve estar cadastrada no Supabase com `camera_id='teste'` e `status='online'`.
+
 ---
 
 ## 9. Armadilhas já encontradas
@@ -203,6 +295,10 @@ supabase secrets set TELEGRAM_BOT_TOKEN=xxx --project-ref SEU_REF
 | Platform admin cai no establishment errado | `loadAccessContext` agora usa `user_establishments` para detectar estabelecimentos próprios e chama `setCurrentEstablishmentId` com o próprio. |
 | Cadastro não cria comércio | `migration_signup_merchant_provision.sql` não aplicada ou signup sem `establishment_name` no metadata. |
 | `promote_platform_admin.sql` quebrado | Aspas do email não fechadas ao editar — validar sintaxe antes de rodar. |
+| Stream HLS não carrega no browser | MediaMTX faz cookie check (302 redirect). `hls.js` sem `withCredentials` nunca envia o cookie. Corrigido com `xhrSetup: (xhr) => { xhr.withCredentials = true }` em `CameraPlayer.tsx`. |
+| CORS bloqueado em produção com HLS | `withCredentials: true` exige origem específica no CORS. Configurar `hlsAllowOrigins` no `mediamtx.yml` com o domínio exato do Vercel. |
+| `MEDIAMTX_API_URL` não lida em `streams.ts` | O `.env` usa `MEDIAMTX_API` mas `streams.ts` lia `MEDIAMTX_API_URL`. Corrigido para aceitar ambos. |
+| Câmera mostra "offline" mesmo com stream ativo | `CameraPlayer` exige `status === 'online'` para tentar carregar o HLS. Câmera deve estar cadastrada no Supabase com esse status. |
 
 ---
 
@@ -225,4 +321,41 @@ supabase secrets set TELEGRAM_BOT_TOKEN=xxx --project-ref SEU_REF
 
 ---
 
-*Última cobertura: brand "Olho Vivo", Landing page, AdminPanel/AdminShell, RBAC com platform_admin isolado, botões mobile (Sair/Voltar), cross-session isolation, política UPDATE establishments.*
+---
+
+## 12. Estado atual e o que falta (mai/2026)
+
+### Pronto e funcionando
+- Streaming ao vivo de câmeras (MediaMTX + hls.js) com badge "AO VIVO" ✅
+- Motor de regras R01/R02/R05 no Postgres ✅
+- Webhooks autenticados por tenant (câmera, caixa, ST Ingressos) ✅
+- RLS por tenant via JWT claim `establishment_id` — dados não se misturam ✅
+- Frontend Vercel + backend local (Raspberry Pi) com CORS configurado ✅
+- Wizard de cadastro de câmeras ✅
+- Multi-tenant, RBAC, platform_admin ✅
+- Tela **Prontidão** (`Readiness.tsx`) — checklist guiado no app ✅
+
+### Falta implementar (por prioridade)
+
+**P0 — Bloqueia uso real em produção:**
+
+1. ~~Disparo automático pós-regra~~ — webhooks de ingestão disparam notificações via `notify.ts` em cada pasta da função; import CSV usa `notificationService` no browser (considerar mover 100% para servidor com fila/pg_net se quiser zero dependência de sessão aberta).
+
+2. ~~`send-whatsapp`~~ — implementada; validar secrets `WHATSAPP_*` em cada projeto Supabase.
+
+3. **Passo manual no deploy do Pi** — editar `MEDIAMTX_HLS_URL=http://IP_DO_PI:8888` no `.env` do servidor com o IP real da máquina. O browser do Vercel precisa alcançar esse IP (mesma rede local do cliente ou túnel).
+
+**P1 — Recomendado antes de escalar:**
+
+4. Ambientes separados dev/staging/prod (Supabase project separado para staging)
+5. Alerting operacional — definir quem recebe alerta quando o sistema cai (não confundir com notificação de fraude)
+6. Teste E2E do fluxo completo: câmera → contagem → regra → alerta → notificação
+
+### Primeiro cliente de produção
+Restaurante em Fortaleza, mesmo dono do Ice Bar.
+Fluxo crítico para esse cliente: câmera conta pessoas na entrada → caixa registra vendas → motor detecta anomalia → **dono recebe mensagem** (WhatsApp ou Telegram).
+O item que ainda exige atenção operacional para esse cliente é principalmente rede/HLS no Pi (item 3) e validação E2E dos canais em produção.
+
+---
+
+*Última cobertura: streaming HLS ao vivo com MediaMTX, cookie fix hls.js, hlsAllowOrigins produção, lacuna de notificações automáticas identificada, arquitetura de contagem de pessoas documentada, primeiro cliente restaurante Fortaleza.*

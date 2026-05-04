@@ -15,7 +15,7 @@ O Sistema Antifraude funciona como um **Auditor Digital 24/7** que monitora quat
 3. **Maquineta de Pagamento** — Transações financeiras (PagBank — CSV ou API futura)
 4. **Sistema de Bilheteria** — Registro de vendas (ST Ingressos — webhook ou PDF)
 
-Ao cruzar essas fontes, o sistema identifica automaticamente inconsistências que indicam fraudes, erros operacionais ou desvios de caixa, e dispara alertas em tempo real via Telegram e WhatsApp.
+Ao cruzar essas fontes, o sistema identifica automaticamente inconsistências que indicam fraudes, erros operacionais ou desvios de caixa, e dispara alertas em tempo real (Telegram validado; WhatsApp depende de API externa configurada).
 
 ---
 
@@ -114,12 +114,20 @@ npx supabase functions deploy webhook-camera        --project-ref SEU_REF
 npx supabase functions deploy webhook-cash          --project-ref SEU_REF
 npx supabase functions deploy webhook-st-ingressos  --project-ref SEU_REF
 npx supabase functions deploy send-telegram         --project-ref SEU_REF
+npx supabase functions deploy send-whatsapp         --project-ref SEU_REF
 ```
 
 Configure o token do bot Telegram:
 
 ```bash
 supabase secrets set TELEGRAM_BOT_TOKEN=1234567890:AAF... --project-ref SEU_REF
+```
+
+Opcional (WhatsApp via provedor externo):
+
+```bash
+supabase secrets set WHATSAPP_API_URL=https://seu-endpoint/send-text --project-ref SEU_REF
+supabase secrets set WHATSAPP_API_TOKEN=seu_token --project-ref SEU_REF
 ```
 
 ### 5. Execute
@@ -234,6 +242,31 @@ Exportar o relatório de transações no app PagBank e fazer upload no sistema.
 
 ---
 
+## Teste local de câmera (webcam)
+
+Para validar streaming ao vivo em desenvolvimento:
+
+```bash
+# terminal 1 (stream local)
+USE_TESTSRC=1 ./scripts/dev-stream-local.sh
+
+# terminal 2 (backend local)
+cd server && npm run dev
+
+# terminal 3 (frontend)
+npm run dev
+```
+
+Depois cadastre uma câmera com:
+- `camera_id=teste`
+- `brand=generic`
+- `status=online`
+- `ip=127.0.0.1`
+
+> Observação: webcam local serve para testar **vídeo ao vivo**. Contagem de pessoas continua vindo de webhook/simulador.
+
+---
+
 ## Roteiro de Instalação no Cliente
 
 ```
@@ -257,7 +290,7 @@ Exportar o relatório de transações no app PagBank e fazer upload no sistema.
 - **Importação de Arquivos** — PDF do ST Ingressos e CSV do PagBank (parsers nativos)
 - **Motor de Regras** — R01, R02 e R05 executando no banco (PostgreSQL)
 - **Notificações Telegram** — Alertas automáticos via bot (token no backend)
-- **Notificações WhatsApp** — Push nativo + deep link para mensagem pronta
+- **Notificações WhatsApp** — via Edge Function `send-whatsapp` (requer API externa configurada)
 - **Simulador Demo** — 5 passos interativos para demonstrar o sistema ao cliente
 - **Integrações** — Gestão de webhooks, token de autenticação por estabelecimento
 - **Configurações** — Thresholds, canais de notificação e modo de auditoria
@@ -320,8 +353,8 @@ supabase/
 | Multi-estabelecimento (RBAC) | ✅ Completo |
 | Painel Admin Plataforma | ✅ Completo |
 | Webhooks / Edge Functions | ✅ Completo |
-| Notificações Telegram | ✅ Completo |
-| Notificações WhatsApp | ✅ Completo |
+| Notificações Telegram | ✅ Completo (testado com sucesso em mai/2026) |
+| Notificações WhatsApp | ⚠️ Implementado, depende de API externa (`WHATSAPP_*`) |
 | Simulador de Demo | ✅ Completo |
 | Parser PDF (ST Ingressos) | ✅ Completo |
 | Parser CSV (PagBank) | ✅ Completo |

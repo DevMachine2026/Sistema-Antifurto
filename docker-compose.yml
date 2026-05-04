@@ -18,8 +18,8 @@ services:
     restart: unless-stopped
     network_mode: host
     environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_URL=${VITE_SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
       - MEDIAMTX_API=http://127.0.0.1:9997
       - PORT=3456
     depends_on:

@@ -5,10 +5,12 @@ Checklist operacional atualizado para decisao de go-live.
 ## P0 - Bloqueia Producao
 
 - [x] Segredo Telegram fora do frontend (`TELEGRAM_BOT_TOKEN` em Supabase Secrets)
+- [x] Teste de notificacao Telegram validado no app (Configuracoes -> Testar) em 04/05/2026
 - [x] Coluna sensivel removida do banco (`settings.telegram_bot_token`)
 - [x] RLS por tenant ativo nas tabelas de dominio
 - [x] Hardening de RLS em `audit_events`
 - [x] CI minimo no repositorio (`.github/workflows/ci.yml`)
+- [ ] Canal WhatsApp em producao (definir provedor + configurar `WHATSAPP_API_URL` e `WHATSAPP_API_TOKEN`)
 - [ ] Ambientes separados validados (dev/staging/prod)
 - [ ] Backup/restore testado com evidencias
 - [ ] Alerting operacional definido (quem recebe, qual canal, SLA)
@@ -63,3 +65,9 @@ Pode promover para producao quando:
 1. Todos os itens P0 estiverem concluidos.
 2. Staging rodar por 1 ciclo operacional sem incidente critico.
 3. Responsaveis de negocio e tecnico aprovarem rollback plan.
+
+## Evidencias recentes (implantacao)
+
+- 04/05/2026: deploy de Edge Functions atualizado (webhooks + send-telegram/send-whatsapp).
+- 04/05/2026: teste de Telegram pelo frontend retornando sucesso ("Mensagem enviada no Telegram!").
+- 04/05/2026: streaming local validado com MediaMTX + `ffmpeg` (webcam e modo `USE_TESTSRC=1`).

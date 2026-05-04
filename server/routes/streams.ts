@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const router = Router();
 
-const MEDIAMTX_API = process.env.MEDIAMTX_API_URL ?? 'http://localhost:9997';
+const MEDIAMTX_API = process.env.MEDIAMTX_API ?? process.env.MEDIAMTX_API_URL ?? 'http://localhost:9997';
 const HLS_BASE = process.env.MEDIAMTX_HLS_URL ?? 'http://localhost:8888';
 
 function supabase() {

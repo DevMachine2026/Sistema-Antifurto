@@ -28,6 +28,8 @@ interface DiscoveredCamera {
   model?: string;
 }
 
+const BACKEND = import.meta.env.VITE_API_URL ?? 'http://localhost:3456';
+
 const BACKEND_BRAND_LABELS: Record<string, string> = {
   intelbras: 'Intelbras', hikvision: 'Hikvision', dahua: 'Dahua', generic: 'Genérica',
 };
@@ -357,7 +359,7 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch('http://localhost:3456/api/cameras/discover', { signal: ctrl.signal });
+      const res = await fetch(`${BACKEND}/api/cameras/discover`, { signal: ctrl.signal });
       clearTimeout(timer);
       if (res.ok) {
         const data: DiscoveredCamera[] = await res.json();

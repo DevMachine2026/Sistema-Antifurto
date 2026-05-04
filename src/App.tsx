@@ -18,6 +18,7 @@ import Simulator from './pages/Simulator';
 import Integrations from './pages/Integrations';
 import AuditTrail from './pages/AuditTrail';
 import Cameras from './pages/Cameras';
+import Readiness from './pages/Readiness';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -149,6 +150,8 @@ export default function App() {
         return <AuditTrail />;
       case 'cameras':
         return <Cameras />;
+      case 'readiness':
+        return <Readiness />;
       case 'analytics':
         return (
           <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-4">

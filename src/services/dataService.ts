@@ -1,4 +1,12 @@
-import { Transaction, PeopleCountEvent, Alert, ImportBatch, CashPaymentEvent } from '../types';
+import {
+  Transaction,
+  PeopleCountEvent,
+  Alert,
+  AlertType,
+  Severity,
+  ImportBatch,
+  CashPaymentEvent,
+} from '../types';
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
 import { notificationService } from './notificationService';
@@ -204,17 +212,22 @@ class DataService {
       return;
     }
 
-    // Dispara notificações push para alertas críticos recém-criados
-    if (data && data.length > 0) {
-      const newAlerts = await this.getAlerts();
-      for (const row of data) {
-        const alert = newAlerts.find(
-          a => a.type === row.alert_type && !a.resolved
-        );
-        if (alert && alert.severity === 'high') {
-          await notificationService.sendWhatsAppAlert(alert);
-        }
-      }
+    if (!data?.length) return;
+
+    const allowedSeverity = (s: string): Severity =>
+      s === 'low' || s === 'medium' || s === 'high' ? s : 'medium';
+
+    for (const row of data) {
+      const alert: Alert = {
+        id: crypto.randomUUID(),
+        type: row.alert_type as AlertType,
+        severity: allowedSeverity(String(row.severity ?? 'medium')),
+        description: row.description,
+        context: {},
+        resolved: false,
+        createdAt: new Date().toISOString(),
+      };
+      await notificationService.sendAlert(alert);
     }
   }
 }

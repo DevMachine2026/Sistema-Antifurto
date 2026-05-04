@@ -41,7 +41,31 @@
     "cameras": "Câmeras",
     "guide": "Guia de Operação",
     "analytics": "Analítico",
-    "settings": "Configurações"
+    "settings": "Configurações",
+    "readiness": "Prontidão"
+  },
+  "readiness": {
+    "title": "Prontidão do sistema",
+    "subtitle": "Confira se o essencial está configurado antes de operar em produção. Tudo aqui é leitura dos dados do seu comércio — ajustes ficam em Configurações e Integrações.",
+    "refresh": "Atualizar lista",
+    "summaryOk": "Base crítica ok: token de webhook e canais de alerta estão definidos, e já há dados de contagem ou de vendas.",
+    "summaryWarn": "Ainda faltam itens críticos: defina o token em Integrações e configure Telegram ou WhatsApp em Configurações.",
+    "items": {
+      "webhookToken": "Token Bearer dos webhooks",
+      "notifications": "Telegram ou WhatsApp para alertas",
+      "cameraIngest": "Contagem de pessoas recebida",
+      "cashIngest": "Eventos de espécie no caixa",
+      "salesIngest": "Vendas importadas (PagBank/ST)",
+      "streamReady": "Câmera ao vivo (status online)"
+    },
+    "hints": {
+      "integrations": "Menu Integrações — copie o token e configure na câmera ou no Raspberry.",
+      "settings": "Menu Configurações — Chat ID do Telegram e/ou número WhatsApp (API no servidor).",
+      "cameraOrIntegrations": "Aguarde o primeiro evento do webhook da câmera ou use o Simulador para testar.",
+      "cashWebhook": "Envie um teste pelo webhook de caixa ou aguarde detecção real.",
+      "uploadOrSt": "Importe CSV PagBank, PDF ST ou configure o webhook ST Ingressos.",
+      "camerasOnline": "Menu Câmeras — cadastre e marque online quando o stream HLS estiver ok no Raspberry."
+    }
   },
   "errors": {
     "invalidEmail": "Informe um email válido.",
@@ -244,8 +268,9 @@
     "footerSuffix": "· Versão 1.0",
     "telegramSent": "Mensagem enviada no Telegram!",
     "telegramError": "Telegram erro: {{message}}",
+    "whatsappSent": "Mensagem enviada no WhatsApp!",
+    "whatsappError": "WhatsApp erro: {{message}}",
     "requestError": "Falha na requisição: {{message}}",
-    "pushSent": "Push disparado — clique na notificação do navegador para abrir o WhatsApp.",
     "noChannelConfigured": "Configure ao menos o Telegram ou o WhatsApp antes de testar."
   },
   "admin": {

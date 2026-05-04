@@ -69,7 +69,26 @@ class NotificationService {
       }
     }
 
-    // ── Canal 2: Push nativo + deep link WhatsApp (requer clique) ─
+    if (config.whatsapp_number) {
+      try {
+        const { error } = await supabase.functions.invoke('send-whatsapp', {
+          body: {
+            establishment_id: getCurrentEstablishmentId(),
+            number: config.whatsapp_number,
+            message: text,
+          },
+        });
+        if (!error) {
+          console.log(`[WHATSAPP] Alerta enviado: ${alert.type}`);
+        } else {
+          console.error('[WHATSAPP] Erro ao invocar Edge Function:', error.message);
+        }
+      } catch (e) {
+        console.error('[WHATSAPP] Falha na requisição:', e);
+      }
+    }
+
+    // ── Push nativo no browser (complementar; não substitui API WhatsApp) ─
     if ('Notification' in window && Notification.permission === 'granted') {
       const notification = new Notification('⚠️ ALERTA DE FRAUDE', {
         body: alert.description,

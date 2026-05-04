@@ -1,48 +1,27 @@
-# MediaMTX configuration
-# Docs: https://github.com/bluenviron/mediamtx
-
-###############################################
-# General parameters
-
-logLevel: info
-logDestinations: [stdout]
-
-# Internal REST API (usado pelo StreamManager)
-api: yes
+# MediaMTX v1.x — configuração mínima para testes
+api: true
 apiAddress: :9997
+authInternalUsers:
+  - user: any
+    pass: ""
+    ips: []
+    permissions:
+      - action: api
+      - action: read
+      - action: publish
 
-###############################################
-# RTSP server
-
-rtsp: yes
+rtsp: true
 rtspAddress: :8554
-protocols: [tcp]
-encryption: no
-readTimeout: 10s
-writeTimeout: 10s
 
-###############################################
-# HLS server
-
-hls: yes
+hls: true
 hlsAddress: :8888
-hlsAlwaysRemux: no
-hlsVariant: lowLatency
+hlsVariant: mpegts
 hlsSegmentCount: 3
 hlsSegmentDuration: 2s
-hlsPartDuration: 200ms
-hlsSegmentMaxSize: 50MB
-hlsAllowOrigin: '*'
+hlsAllowOrigins:
+  - https://sistema-antifurto.vercel.app
+  - http://localhost:3000
+  - http://localhost:5173
 
-###############################################
-# Outros servidores desabilitados
-
-rtmp: no
-webrtc: no
-srt: no
-
-###############################################
-# Paths
-# Serão adicionados dinamicamente via API REST pelo StreamManager
-
-paths: {}
+paths:
+  all_others: {}

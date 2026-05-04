@@ -61,11 +61,14 @@ if [ ! -f .env ]; then
     read -rp "  SUPABASE_ANON_KEY: " SUPABASE_ANON_KEY
   done
 
+  read -rp "  URL do frontend no Vercel (ex: https://meuapp.vercel.app) [opcional]: " FRONTEND_URL
+
   cat > .env <<EOF
 SUPABASE_URL=${SUPABASE_URL}
 SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
 PORT=3456
 MEDIAMTX_API=http://127.0.0.1:9997
+FRONTEND_URL=${FRONTEND_URL}
 EOF
 
   log ".env criado com sucesso."

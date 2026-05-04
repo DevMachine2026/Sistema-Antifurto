@@ -1,23 +1,38 @@
+import dotenv from 'dotenv';
+import path from 'path';
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
 import express, { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import cameraRoutes from './routes/cameras';
 import streamRoutes from './routes/streams';
 import { streamManager } from './lib/streamManager';
 
+// Aceita tanto VITE_SUPABASE_URL (frontend) quanto SUPABASE_URL (servidor)
+if (!process.env.SUPABASE_URL && process.env.VITE_SUPABASE_URL) {
+  process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+}
+if (!process.env.SUPABASE_ANON_KEY && process.env.VITE_SUPABASE_ANON_KEY) {
+  process.env.SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+}
+
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3456');
 
-const ALLOWED_ORIGINS = [
+const ALLOWED_ORIGINS = new Set([
   'http://localhost:3000',
   'http://localhost:5173',
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173',
-  ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : []),
-];
+  ...(process.env.FRONTEND_URL ?? process.env.VITE_FRONTEND_URL ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+]);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin ?? '';
-  if (ALLOWED_ORIGINS.includes(origin)) {
+  if (ALLOWED_ORIGINS.has(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Vary', 'Origin');
   }
@@ -40,6 +55,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 app.use(express.json());
+
+app.get('/api/health', (_req: Request, res: Response) => {
+  res.json({ ok: true, uptime: process.uptime(), version: process.version });
+});
 
 app.use('/api/cameras', cameraRoutes);
 app.use('/api/streams', streamRoutes);

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { dispatchAlertNotifications } from './notify.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -156,9 +157,13 @@ Deno.serve(async (req) => {
     const { error: txErr } = await supabase.from('transactions').insert(txRows);
     if (txErr) throw txErr;
 
-    await supabase.rpc('run_fraud_rules', {
+    const { data: newAlerts, error: rulesErr } = await supabase.rpc('run_fraud_rules', {
       p_establishment_id: settings.establishment_id,
     });
+    if (rulesErr) throw rulesErr;
+    if (newAlerts && newAlerts.length > 0) {
+      dispatchAlertNotifications(settings.establishment_id, newAlerts).catch(() => {});
+    }
 
     logInfo(ctx, 'ingest_completed', {
       establishment_id: settings.establishment_id,

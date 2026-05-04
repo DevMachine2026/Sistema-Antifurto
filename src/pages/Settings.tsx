@@ -129,17 +129,22 @@ export default function Settings() {
         setTestResult({ ok: false, msg: t('settings.requestError', { message: e.message }) });
       }
     } else if (form.whatsapp_number) {
-      await notificationService.requestPermission();
-      await notificationService.sendAlert({
-        id: crypto.randomUUID(),
-        type: 'card_gap',
-        severity: 'high',
-        description: 'TESTE: Divergência de R$ 528,82 entre PagBank e Bilheteria.',
-        context: {},
-        resolved: false,
-        createdAt: new Date().toISOString(),
-      }, { whatsapp_number: form.whatsapp_number });
-      setTestResult({ ok: true, msg: t('settings.pushSent') });
+      try {
+        const { error } = await supabase.functions.invoke('send-whatsapp', {
+          body: {
+            establishment_id: establishmentId,
+            number: form.whatsapp_number,
+            message: '✅ *Olho Vivo — TESTE*\n\nNotificação WhatsApp funcionando corretamente!\n\n_Dev Machine_',
+          },
+        });
+        if (!error) {
+          setTestResult({ ok: true, msg: t('settings.whatsappSent') });
+        } else {
+          setTestResult({ ok: false, msg: t('settings.whatsappError', { message: error.message }) });
+        }
+      } catch (e: any) {
+        setTestResult({ ok: false, msg: t('settings.requestError', { message: e.message }) });
+      }
     } else {
       setTestResult({ ok: false, msg: t('settings.noChannelConfigured') });
     }
