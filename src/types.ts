@@ -78,3 +78,22 @@ export interface AuditEvent {
   metadata: Record<string, unknown>;
   createdAt: string;
 }
+
+export type CameraType   = 'people_counting' | 'cash_register';
+export type CameraStatus = 'pending' | 'online' | 'offline';
+export type CameraBrand  = 'intelbras' | 'hikvision' | 'dahua' | 'generic';
+
+export interface Camera {
+  id: string;
+  establishmentId: string;
+  name: string;
+  cameraId: string;
+  ip?: string;
+  port: number;
+  brand: CameraBrand;
+  cameraType: CameraType;
+  status: CameraStatus;
+  lastEventAt?: string;
+  notes?: string;
+  createdAt: string;
+}

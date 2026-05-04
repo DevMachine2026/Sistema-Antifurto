@@ -1,0 +1,772 @@
+import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'motion/react';
+import {
+  Camera as CameraIcon, Plus, Clock, Trash2, Edit3,
+  Check, X, Loader2, AlertCircle, Copy,
+  ArrowLeft, Zap, CheckCircle2, Radio, HelpCircle,
+  Wifi, WifiOff, ChevronDown, ChevronRight,
+} from 'lucide-react';
+import { Camera, CameraBrand, CameraType } from '../types';
+import { cameraService } from '../services/cameraService';
+import { scanNetwork, detectLocalSubnet, slugify, checkScanCapability, ScanCapability } from '../services/networkScanner';
+import { supabase } from '../lib/supabase';
+import { getCurrentEstablishmentId } from '../lib/tenant';
+import { cn } from '../lib/utils';
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function statusDot(status: Camera['status']) {
+  if (status === 'online')  return <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />;
+  if (status === 'offline') return <span className="w-2 h-2 rounded-full bg-red-400  inline-block" />;
+  return                           <span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" />;
+}
+
+function fmtDate(iso?: string) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function useSettings() {
+  const [token, setToken] = useState('');
+  const [webhookUrl, setWebhookUrl] = useState('');
+  useEffect(() => {
+    const eid = getCurrentEstablishmentId();
+    if (!eid) return;
+    supabase.from('settings').select('webhook_token').eq('establishment_id', eid).single()
+      .then(({ data }) => {
+        if (!data) return;
+        setToken(data.webhook_token ?? '');
+        const base = import.meta.env.VITE_SUPABASE_URL?.replace(/\/$/, '') ?? '';
+        setWebhookUrl(`${base}/functions/v1/webhook-camera`);
+      });
+  }, []);
+  return { token, webhookUrl };
+}
+
+// ── CameraCard ────────────────────────────────────────────────────────────────
+
+function CameraCard({ cam, onDelete }: { cam: Camera; onDelete: () => void }) {
+  const { t } = useTranslation();
+  const brandLabel: Record<CameraBrand, string> = {
+    intelbras: 'Intelbras', hikvision: 'Hikvision', dahua: 'Dahua', generic: t('cameras.brandGeneric'),
+  };
+  const typeLabel = cam.cameraType === 'people_counting' ? t('cameras.type.counting') : t('cameras.type.cash');
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      className="rounded-xl p-4 space-y-3"
+      style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: 'rgba(79,124,255,0.1)', border: '1px solid rgba(79,124,255,0.2)' }}>
+            <CameraIcon size={15} style={{ color: 'var(--color-primary)' }} />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[14px] font-semibold text-text truncate">{cam.name}</p>
+            <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-dim)' }}>
+              ID: <span className="font-mono">{cam.cameraId}</span>
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {statusDot(cam.status)}
+          <span className="text-[11px] font-medium" style={{
+            color: cam.status === 'online' ? 'var(--color-success)' :
+                   cam.status === 'offline' ? 'var(--color-danger)' : 'var(--color-warning)',
+          }}>{t(`cameras.status.${cam.status}`)}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-[12px]">
+        {([
+          [t('cameras.brand'), brandLabel[cam.brand]],
+          [t('cameras.type.label'), typeLabel],
+          ...(cam.ip ? [['IP', `${cam.ip}:${cam.port}`]] : []),
+          [t('cameras.lastEvent'), fmtDate(cam.lastEventAt)],
+        ] as [string, string][]).map(([label, value]) => (
+          <div key={label}>
+            <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+            <p className="font-medium text-text mt-0.5 flex items-center gap-1">
+              {label === t('cameras.lastEvent') && <Clock size={10} />}
+              <span className={label === 'IP' ? 'font-mono' : ''}>{value}</span>
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <button onClick={onDelete}
+        className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
+        style={{ background: 'rgba(240,82,82,0.07)', border: '1px solid rgba(240,82,82,0.15)', color: 'var(--color-danger)' }}>
+        <Trash2 size={12} /> {t('cameras.delete')}
+      </button>
+    </motion.div>
+  );
+}
+
+// ── ConfigInstructions ────────────────────────────────────────────────────────
+
+function ConfigInstructions({ brand, webhookUrl, token, cameraId }: {
+  brand: CameraBrand; webhookUrl: string; token: string; cameraId: string;
+}) {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState<string | null>(null);
+  const brandLabel: Record<CameraBrand, string> = {
+    intelbras: 'Intelbras', hikvision: 'Hikvision', dahua: 'Dahua', generic: t('cameras.brandGeneric'),
+  };
+
+  function copy(text: string, key: string) {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  function CopyRow({ label, value, k }: { label: string; value: string; k: string }) {
+    return (
+      <div className="rounded-lg p-3 space-y-1" style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}>
+        <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>{label}</p>
+        <div className="flex items-center gap-2">
+          <code className="flex-1 text-[11px] font-mono truncate text-text">{value}</code>
+          <button onClick={() => copy(value, k)}
+            className="shrink-0 px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors"
+            style={{
+              background: copied === k ? 'rgba(16,185,129,0.15)' : 'var(--color-surface-2)',
+              color: copied === k ? 'var(--color-success)' : 'var(--color-primary)',
+              border: '1px solid var(--color-border-strong)',
+            }}>
+            {copied === k ? <Check size={11} /> : <Copy size={11} />}
+            {copied === k ? t('cameras.copied') : t('cameras.copy')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const steps: string[] = brand === 'intelbras' ? [
+    t('cameras.cfg.intelbras.1'), t('cameras.cfg.intelbras.2'),
+    t('cameras.cfg.intelbras.3', { cameraId }), t('cameras.cfg.intelbras.4'),
+  ] : brand === 'dahua' ? [
+    t('cameras.cfg.dahua.1'), t('cameras.cfg.dahua.2'),
+    t('cameras.cfg.dahua.3', { cameraId }),
+  ] : [
+    t('cameras.cfg.generic.1'), t('cameras.cfg.generic.2'),
+    t('cameras.cfg.generic.3', { cameraId }),
+  ];
+
+  return (
+    <div className="space-y-3">
+      <CopyRow label={t('cameras.cfg.endpoint')} value={webhookUrl} k="url" />
+      <CopyRow label={t('cameras.cfg.token')} value={token} k="token" />
+      <CopyRow label={t('cameras.cfg.channelId')} value={cameraId} k="id" />
+      <div className="space-y-2 pt-1">
+        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+          {t('cameras.cfg.steps', { brand: brandLabel[brand] })}
+        </p>
+        {steps.map((step, i) => (
+          <div key={i} className="flex gap-2.5 items-start">
+            <span className="shrink-0 w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center mt-0.5"
+              style={{ background: 'rgba(79,124,255,0.12)', color: 'var(--color-primary)' }}>{i + 1}</span>
+            <p className="text-[12px]" style={{ color: 'var(--color-text-dim)' }}>{step}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── BRAND DATA ────────────────────────────────────────────────────────────────
+
+const BRANDS: { id: CameraBrand; label: string; color: string; hint: string; appName: string; appSteps: string[] }[] = [
+  {
+    id: 'intelbras', label: 'Intelbras', color: 'rgba(59,130,246,0.12)',
+    hint: 'IntelbrasCAM',
+    appName: 'IntelbrasCAM',
+    appSteps: [
+      'Abra o app IntelbrasCAM no celular',
+      'Toque na câmera → "Propriedades"',
+      'Veja o campo "Endereço IP"',
+    ],
+  },
+  {
+    id: 'hikvision', label: 'Hikvision', color: 'rgba(220,38,38,0.1)',
+    hint: 'Hik-Connect',
+    appName: 'Hik-Connect',
+    appSteps: [
+      'Abra o app Hik-Connect no celular',
+      'Toque no dispositivo → ícone de engrenagem',
+      'Veja "Endereço de rede"',
+    ],
+  },
+  {
+    id: 'dahua', label: 'Dahua', color: 'rgba(245,158,11,0.1)',
+    hint: 'DMSS',
+    appName: 'DMSS',
+    appSteps: [
+      'Abra o app DMSS no celular',
+      'Toque no dispositivo → "Informações"',
+      'Veja o campo "Endereço IP"',
+    ],
+  },
+  {
+    id: 'generic', label: 'Outra marca', color: 'rgba(107,114,128,0.1)',
+    hint: 'Roteador',
+    appName: 'Painel do roteador',
+    appSteps: [
+      'Acesse 192.168.1.1 no browser',
+      'Vá em "Dispositivos conectados" ou "DHCP"',
+      'Identifique a câmera pelo nome do fabricante',
+    ],
+  },
+];
+
+// ── WIZARD ───────────────────────────────────────────────────────────────────
+
+type WizardStep = 'brand' | 'ip' | 'name' | 'configure' | 'test';
+
+function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera) => void }) {
+  const { t } = useTranslation();
+  const { token, webhookUrl } = useSettings();
+
+  const [step, setStep]               = useState<WizardStep>('brand');
+  const [brand, setBrand]             = useState<CameraBrand | null>(null);
+  const [ip, setIp]                   = useState('');
+  const [port, setPort]               = useState('80');
+  const [showHelp, setShowHelp]       = useState(false);
+  const [name, setName]               = useState('');
+  const [cameraId, setCameraId]       = useState('');
+  const [cameraType, setCameraType]   = useState<CameraType>('people_counting');
+  const [saving, setSaving]           = useState(false);
+  const [savedCam, setSavedCam]       = useState<Camera | null>(null);
+  const [formError, setFormError]     = useState('');
+  const [testResult, setTestResult]   = useState<'waiting' | 'ok' | 'timeout' | null>(null);
+  const [testing, setTesting]         = useState(false);
+
+  // scan state (optional, on-demand)
+  const [showScan, setShowScan]               = useState(false);
+  const [scanCapability, setScanCapability]   = useState<ScanCapability | null>(null);
+  const [scanning, setScanning]               = useState(false);
+  const [scanProgress, setScanProgress]       = useState(0);
+  const [rtspDevices, setRtspDevices]         = useState<string[]>([]);
+  const [subnet, setSubnet]                   = useState('192.168.1');
+  const scanAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    detectLocalSubnet().then((s) => { if (s) setSubnet(s); });
+    return () => { scanAbortRef.current?.abort(); };
+  }, []);
+
+  const selectedBrand = BRANDS.find((b) => b.id === brand);
+
+  function handleNameChange(v: string) {
+    setName(v);
+    setCameraId(slugify(v));
+  }
+
+  async function startScan() {
+    setScanning(true);
+    setRtspDevices([]);
+    setScanProgress(0);
+
+    // calibração rápida
+    const cap = await checkScanCapability(subnet);
+    setScanCapability(cap);
+    if (cap === 'blocked') { setScanning(false); return; }
+
+    const abort = new AbortController();
+    scanAbortRef.current = abort;
+
+    const found = await scanNetwork(subnet, (partial, scanned, total) => {
+      // só RTSP (porta 554) ou SDK câmera (8000, 37777)
+      const cameras = partial
+        .filter((c) => c.hasRtsp || c.openPorts.includes(8000) || c.openPorts.includes(37777))
+        .map((c) => c.ip);
+      setRtspDevices(cameras);
+      setScanProgress(Math.round((scanned / total) * 100));
+    }, abort.signal);
+
+    const cameras = found
+      .filter((c) => c.hasRtsp || c.openPorts.includes(8000) || c.openPorts.includes(37777))
+      .map((c) => c.ip);
+    setRtspDevices(cameras);
+    setScanning(false);
+  }
+
+  async function saveCamera() {
+    if (!name.trim()) { setFormError(t('cameras.errorName')); return; }
+    if (!cameraId.trim()) { setFormError(t('cameras.errorId')); return; }
+    setFormError('');
+    setSaving(true);
+    try {
+      const cam = await cameraService.addCamera({
+        name: name.trim(),
+        cameraId: cameraId.trim(),
+        ip: ip.trim() || undefined,
+        port: parseInt(port) || 80,
+        brand: brand ?? 'generic',
+        cameraType,
+      });
+      setSavedCam(cam);
+      setStep('configure');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setFormError(msg.includes('unique') ? t('cameras.errorDuplicateId') : msg);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function startTest() {
+    if (!savedCam) return;
+    setTesting(true);
+    setTestResult('waiting');
+    const ok = await cameraService.waitForFirstEvent(savedCam.cameraId, 60_000);
+    setTestResult(ok ? 'ok' : 'timeout');
+    setTesting(false);
+    if (ok) await cameraService.updateCamera(savedCam.id, { status: 'online' });
+  }
+
+  function finish() {
+    if (savedCam) onDone(savedCam);
+    onClose();
+  }
+
+  // ── renders ──────────────────────────────────────────────────────────────
+
+  function renderBrand() {
+    return (
+      <div className="space-y-3">
+        <p className="text-[13px]" style={{ color: 'var(--color-text-dim)' }}>{t('cameras.wizard.brandDesc')}</p>
+        <div className="grid grid-cols-2 gap-2">
+          {BRANDS.map((b) => (
+            <button key={b.id} onClick={() => { setBrand(b.id); setStep('ip'); }}
+              className="flex flex-col items-start p-3.5 rounded-xl text-left transition-all gap-1"
+              style={{ background: b.color, border: '1px solid var(--color-border-strong)' }}>
+              <span className="text-[15px] font-bold text-text">{b.label}</span>
+              <span className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
+                via {b.hint}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  function renderIp() {
+    return (
+      <div className="space-y-4">
+        {/* Instrução de como achar o IP */}
+        <div className="rounded-xl p-4 space-y-3"
+          style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border-strong)' }}>
+          <div className="flex items-center gap-2">
+            <HelpCircle size={15} style={{ color: 'var(--color-primary)' }} />
+            <p className="text-[13px] font-semibold text-text">
+              {t('cameras.wizard.howToFindIp', { brand: selectedBrand?.label })}
+            </p>
+          </div>
+          {selectedBrand?.appSteps.map((s, i) => (
+            <div key={i} className="flex gap-2.5 items-start">
+              <span className="shrink-0 w-5 h-5 rounded-full text-[11px] font-bold flex items-center justify-center"
+                style={{ background: 'rgba(79,124,255,0.12)', color: 'var(--color-primary)' }}>{i + 1}</span>
+              <p className="text-[12px]" style={{ color: 'var(--color-text-dim)' }}>{s}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Campo IP */}
+        <div>
+          <label className="text-[12px] font-medium" style={{ color: 'var(--color-text-dim)' }}>
+            {t('cameras.wizard.ipLabel')}
+          </label>
+          <div className="flex gap-2 mt-1.5">
+            <input value={ip} onChange={(e) => setIp(e.target.value)}
+              placeholder="192.168.1.100"
+              className="flex-1 px-3 py-2.5 rounded-lg text-[15px] font-mono"
+              style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border-strong)', color: 'var(--color-text)' }} />
+            <input value={port} onChange={(e) => setPort(e.target.value)}
+              placeholder="80"
+              className="w-16 px-3 py-2.5 rounded-lg text-[14px] font-mono text-center"
+              style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border-strong)', color: 'var(--color-text)' }} />
+          </div>
+          <p className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
+            {t('cameras.wizard.portHint')}
+          </p>
+        </div>
+
+        {/* Scan opcional */}
+        <div>
+          <button onClick={() => setShowScan((v) => !v)}
+            className="flex items-center gap-1.5 text-[12px] font-medium"
+            style={{ color: 'var(--color-primary)' }}>
+            {showScan ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+            {t('cameras.wizard.dontKnowIp')}
+          </button>
+
+          {showScan && (
+            <div className="mt-3 space-y-2 p-3 rounded-xl"
+              style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}>
+              <p className="text-[12px]" style={{ color: 'var(--color-text-dim)' }}>
+                {t('cameras.wizard.scanDesc')} <span className="font-mono">{subnet}.x</span>
+              </p>
+
+              {scanCapability === 'blocked' && (
+                <div className="flex gap-2 p-2 rounded-lg" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                  <AlertCircle size={13} className="shrink-0 mt-0.5" style={{ color: 'var(--color-warning)' }} />
+                  <p className="text-[11px]" style={{ color: 'var(--color-warning)' }}>{t('cameras.scanBlocked')}</p>
+                </div>
+              )}
+
+              {scanning ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
+                    <span>{t('cameras.scanningNet')}</span><span>{scanProgress}%</span>
+                  </div>
+                  <div className="w-full h-1 rounded-full" style={{ background: 'var(--color-surface-2)' }}>
+                    <motion.div className="h-full rounded-full" style={{ background: 'var(--color-primary)' }}
+                      animate={{ width: `${scanProgress}%` }} transition={{ duration: 0.3 }} />
+                  </div>
+                </div>
+              ) : (
+                <button onClick={startScan}
+                  className="w-full py-2 rounded-lg text-[12px] font-semibold text-white"
+                  style={{ background: 'var(--color-primary)' }}>
+                  <span className="flex items-center justify-center gap-1.5">
+                    <Wifi size={13} /> {t('cameras.startScan')}
+                  </span>
+                </button>
+              )}
+
+              {rtspDevices.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold" style={{ color: 'var(--color-success)' }}>
+                    {t('cameras.wizard.cameraFound', { count: rtspDevices.length })}
+                  </p>
+                  {rtspDevices.map((rip) => (
+                    <button key={rip} onClick={() => setIp(rip)}
+                      className={cn('w-full text-left px-3 py-2 rounded-lg text-[13px] font-mono transition-all',
+                        ip === rip ? 'ring-1 ring-primary' : '')}
+                      style={{
+                        background: ip === rip ? 'rgba(79,124,255,0.15)' : 'var(--color-surface-2)',
+                        border: '1px solid var(--color-border-strong)',
+                        color: 'var(--color-text)',
+                      }}>
+                      {ip === rip ? `✓ ${rip}` : rip}
+                    </button>
+                  ))}
+                  {!scanning && rtspDevices.length === 0 && (
+                    <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                      {t('cameras.noCandidates')}
+                    </p>
+                  )}
+                </div>
+              )}
+              {!scanning && scanCapability !== null && rtspDevices.length === 0 && scanCapability !== 'blocked' && (
+                <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                  {t('cameras.noCandidates')}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <button
+          onClick={() => { if (ip.trim()) setStep('name'); else setFormError(t('cameras.wizard.ipRequired')); }}
+          className="w-full py-3 rounded-xl text-[14px] font-semibold text-white"
+          style={{ background: 'var(--color-primary)' }}>
+          {t('cameras.wizard.continue')}
+        </button>
+        {formError && (
+          <p className="text-[12px] text-center" style={{ color: 'var(--color-danger)' }}>{formError}</p>
+        )}
+      </div>
+    );
+  }
+
+  function renderName() {
+    return (
+      <div className="space-y-4">
+        <div>
+          <label className="text-[12px] font-medium" style={{ color: 'var(--color-text-dim)' }}>
+            {t('cameras.form.name')} *
+          </label>
+          <input value={name} onChange={(e) => handleNameChange(e.target.value)}
+            placeholder={t('cameras.form.namePlaceholder')} autoFocus
+            className="w-full mt-1.5 px-3 py-2.5 rounded-lg text-[15px]"
+            style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border-strong)', color: 'var(--color-text)' }} />
+        </div>
+
+        <div>
+          <label className="text-[12px] font-medium" style={{ color: 'var(--color-text-dim)' }}>
+            {t('cameras.type.label')}
+          </label>
+          <div className="grid grid-cols-2 gap-2 mt-1.5">
+            {(['people_counting', 'cash_register'] as CameraType[]).map((type) => (
+              <button key={type} onClick={() => setCameraType(type)}
+                className="py-2.5 rounded-lg text-[12px] font-medium transition-all"
+                style={{
+                  background: cameraType === type ? 'rgba(79,124,255,0.15)' : 'var(--color-surface-alt)',
+                  border: cameraType === type ? '1px solid rgba(79,124,255,0.4)' : '1px solid var(--color-border-strong)',
+                  color: cameraType === type ? 'var(--color-primary)' : 'var(--color-text-dim)',
+                }}>
+                {type === 'people_counting' ? t('cameras.type.counting') : t('cameras.type.cash')}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ID gerado */}
+        {cameraId && (
+          <div className="px-3 py-2 rounded-lg" style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)' }}>
+            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>ID gerado</p>
+            <p className="font-mono text-[13px] mt-0.5 text-text">{cameraId}</p>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>{t('cameras.form.cameraIdHint')}</p>
+          </div>
+        )}
+
+        {formError && (
+          <div className="flex gap-2 p-2.5 rounded-lg" style={{ background: 'rgba(240,82,82,0.08)', border: '1px solid rgba(240,82,82,0.2)' }}>
+            <AlertCircle size={14} className="shrink-0 mt-0.5" style={{ color: 'var(--color-danger)' }} />
+            <p className="text-[12px]" style={{ color: 'var(--color-danger)' }}>{formError}</p>
+          </div>
+        )}
+
+        <button onClick={saveCamera} disabled={saving}
+          className="w-full py-3 rounded-xl text-[14px] font-semibold text-white disabled:opacity-60 flex items-center justify-center gap-2"
+          style={{ background: 'var(--color-primary)' }}>
+          {saving && <Loader2 size={15} className="animate-spin" />}
+          {saving ? t('cameras.saving') : t('cameras.saveAndConfigure')}
+        </button>
+      </div>
+    );
+  }
+
+  function renderConfigure() {
+    if (!savedCam) return null;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 p-3 rounded-lg"
+          style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
+          <CheckCircle2 size={15} style={{ color: 'var(--color-success)' }} />
+          <p className="text-[13px] font-medium" style={{ color: 'var(--color-success)' }}>
+            {t('cameras.savedSuccess', { name: savedCam.name })}
+          </p>
+        </div>
+        <p className="text-[13px]" style={{ color: 'var(--color-text-dim)' }}>{t('cameras.configureDesc')}</p>
+        <ConfigInstructions brand={savedCam.brand} webhookUrl={webhookUrl} token={token} cameraId={savedCam.cameraId} />
+        <button onClick={() => setStep('test')}
+          className="w-full py-3 rounded-xl text-[14px] font-semibold text-white flex items-center justify-center gap-2"
+          style={{ background: 'var(--color-primary)' }}>
+          <Zap size={15} /> {t('cameras.testConnection')}
+        </button>
+        <button onClick={finish}
+          className="w-full py-2.5 rounded-xl text-[13px] font-medium"
+          style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)', color: 'var(--color-text-dim)' }}>
+          {t('cameras.skipTest')}
+        </button>
+      </div>
+    );
+  }
+
+  function renderTest() {
+    return (
+      <div className="space-y-4">
+        <p className="text-[13px]" style={{ color: 'var(--color-text-dim)' }}>{t('cameras.testDesc')}</p>
+        <div className="p-4 rounded-xl text-center space-y-3"
+          style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border-strong)' }}>
+          {testResult === null && (
+            <button onClick={startTest}
+              className="px-6 py-3 rounded-xl text-[14px] font-semibold text-white flex items-center gap-2 mx-auto"
+              style={{ background: 'var(--color-primary)' }}>
+              <Radio size={15} /> {t('cameras.waitForEvent')}
+            </button>
+          )}
+          {testResult === 'waiting' && (
+            <div className="space-y-2">
+              <Loader2 size={28} className="animate-spin mx-auto" style={{ color: 'var(--color-primary)' }} />
+              <p className="text-[13px]" style={{ color: 'var(--color-text-dim)' }}>{t('cameras.testWaiting')}</p>
+              <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>{t('cameras.testWaitingHint')}</p>
+            </div>
+          )}
+          {testResult === 'ok' && (
+            <div className="space-y-2">
+              <CheckCircle2 size={32} className="mx-auto" style={{ color: 'var(--color-success)' }} />
+              <p className="text-[14px] font-semibold" style={{ color: 'var(--color-success)' }}>{t('cameras.testOk')}</p>
+            </div>
+          )}
+          {testResult === 'timeout' && (
+            <div className="space-y-2">
+              <WifiOff size={28} className="mx-auto" style={{ color: 'var(--color-text-muted)' }} />
+              <p className="text-[13px]" style={{ color: 'var(--color-text-dim)' }}>{t('cameras.testTimeout')}</p>
+              <button onClick={startTest} className="text-[12px] font-medium" style={{ color: 'var(--color-primary)' }}>
+                {t('cameras.testRetry')}
+              </button>
+            </div>
+          )}
+        </div>
+        <button onClick={finish}
+          className="w-full py-3 rounded-xl text-[14px] font-semibold text-white"
+          style={{ background: 'var(--color-primary)' }}>
+          {t('cameras.finish')}
+        </button>
+      </div>
+    );
+  }
+
+  const stepTitles: Record<WizardStep, string> = {
+    brand:     t('cameras.wizard.brand'),
+    ip:        t('cameras.wizard.ip', { brand: selectedBrand?.label ?? '' }),
+    name:      t('cameras.wizard.name'),
+    configure: t('cameras.wizard.configure'),
+    test:      t('cameras.wizard.test'),
+  };
+
+  const backMap: Partial<Record<WizardStep, WizardStep>> = {
+    ip: 'brand', name: 'ip', configure: 'name',
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <motion.div
+        initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 40, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 350, damping: 35 }}
+        className="w-full max-w-md max-h-[92vh] overflow-y-auto rounded-2xl"
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border-strong)' }}
+        onClick={(e) => e.stopPropagation()}>
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <div className="flex items-center gap-2">
+            {backMap[step] && (
+              <button onClick={() => { setFormError(''); setStep(backMap[step]!); }}
+                className="w-7 h-7 rounded-lg flex items-center justify-center mr-1"
+                style={{ background: 'var(--color-surface-alt)' }}>
+                <ArrowLeft size={13} style={{ color: 'var(--color-text-dim)' }} />
+              </button>
+            )}
+            <p className="text-[15px] font-bold text-text">{stepTitles[step]}</p>
+          </div>
+          <button onClick={onClose}
+            className="w-7 h-7 rounded-lg flex items-center justify-center"
+            style={{ background: 'var(--color-surface-alt)' }}>
+            <X size={14} style={{ color: 'var(--color-text-dim)' }} />
+          </button>
+        </div>
+
+        {/* Indicador de progresso */}
+        <div className="flex gap-1 px-5 pt-3">
+          {(['brand', 'ip', 'name', 'configure', 'test'] as WizardStep[]).map((s, i) => {
+            const steps: WizardStep[] = ['brand', 'ip', 'name', 'configure', 'test'];
+            const current = steps.indexOf(step);
+            return (
+              <div key={s} className="flex-1 h-0.5 rounded-full transition-all"
+                style={{ background: i <= current ? 'var(--color-primary)' : 'var(--color-border-strong)' }} />
+            );
+          })}
+        </div>
+
+        <div className="px-5 py-5">
+          <AnimatePresence mode="wait">
+            <motion.div key={step}
+              initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.15 }}>
+              {step === 'brand'     && renderBrand()}
+              {step === 'ip'        && renderIp()}
+              {step === 'name'      && renderName()}
+              {step === 'configure' && renderConfigure()}
+              {step === 'test'      && renderTest()}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
+export default function Cameras() {
+  const { t } = useTranslation();
+  const [cameras, setCameras]     = useState<Camera[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [showWizard, setShowWizard] = useState(false);
+  const [deleting, setDeleting]   = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    try { setCameras(await cameraService.getCameras()); }
+    finally { setLoading(false); }
+  }
+
+  useEffect(() => { void load(); }, []);
+
+  async function handleDelete(id: string) {
+    if (!confirm(t('cameras.deleteConfirm'))) return;
+    setDeleting(id);
+    await cameraService.deleteCamera(id);
+    setCameras((prev) => prev.filter((c) => c.id !== id));
+    setDeleting(null);
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[22px] font-bold text-text">{t('cameras.title')}</h1>
+          <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-text-dim)' }}>{t('cameras.subtitle')}</p>
+        </div>
+        <button onClick={() => setShowWizard(true)}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white"
+          style={{ background: 'var(--color-primary)' }}>
+          <Plus size={15} /> {t('cameras.addCamera')}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-16">
+          <Loader2 size={24} className="animate-spin" style={{ color: 'var(--color-text-muted)' }} />
+        </div>
+      ) : cameras.length === 0 ? (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="text-center py-16 space-y-4 rounded-xl"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+          <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center"
+            style={{ background: 'rgba(79,124,255,0.1)', border: '1px solid rgba(79,124,255,0.2)' }}>
+            <CameraIcon size={24} style={{ color: 'var(--color-primary)' }} />
+          </div>
+          <div>
+            <p className="text-[16px] font-bold text-text">{t('cameras.empty.title')}</p>
+            <p className="text-[13px] mt-1 max-w-xs mx-auto" style={{ color: 'var(--color-text-dim)' }}>{t('cameras.empty.desc')}</p>
+          </div>
+          <button onClick={() => setShowWizard(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white"
+            style={{ background: 'var(--color-primary)' }}>
+            {t('cameras.empty.cta')}
+          </button>
+        </motion.div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {cameras.map((cam) => (
+            <div key={cam.id} className={cn(deleting === cam.id ? 'opacity-50 pointer-events-none' : '')}>
+              <CameraCard cam={cam} onDelete={() => handleDelete(cam.id)} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {showWizard && (
+          <Wizard
+            onClose={() => setShowWizard(false)}
+            onDone={(cam) => setCameras((prev) => [...prev.filter((c) => c.id !== cam.id), cam])}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
