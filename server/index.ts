@@ -1,5 +1,8 @@
 import express, { Request, Response, NextFunction } from 'express';
+import { createClient } from '@supabase/supabase-js';
 import cameraRoutes from './routes/cameras';
+import streamRoutes from './routes/streams';
+import { streamManager } from './lib/streamManager';
 
 const app = express();
 const PORT = parseInt(process.env.PORT ?? '3456');
@@ -39,7 +42,30 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.use(express.json());
 
 app.use('/api/cameras', cameraRoutes);
+app.use('/api/streams', streamRoutes);
 
-app.listen(PORT, () => {
+async function syncCamerasFromSupabase(): Promise<void> {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_ANON_KEY;
+  if (!url || !key) {
+    console.warn('[streams] SUPABASE_URL/KEY not set — skipping stream sync');
+    return;
+  }
+  const db = createClient(url, key);
+  const { data, error } = await db
+    .from('cameras')
+    .select('camera_id, ip, port, brand, status')
+    .eq('status', 'online');
+  if (error) {
+    console.error('[streams] Supabase query error:', error.message);
+    return;
+  }
+  await streamManager.syncStreams(data ?? []);
+  console.log(`[streams] synced ${(data ?? []).length} online camera(s)`);
+}
+
+app.listen(PORT, async () => {
   console.log(`server listening on http://localhost:${PORT}`);
+  await syncCamerasFromSupabase();
+  setInterval(syncCamerasFromSupabase, 60_000);
 });

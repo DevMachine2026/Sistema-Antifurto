@@ -1,0 +1,48 @@
+# MediaMTX configuration
+# Docs: https://github.com/bluenviron/mediamtx
+
+###############################################
+# General parameters
+
+logLevel: info
+logDestinations: [stdout]
+
+# Internal REST API (usado pelo StreamManager)
+api: yes
+apiAddress: :9997
+
+###############################################
+# RTSP server
+
+rtsp: yes
+rtspAddress: :8554
+protocols: [tcp]
+encryption: no
+readTimeout: 10s
+writeTimeout: 10s
+
+###############################################
+# HLS server
+
+hls: yes
+hlsAddress: :8888
+hlsAlwaysRemux: no
+hlsVariant: lowLatency
+hlsSegmentCount: 3
+hlsSegmentDuration: 2s
+hlsPartDuration: 200ms
+hlsSegmentMaxSize: 50MB
+hlsAllowOrigin: '*'
+
+###############################################
+# Outros servidores desabilitados
+
+rtmp: no
+webrtc: no
+srt: no
+
+###############################################
+# Paths
+# Serão adicionados dinamicamente via API REST pelo StreamManager
+
+paths: {}
