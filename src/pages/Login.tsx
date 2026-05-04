@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, Loader2, LogIn, Mail, Camera, TrendingUp, AlertCircle, ShieldCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
@@ -15,24 +16,6 @@ interface LoginProps {
   onSuccess: () => void;
   onGoRegister?: () => void;
 }
-
-const FEATURES = [
-  {
-    Icon: Camera,
-    label: 'Contagem de Pessoas (R01)',
-    desc: 'Câmeras cruzam fluxo real com capacidade do salão em tempo real.',
-  },
-  {
-    Icon: TrendingUp,
-    label: 'Gap Financeiro (R02)',
-    desc: 'Reconciliação automática entre maquineta e sistema de vendas.',
-  },
-  {
-    Icon: AlertCircle,
-    label: 'Cash Ghost (R05)',
-    desc: 'Detecção de pagamentos em espécie não registrados no sistema.',
-  },
-];
 
 function FormInput({
   label,
@@ -98,9 +81,16 @@ function SuccessBox({ message }: { message: string }) {
 }
 
 function BrandPanel() {
+  const { t } = useTranslation();
+
+  const features = [
+    { Icon: Camera,      label: t('login.features.r01.label'), desc: t('login.features.r01.desc') },
+    { Icon: TrendingUp,  label: t('login.features.r02.label'), desc: t('login.features.r02.desc') },
+    { Icon: AlertCircle, label: t('login.features.r05.label'), desc: t('login.features.r05.desc') },
+  ];
+
   return (
     <aside className="hidden lg:flex w-[440px] xl:w-[520px] shrink-0 flex-col justify-between bg-surface border-r border-border p-10 xl:p-12 relative overflow-hidden">
-      {/* Grid decorativo */}
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.025]"
         style={{
@@ -108,10 +98,8 @@ function BrandPanel() {
             'repeating-linear-gradient(0deg,#fff 0,#fff 1px,transparent 1px,transparent 48px),repeating-linear-gradient(90deg,#fff 0,#fff 1px,transparent 1px,transparent 48px)',
         }}
       />
-      {/* Gradiente suave no canto */}
       <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-t from-primary/5 to-transparent" />
 
-      {/* Logo */}
       <div className="relative flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
           <ShieldCheck size={16} className="text-primary" />
@@ -121,19 +109,18 @@ function BrandPanel() {
         </span>
       </div>
 
-      {/* Conteúdo central */}
       <div className="relative space-y-8">
         <div>
           <h2 className="text-[28px] xl:text-[32px] font-bold text-text leading-tight tracking-tight">
-            Controle total sobre o seu estabelecimento.
+            {t('login.brand.tagline')}
           </h2>
           <p className="text-text-dim text-[14px] mt-3 leading-relaxed max-w-sm">
-            Detecção de anomalias em tempo real cruzando câmeras, maquinetas e sistemas de bilheteria.
+            {t('login.brand.desc')}
           </p>
         </div>
 
         <div className="space-y-5">
-          {FEATURES.map(({ Icon, label, desc }) => (
+          {features.map(({ Icon, label, desc }) => (
             <div key={label} className="flex items-start gap-4">
               <div className="w-9 h-9 rounded-lg bg-surface-alt border border-border flex items-center justify-center shrink-0">
                 <Icon size={15} className="text-primary" />
@@ -147,15 +134,15 @@ function BrandPanel() {
         </div>
       </div>
 
-      {/* Rodapé */}
       <div className="relative text-[11px] text-text-dim/60 font-mono">
-        © 2026 Dev Machine · v1.0 MVP
+        {t('login.brand.copyright')}
       </div>
     </aside>
   );
 }
 
 export default function Login({ onSuccess, onGoRegister }: LoginProps) {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -184,15 +171,15 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
     e.preventDefault();
     setError(null);
     const normalized = normalizeEmail(email);
-    if (!isValidEmail(normalized)) { setError('Informe um email válido.'); return; }
+    if (!isValidEmail(normalized)) { setError(t('errors.invalidEmail')); return; }
     if (password.length < PASSWORD_MIN || password.length > PASSWORD_MAX) {
-      setError(`Senha deve ter entre ${PASSWORD_MIN} e ${PASSWORD_MAX} caracteres.`);
+      setError(t('errors.passwordRange', { min: PASSWORD_MIN, max: PASSWORD_MAX }));
       return;
     }
     setLoading(true);
     const { error: signInError } = await supabase.auth.signInWithPassword({ email: normalized, password });
     setLoading(false);
-    if (signInError) { setError('Email ou senha inválidos.'); return; }
+    if (signInError) { setError(t('errors.invalidCredentials')); return; }
     onSuccess();
   }
 
@@ -200,13 +187,13 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
     e.preventDefault();
     setError(null);
     const normalized = normalizeEmail(forgotEmail);
-    if (!isValidEmail(normalized)) { setError('Informe um email válido.'); return; }
+    if (!isValidEmail(normalized)) { setError(t('errors.invalidEmail')); return; }
     setForgotLoading(true);
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalized, {
       redirectTo: `${window.location.origin}${window.location.pathname}`,
     });
     setForgotLoading(false);
-    if (resetError) { setError('Não foi possível enviar o email. Tente novamente.'); return; }
+    if (resetError) { setError(t('errors.cantSendEmail')); return; }
     setForgotSent(true);
   }
 
@@ -214,14 +201,14 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
     e.preventDefault();
     setError(null);
     if (newPassword.length < PASSWORD_MIN || newPassword.length > PASSWORD_MAX) {
-      setError(`Senha deve ter entre ${PASSWORD_MIN} e ${PASSWORD_MAX} caracteres.`);
+      setError(t('errors.passwordRange', { min: PASSWORD_MIN, max: PASSWORD_MAX }));
       return;
     }
-    if (newPassword !== confirmPassword) { setError('As senhas não coincidem.'); return; }
+    if (newPassword !== confirmPassword) { setError(t('errors.passwordsDontMatch')); return; }
     setResetLoading(true);
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
     setResetLoading(false);
-    if (updateError) { setError('Não foi possível atualizar a senha. Solicite um novo link.'); return; }
+    if (updateError) { setError(t('errors.cantUpdatePassword')); return; }
     window.history.replaceState(null, '', window.location.pathname);
     setView('login');
     setNewPassword('');
@@ -236,7 +223,6 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
       <BrandPanel />
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-sm">
-          {/* Logo mobile */}
           <div className="lg:hidden flex items-center gap-2 mb-10">
             <div className="w-7 h-7 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center">
               <ShieldCheck size={14} className="text-primary" />
@@ -255,12 +241,12 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
     return pageWrapper(
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-text tracking-tight">Defina nova senha</h1>
-          <p className="text-text-dim text-sm mt-1">Escolha uma senha segura para sua conta.</p>
+          <h1 className="text-2xl font-bold text-text tracking-tight">{t('login.reset.title')}</h1>
+          <p className="text-text-dim text-sm mt-1">{t('login.reset.subtitle')}</p>
         </div>
 
         <form onSubmit={handleResetSubmit} className="space-y-4">
-          <FormInput label="Nova senha">
+          <FormInput label={t('login.reset.newPassword')}>
             <div className="relative">
               <input
                 type={showNewPassword ? 'text' : 'password'}
@@ -269,17 +255,17 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
                 required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
                 autoComplete="new-password"
                 className={inputCls()}
-                placeholder={`Mínimo ${PASSWORD_MIN} caracteres`}
+                placeholder={t('common.minChars', { count: PASSWORD_MIN })}
               />
               <button type="button" tabIndex={-1} onClick={() => setShowNewPassword(v => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text transition-colors"
-                aria-label={showNewPassword ? 'Ocultar' : 'Mostrar'}>
+                aria-label={showNewPassword ? t('common.hide') : t('common.show')}>
                 {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </FormInput>
 
-          <FormInput label="Confirmar senha">
+          <FormInput label={t('login.reset.confirmPassword')}>
             <div className="relative">
               <input
                 type={showConfirmPassword ? 'text' : 'password'}
@@ -288,18 +274,18 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
                 required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
                 autoComplete="new-password"
                 className={inputCls()}
-                placeholder="Repita a senha"
+                placeholder={t('login.reset.repeatPassword')}
               />
               <button type="button" tabIndex={-1} onClick={() => setShowConfirmPassword(v => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text transition-colors"
-                aria-label={showConfirmPassword ? 'Ocultar' : 'Mostrar'}>
+                aria-label={showConfirmPassword ? t('common.hide') : t('common.show')}>
                 {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </FormInput>
 
           {error && <ErrorBox message={error} />}
-          <PrimaryButton loading={resetLoading} label="Salvar senha" icon={ShieldCheck} />
+          <PrimaryButton loading={resetLoading} label={t('login.reset.saveButton')} icon={ShieldCheck} />
         </form>
       </div>
     );
@@ -309,21 +295,21 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
     return pageWrapper(
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-text tracking-tight">Recuperar acesso</h1>
-          <p className="text-text-dim text-sm mt-1">Enviaremos um link para redefinir sua senha.</p>
+          <h1 className="text-2xl font-bold text-text tracking-tight">{t('login.forgot.title')}</h1>
+          <p className="text-text-dim text-sm mt-1">{t('login.forgot.subtitle')}</p>
         </div>
 
         {forgotSent ? (
           <div className="space-y-4">
-            <SuccessBox message="Se esse email estiver cadastrado, você receberá as instruções em instantes. Verifique a caixa de spam." />
+            <SuccessBox message={t('login.forgot.emailSentMsg')} />
             <button type="button" onClick={() => { setView('login'); setError(null); setForgotSent(false); }}
               className="w-full text-center text-sm text-primary font-semibold hover:underline">
-              Voltar ao login
+              {t('login.forgot.backToLogin')}
             </button>
           </div>
         ) : (
           <form onSubmit={handleForgotSubmit} className="space-y-4">
-            <FormInput label="Email">
+            <FormInput label={t('common.email')}>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim/50" size={15} />
                 <input
@@ -331,17 +317,17 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(filterEmailInput(e.target.value))}
                   onBlur={() => setForgotEmail(v => normalizeEmail(v))}
-                  required className={cn(inputCls(), 'pl-10')} placeholder="seu@email.com"
+                  required className={cn(inputCls(), 'pl-10')} placeholder={t('login.emailPlaceholder')}
                 />
               </div>
             </FormInput>
 
             {error && <ErrorBox message={error} />}
-            <PrimaryButton loading={forgotLoading} label="Enviar link de recuperação" icon={Mail} />
+            <PrimaryButton loading={forgotLoading} label={t('login.forgot.sendButton')} icon={Mail} />
 
             <button type="button" onClick={() => { setView('login'); setError(null); }}
               className="w-full text-center text-sm text-text-dim hover:text-text transition-colors">
-              Voltar ao login
+              {t('login.forgot.backToLogin')}
             </button>
           </form>
         )}
@@ -352,14 +338,14 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
   return pageWrapper(
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-text tracking-tight">Acesso à Plataforma</h1>
-        <p className="text-text-dim text-sm mt-1">Entre com suas credenciais para continuar.</p>
+        <h1 className="text-2xl font-bold text-text tracking-tight">{t('login.title')}</h1>
+        <p className="text-text-dim text-sm mt-1">{t('login.subtitle')}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <FormInput
-          label="Email"
-          error={email && !isValidEmail(normalizeEmail(email)) ? 'Formato de email inválido.' : undefined}
+          label={t('common.email')}
+          error={email && !isValidEmail(normalizeEmail(email)) ? t('errors.invalidEmailFormat') : undefined}
         >
           <div className="relative">
             <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-text-dim/50" size={15} />
@@ -370,19 +356,19 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
               onBlur={() => setEmail(v => normalizeEmail(v))}
               required
               className={cn(inputCls(email !== '' && !isValidEmail(normalizeEmail(email))), 'pl-10')}
-              placeholder="seu@email.com"
+              placeholder={t('login.emailPlaceholder')}
               maxLength={EMAIL_MAX}
             />
           </div>
         </FormInput>
 
         <FormInput
-          label="Senha"
+          label={t('common.password')}
           hint={
             <button type="button"
               onClick={() => { setForgotEmail(normalizeEmail(email)); setView('forgot'); setError(null); setForgotSent(false); }}
               className="text-[11px] font-bold text-primary hover:underline">
-              Esqueci minha senha
+              {t('login.forgotPassword')}
             </button>
           }
         >
@@ -394,12 +380,12 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
               required minLength={PASSWORD_MIN} maxLength={PASSWORD_MAX}
               autoComplete="current-password"
               className={cn(inputCls(), 'pr-11')}
-              placeholder={`Mínimo ${PASSWORD_MIN} caracteres`}
+              placeholder={t('common.minChars', { count: PASSWORD_MIN })}
             />
             <button type="button" tabIndex={-1}
               onClick={() => setShowPassword(v => !v)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dim hover:text-text transition-colors"
-              aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}>
+              aria-label={showPassword ? t('common.hidePassword') : t('common.showPassword')}>
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
           </div>
@@ -407,15 +393,15 @@ export default function Login({ onSuccess, onGoRegister }: LoginProps) {
 
         {error && <ErrorBox message={error} />}
 
-        <PrimaryButton loading={loading} label="Entrar" icon={LogIn} />
+        <PrimaryButton loading={loading} label={t('login.loginButton')} icon={LogIn} />
       </form>
 
       {onGoRegister && (
         <div className="pt-2 text-center">
-          <span className="text-sm text-text-dim">Ainda não tem conta? </span>
+          <span className="text-sm text-text-dim">{t('login.noAccount')} </span>
           <button type="button" onClick={onGoRegister}
             className="text-sm text-primary font-semibold hover:underline">
-            Cadastrar meu comércio
+            {t('app.registerMyStore')}
           </button>
         </div>
       )}

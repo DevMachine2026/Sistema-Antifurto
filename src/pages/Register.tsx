@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Building2, Eye, EyeOff, Loader2, Mail, User } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
@@ -19,6 +20,7 @@ interface RegisterProps {
 }
 
 export default function Register({ onBack, onSuccess }: RegisterProps) {
+  const { t } = useTranslation();
   const [fullName, setFullName] = useState('');
   const [establishmentName, setEstablishmentName] = useState('');
   const [email, setEmail] = useState('');
@@ -37,28 +39,28 @@ export default function Register({ onBack, onSuccess }: RegisterProps) {
 
     const person = filterPersonName(fullName);
     if (person.length < 2) {
-      setError('Informe seu nome (mínimo 2 caracteres).');
+      setError(t('register.nameRequired'));
       return;
     }
 
     const est = filterEstablishmentName(establishmentName);
     if (est.length < 2) {
-      setError('Informe o nome do comércio ou bar (mínimo 2 caracteres).');
+      setError(t('register.businessRequired'));
       return;
     }
 
     const normalized = normalizeEmail(email);
     if (!isValidEmail(normalized)) {
-      setError('Informe um email válido.');
+      setError(t('errors.invalidEmail'));
       return;
     }
 
     if (password.length < PASSWORD_MIN || password.length > PASSWORD_MAX) {
-      setError(`Senha deve ter entre ${PASSWORD_MIN} e ${PASSWORD_MAX} caracteres.`);
+      setError(t('errors.passwordRange', { min: PASSWORD_MIN, max: PASSWORD_MAX }));
       return;
     }
     if (password !== confirmPassword) {
-      setError('As senhas não coincidem.');
+      setError(t('errors.passwordsDontMatch'));
       return;
     }
 
@@ -80,7 +82,7 @@ export default function Register({ onBack, onSuccess }: RegisterProps) {
     setLoading(false);
 
     if (signUpError) {
-      setError(signUpError.message || 'Não foi possível criar a conta.');
+      setError(signUpError.message || t('register.cantCreateAccount'));
       return;
     }
 
@@ -89,9 +91,7 @@ export default function Register({ onBack, onSuccess }: RegisterProps) {
       return;
     }
 
-    setInfo(
-      'Conta criada. Se o projeto exigir confirmação por email, abra a mensagem enviada e clique no link antes de entrar.'
-    );
+    setInfo(t('register.emailConfirmation'));
   }
 
   return (
@@ -103,18 +103,15 @@ export default function Register({ onBack, onSuccess }: RegisterProps) {
           className="flex items-center gap-2 text-text-dim hover:text-text text-sm font-medium transition-colors mb-6"
         >
           <ArrowLeft size={16} />
-          Voltar ao login
+          {t('register.backToLogin')}
         </button>
-        <h1 className="text-2xl font-black uppercase tracking-tight text-text">Cadastro comercial</h1>
-        <p className="text-text-dim text-sm mt-2">
-          Para donos de bar ou comércio que vão monitorar o próprio estabelecimento. Uma conta e um
-          comércio são criados automaticamente.
-        </p>
+        <h1 className="text-2xl font-black uppercase tracking-tight text-text">{t('register.title')}</h1>
+        <p className="text-text-dim text-sm mt-2">{t('register.desc')}</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <label className="block">
             <span className="text-[11px] uppercase font-black tracking-widest text-text-dim block mb-2">
-              Seu nome
+              {t('register.yourName')}
             </span>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" size={16} />
@@ -127,14 +124,14 @@ export default function Register({ onBack, onSuccess }: RegisterProps) {
                 minLength={2}
                 maxLength={120}
                 className="w-full bg-surface-alt border border-border rounded pl-10 pr-3 py-2.5 text-text focus:outline-none focus:border-primary"
-                placeholder="Nome do responsável"
+                placeholder={t('register.namePlaceholder')}
               />
             </div>
           </label>
 
           <label className="block">
             <span className="text-[11px] uppercase font-black tracking-widest text-text-dim block mb-2">
-              Nome do comércio
+              {t('register.businessName')}
             </span>
             <div className="relative">
               <Building2
@@ -150,14 +147,14 @@ export default function Register({ onBack, onSuccess }: RegisterProps) {
                 minLength={2}
                 maxLength={120}
                 className="w-full bg-surface-alt border border-border rounded pl-10 pr-3 py-2.5 text-text focus:outline-none focus:border-primary"
-                placeholder="Ex.: Bar do Centro"
+                placeholder={t('register.businessPlaceholder')}
               />
             </div>
           </label>
 
           <label className="block">
             <span className="text-[11px] uppercase font-black tracking-widest text-text-dim block mb-2">
-              Email
+              {t('common.email')}
             </span>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-text-dim" size={16} />
@@ -180,13 +177,13 @@ export default function Register({ onBack, onSuccess }: RegisterProps) {
               />
             </div>
             {email && !isValidEmail(normalizeEmail(email)) && (
-              <p className="text-warning text-xs mt-1">Formato de email inválido.</p>
+              <p className="text-warning text-xs mt-1">{t('errors.invalidEmailFormat')}</p>
             )}
           </label>
 
           <label className="block">
             <span className="text-[11px] uppercase font-black tracking-widest text-text-dim block mb-2">
-              Senha
+              {t('common.password')}
             </span>
             <div className="relative">
               <input
@@ -198,14 +195,14 @@ export default function Register({ onBack, onSuccess }: RegisterProps) {
                 maxLength={PASSWORD_MAX}
                 autoComplete="new-password"
                 className="w-full bg-surface-alt border border-border rounded px-3 py-2.5 pr-11 text-text focus:outline-none focus:border-primary"
-                placeholder={`Mínimo ${PASSWORD_MIN} caracteres`}
+                placeholder={t('common.minChars', { count: PASSWORD_MIN })}
               />
               <button
                 type="button"
                 tabIndex={-1}
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-text-dim hover:text-text rounded"
-                aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                aria-label={showPassword ? t('common.hidePassword') : t('common.showPassword')}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -214,7 +211,7 @@ export default function Register({ onBack, onSuccess }: RegisterProps) {
 
           <label className="block">
             <span className="text-[11px] uppercase font-black tracking-widest text-text-dim block mb-2">
-              Confirmar senha
+              {t('common.confirmPassword')}
             </span>
             <div className="relative">
               <input
@@ -226,14 +223,14 @@ export default function Register({ onBack, onSuccess }: RegisterProps) {
                 maxLength={PASSWORD_MAX}
                 autoComplete="new-password"
                 className="w-full bg-surface-alt border border-border rounded px-3 py-2.5 pr-11 text-text focus:outline-none focus:border-primary"
-                placeholder="Repita a senha"
+                placeholder={t('login.reset.repeatPassword')}
               />
               <button
                 type="button"
                 tabIndex={-1}
                 onClick={() => setShowConfirm((v) => !v)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-text-dim hover:text-text rounded"
-                aria-label={showConfirm ? 'Ocultar senha' : 'Mostrar senha'}
+                aria-label={showConfirm ? t('common.hidePassword') : t('common.showPassword')}
               >
                 {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -258,10 +255,9 @@ export default function Register({ onBack, onSuccess }: RegisterProps) {
             className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-primary text-white rounded font-black text-[11px] uppercase tracking-widest disabled:opacity-50"
           >
             {loading ? <Loader2 size={14} className="animate-spin" /> : null}
-            Criar conta
+            {t('register.createAccount')}
           </button>
         </form>
-
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Copy, Check, Wifi, WifiOff, Camera, Banknote, ShoppingBag, RefreshCw, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
@@ -33,18 +34,20 @@ function CopyButton({ text }: { text: string }) {
 }
 
 function StatusBadge({ active }: { active: boolean }) {
+  const { t } = useTranslation();
   return (
     <div className={cn(
       'flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded',
       active ? 'bg-success/10 text-success' : 'bg-surface-alt text-text-dim'
     )}>
       {active ? <Wifi size={11} /> : <WifiOff size={11} />}
-      {active ? 'Ativo' : 'Aguardando'}
+      {active ? t('common.active') : t('integrations.waiting')}
     </div>
   );
 }
 
 export default function Integrations() {
+  const { t } = useTranslation();
   const establishmentId = getCurrentEstablishmentId();
   const [token, setToken] = useState('');
   const [loading, setLoading] = useState(true);
@@ -95,9 +98,7 @@ export default function Integrations() {
       eventType: 'webhook_token.regenerated',
       targetType: 'settings',
       targetId: establishmentId,
-      metadata: {
-        token_preview: `${newToken.slice(0, 6)}...${newToken.slice(-4)}`,
-      },
+      metadata: { token_preview: `${newToken.slice(0, 6)}...${newToken.slice(-4)}` },
     });
     setToken(newToken);
     setRegenerating(false);
@@ -108,8 +109,8 @@ export default function Integrations() {
   const integrations = [
     {
       key: 'camera',
-      label: 'Câmera Contagem de Pessoas',
-      sublabel: 'ISAPI · ONVIF · Raspberry Pi',
+      label: t('integrations.camera.label'),
+      sublabel: t('integrations.camera.sublabel'),
       icon: Camera,
       color: 'text-primary',
       fn: 'webhook-camera',
@@ -148,8 +149,8 @@ Content-Type: application/json
     },
     {
       key: 'cash',
-      label: 'Detecção de Espécie',
-      sublabel: 'Raspberry Pi + OpenCV',
+      label: t('integrations.cash.label'),
+      sublabel: t('integrations.cash.sublabel'),
       icon: Banknote,
       color: 'text-warning',
       fn: 'webhook-cash',
@@ -170,8 +171,8 @@ Content-Type: application/json
     },
     {
       key: 'st',
-      label: 'Sistema de Vendas / PDV',
-      sublabel: 'Webhook · API · PDF / CSV',
+      label: t('integrations.st.label'),
+      sublabel: t('integrations.st.sublabel'),
       icon: ShoppingBag,
       color: 'text-success',
       fn: 'webhook-st-ingressos',
@@ -197,20 +198,21 @@ Content-Type: application/json
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text uppercase tracking-tight">Integrações</h2>
-          <p className="text-text-dim text-sm mt-1">Webhooks para câmeras IP, Raspberry Pi e sistema de vendas (PDV).</p>
+          <h2 className="text-2xl font-bold text-text uppercase tracking-tight">{t('integrations.title')}</h2>
+          <p className="text-text-dim text-sm mt-1">{t('integrations.subtitle')}</p>
         </div>
         <button onClick={load} disabled={loading} className="flex items-center gap-2 px-3 py-2 bg-surface-alt border border-border rounded text-[10px] uppercase font-black tracking-widest text-text-dim hover:text-text transition-colors disabled:opacity-50">
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Atualizar
+          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> {t('common.refresh')}
         </button>
       </div>
 
-      {/* Token */}
       <div className="bg-surface border border-border rounded-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-[12px] uppercase font-black tracking-widest text-text">Token de Autenticação</h3>
-            <p className="text-[11px] text-text-dim mt-1">Use este token no header <span className="font-mono text-primary">Authorization: Bearer ...</span> de todas as requisições.</p>
+            <h3 className="text-[12px] uppercase font-black tracking-widest text-text">{t('integrations.authToken')}</h3>
+            <p className="text-[11px] text-text-dim mt-1">
+              {t('integrations.authTokenDesc')}
+            </p>
           </div>
           <button
             onClick={regenerateToken}
@@ -218,7 +220,7 @@ Content-Type: application/json
             className="flex items-center gap-2 px-3 py-2 bg-danger/10 border border-danger/20 rounded text-[10px] uppercase font-black tracking-widest text-danger hover:bg-danger/20 transition-colors disabled:opacity-50"
           >
             {regenerating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            Regenerar
+            {t('integrations.regenerate')}
           </button>
         </div>
         {loading ? (
@@ -231,7 +233,6 @@ Content-Type: application/json
         )}
       </div>
 
-      {/* Integrations */}
       <div className="space-y-4">
         {integrations.map(({ key, label, sublabel, icon: Icon, color, fn, status: s, payload }) => (
           <IntegrationCard
@@ -265,6 +266,7 @@ interface CardProps {
 }
 
 function IntegrationCard({ label, sublabel, icon: Icon, color, url, token, status, payload, loading }: CardProps) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const active = !!status.lastEvent;
 
@@ -282,7 +284,10 @@ function IntegrationCard({ label, sublabel, icon: Icon, color, url, token, statu
           <p className="text-[11px] text-text-dim mt-0.5">{sublabel}</p>
           {!loading && active && (
             <p className="text-[10px] text-text-dim mt-1 font-mono">
-              Último evento: {new Date(status.lastEvent!).toLocaleString('pt-BR')} · {status.count} total
+              {t('integrations.lastEvent', {
+                date: new Date(status.lastEvent!).toLocaleString('pt-BR'),
+                count: status.count,
+              })}
             </p>
           )}
         </div>
@@ -290,25 +295,23 @@ function IntegrationCard({ label, sublabel, icon: Icon, color, url, token, statu
           onClick={() => setOpen(v => !v)}
           className="shrink-0 text-[10px] uppercase font-black tracking-widest text-text-dim hover:text-text border border-border rounded px-3 py-1.5 hover:border-primary/40 transition-all"
         >
-          {open ? 'Fechar' : 'Ver docs'}
+          {open ? t('integrations.closeDocs') : t('integrations.showDocs')}
         </button>
       </div>
 
       {open && (
         <div className="border-t border-border p-5 space-y-4 bg-surface-alt/30">
-          {/* URL */}
           <div>
-            <p className="text-[10px] uppercase font-black text-text-dim tracking-widest mb-2">Endpoint</p>
+            <p className="text-[10px] uppercase font-black text-text-dim tracking-widest mb-2">{t('integrations.endpoint')}</p>
             <div className="flex items-center gap-2 bg-surface border border-border rounded px-3 py-2">
               <code className="flex-1 font-mono text-xs text-primary break-all">{url}</code>
               <CopyButton text={url} />
             </div>
           </div>
 
-          {/* Payload */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] uppercase font-black text-text-dim tracking-widest">Payload</p>
+              <p className="text-[10px] uppercase font-black text-text-dim tracking-widest">{t('integrations.payload')}</p>
               <CopyButton text={payload.replace(/{TOKEN}/g, token)} />
             </div>
             <pre className="bg-surface border border-border rounded p-4 font-mono text-[11px] text-text-dim overflow-auto max-h-64 leading-relaxed whitespace-pre-wrap">

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { History, Loader2, ShieldCheck } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { auditService } from '../services/auditService';
 import { AuditEvent } from '../types';
 
 export default function AuditTrail() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [events, setEvents] = useState<AuditEvent[]>([]);
 
@@ -34,25 +36,25 @@ export default function AuditTrail() {
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text uppercase tracking-tight">Trilha de Auditoria</h2>
-          <p className="text-text-dim text-sm">Registro de ações críticas operacionais por estabelecimento.</p>
+          <h2 className="text-2xl font-bold text-text uppercase tracking-tight">{t('auditTrail.title')}</h2>
+          <p className="text-text-dim text-sm">{t('auditTrail.subtitle')}</p>
         </div>
       </div>
 
       {events.length === 0 ? (
         <div className="bg-surface border border-border rounded-lg p-10 text-center">
           <ShieldCheck className="mx-auto text-success mb-3" size={28} />
-          <p className="text-text font-bold uppercase text-sm">Sem eventos de auditoria</p>
-          <p className="text-text-dim text-xs mt-1">Eventos aparecem aqui após resolução de alertas e mudanças críticas.</p>
+          <p className="text-text font-bold uppercase text-sm">{t('auditTrail.noEvents')}</p>
+          <p className="text-text-dim text-xs mt-1">{t('auditTrail.noEventsDesc')}</p>
         </div>
       ) : (
         <div className="bg-surface border border-border rounded-lg overflow-hidden">
           <div className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-border text-[10px] uppercase font-black tracking-widest text-text-dim">
-            <div className="col-span-3">Quando</div>
-            <div className="col-span-3">Evento</div>
-            <div className="col-span-2">Ator</div>
-            <div className="col-span-2">Alvo</div>
-            <div className="col-span-2">Detalhes</div>
+            <div className="col-span-3">{t('auditTrail.cols.when')}</div>
+            <div className="col-span-3">{t('auditTrail.cols.event')}</div>
+            <div className="col-span-2">{t('auditTrail.cols.actor')}</div>
+            <div className="col-span-2">{t('auditTrail.cols.target')}</div>
+            <div className="col-span-2">{t('auditTrail.cols.details')}</div>
           </div>
           {events.map((event) => (
             <div key={event.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-border/60 text-xs items-center">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
 import { Users, TrendingUp, AlertCircle, Wallet } from 'lucide-react';
 import {
@@ -13,6 +14,7 @@ import { Transaction, PeopleCountEvent, Alert, ImportBatch } from '../types';
 import { format, parseISO } from 'date-fns';
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [people, setPeople] = useState<PeopleCountEvent[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -20,7 +22,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [chartReady, setChartReady] = useState(false);
 
-  useEffect(() => { setChartReady(true); }, []);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setChartReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -73,10 +78,10 @@ export default function Dashboard() {
 
   const chartData = useMemo(() => {
     const hours: Record<string, { time: string; sales: number; people: number }> = {};
-    transactions.forEach(t => {
-      const hour = format(parseISO(t.occurredAt), 'HH:00');
+    transactions.forEach(tx => {
+      const hour = format(parseISO(tx.occurredAt), 'HH:00');
       if (!hours[hour]) hours[hour] = { time: hour, sales: 0, people: 0 };
-      hours[hour].sales += t.amount;
+      hours[hour].sales += tx.amount;
     });
     people.forEach(p => {
       const hour = format(parseISO(p.recordedAt), 'HH:00');
@@ -89,7 +94,7 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center h-[50vh]">
         <div className="text-text-dim text-xs font-mono uppercase tracking-widest animate-pulse">
-          Carregando dados...
+          {t('dashboard.loading')}
         </div>
       </div>
     );
@@ -99,24 +104,24 @@ export default function Dashboard() {
     <div className="space-y-6 pb-12">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          title="Consumo (Sistemas)"
-          value={formatCurrency(transactions.filter(t => t.source === 'st_ingressos').reduce((a, t) => a + t.amount, 0))}
+          title={t('dashboard.systemConsumption')}
+          value={formatCurrency(transactions.filter(tx => tx.source === 'st_ingressos').reduce((a, tx) => a + tx.amount, 0))}
           icon={Wallet}
         />
         <MetricCard
-          title="Pagamentos (Maquineta)"
-          value={formatCurrency(transactions.filter(t => t.source === 'pagbank').reduce((a, t) => a + t.amount, 0))}
+          title={t('dashboard.cardPayments')}
+          value={formatCurrency(transactions.filter(tx => tx.source === 'pagbank').reduce((a, tx) => a + tx.amount, 0))}
           icon={TrendingUp}
         />
         <MetricCard
-          title="Gap Auditoria (R02)"
+          title={t('dashboard.auditGap')}
           value={`+ ${formatCurrency(stats.financialGap)}`}
           icon={AlertCircle}
           isDanger={stats.financialGap > 200}
         />
         <MetricCard
-          title="Clientes no Salão"
-          value={`${stats.peopleInside} pessoas`}
+          title={t('dashboard.clientsInRoom')}
+          value={t('dashboard.people', { count: stats.peopleInside })}
           icon={Users}
         />
       </div>
@@ -125,12 +130,12 @@ export default function Dashboard() {
         <div className="lg:col-span-2 bg-surface p-5 rounded-lg border border-border shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-[13px] uppercase font-semibold tracking-wider text-text">
-              DYNAMICS_CROSSING :: CONSUMO VS FLUXO
+              {t('dashboard.chartTitle')}
             </h3>
-            <div className="text-[10px] text-text-dim uppercase font-mono">Varredura: 30 min</div>
+            <div className="text-[10px] text-text-dim uppercase font-mono">{t('dashboard.scanInterval')}</div>
           </div>
-          <div className="h-[300px] w-full">
-            {chartReady && <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+          <div className="w-full">
+            {chartReady && <ResponsiveContainer width="100%" height={300} minWidth={0}>
               <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
@@ -144,29 +149,29 @@ export default function Dashboard() {
                 <YAxis axisLine={false} tickLine={false}
                   tick={{ fill: '#71717A', fontSize: 10, fontFamily: 'JetBrains Mono' }} />
                 <Tooltip contentStyle={{ backgroundColor: '#1C1C21', borderRadius: '4px', border: '1px solid #2D2D35', fontSize: '12px', fontFamily: 'JetBrains Mono' }} itemStyle={{ color: '#E4E4E7' }} />
-                <Area type="stepAfter" dataKey="sales" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorSales)" name="Vendas (R$)" />
-                <Area type="stepAfter" dataKey="people" stroke="rgba(228, 228, 231, 0.2)" strokeWidth={1} strokeDasharray="4 4" fillOpacity={0} name="Pessoas" />
+                <Area type="stepAfter" dataKey="sales" stroke="#3B82F6" strokeWidth={2} fillOpacity={1} fill="url(#colorSales)" name={t('dashboard.salesChart')} />
+                <Area type="stepAfter" dataKey="people" stroke="rgba(228, 228, 231, 0.2)" strokeWidth={1} strokeDasharray="4 4" fillOpacity={0} name={t('dashboard.peopleChart')} />
               </AreaChart>
             </ResponsiveContainer>}
           </div>
           <div className="mt-4 pt-4 border-t border-border flex gap-6">
             <div className="flex items-center gap-2 text-[11px] font-medium text-text">
-              <div className="w-2.5 h-2.5 bg-primary rounded-sm" /> Vendas Processadas
+              <div className="w-2.5 h-2.5 bg-primary rounded-sm" /> {t('dashboard.processedSales')}
             </div>
             <div className="flex items-center gap-2 text-[11px] font-medium text-text">
-              <div className="w-2.5 h-2.5 bg-text-dim/20 rounded-sm" /> Fluxo de Câmera (R01)
+              <div className="w-2.5 h-2.5 bg-text-dim/20 rounded-sm" /> {t('dashboard.cameraFlow')}
             </div>
           </div>
         </div>
 
         <div className="bg-surface rounded-lg border border-border shadow-sm flex flex-col">
           <div className="p-5 border-b border-border">
-            <h3 className="text-[13px] uppercase font-semibold tracking-wider text-text">Alertas de Anomalia</h3>
+            <h3 className="text-[13px] uppercase font-semibold tracking-wider text-text">{t('dashboard.anomalyAlerts')}</h3>
           </div>
           <div className="flex-1 overflow-auto divide-y divide-border">
             {alerts.length === 0 ? (
               <div className="p-10 text-center text-text-dim text-xs font-mono">
-                SISTEMA_LIMPO :: AGUARDANDO_EVENTOS
+                {t('dashboard.systemClean')}
               </div>
             ) : (
               alerts.slice(0, 6).map(alert => (
@@ -178,7 +183,7 @@ export default function Dashboard() {
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-semibold text-text truncate uppercase tracking-tight">{alert.description}</p>
                     <p className="text-[10px] text-text-dim uppercase mt-1 leading-relaxed">
-                      {format(parseISO(alert.createdAt), 'HH:mm')} • {alert.severity === 'high' ? 'ALTA CRITICIDADE' : 'MÉDIA'}
+                      {format(parseISO(alert.createdAt), 'HH:mm')} • {alert.severity === 'high' ? t('dashboard.highCriticality') : t('dashboard.medium')}
                     </p>
                   </div>
                 </div>
@@ -186,7 +191,7 @@ export default function Dashboard() {
             )}
           </div>
           <div className="p-4 bg-surface-alt mt-auto border-t border-border">
-            <div className="text-[10px] text-text-dim uppercase tracking-[0.5px] mb-1">Última Importação</div>
+            <div className="text-[10px] text-text-dim uppercase tracking-[0.5px] mb-1">{t('dashboard.lastImport')}</div>
             {lastBatch ? (
               <>
                 <div className="text-[12px] font-mono text-text truncate">
@@ -196,12 +201,12 @@ export default function Dashboard() {
                   {format(parseISO(lastBatch.createdAt), 'dd/MM/yy HH:mm')}
                 </div>
                 <div className={`inline-block mt-2 px-2 py-0.5 rounded bg-surface border border-border text-[10px] font-bold uppercase tracking-wider ${lastBatch.status === 'failed' ? 'text-danger border-danger/30' : 'text-success'}`}>
-                  Lote #{String(lastBatch.rowsImported).padStart(4, '0')} • {lastBatch.status === 'failed' ? 'ERRO' : 'OK'}
+                  Lote #{String(lastBatch.rowsImported).padStart(4, '0')} • {lastBatch.status === 'failed' ? t('dashboard.batchError') : t('dashboard.batchOk')}
                 </div>
               </>
             ) : (
               <div className="text-[12px] font-mono text-text-dim">
-                Nenhuma importação registrada
+                {t('dashboard.noImports')}
               </div>
             )}
           </div>

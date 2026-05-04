@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ShieldCheck, BarChart3, LogOut, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import LanguageSwitcher from '../LanguageSwitcher';
 
 interface AdminShellProps {
   children: React.ReactNode;
@@ -10,11 +12,11 @@ interface AdminShellProps {
 }
 
 export default function AdminShell({ children, onLogout, ownEstablishmentName, onSwitchToMonitoring }: AdminShellProps) {
+  const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-bg flex flex-col text-text">
-      {/* Header */}
       <header className="bg-surface border-b border-border px-4 md:px-8 h-14 md:h-16 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
@@ -24,11 +26,10 @@ export default function AdminShell({ children, onLogout, ownEstablishmentName, o
             Olho <span className="text-primary">Vivo</span>
           </span>
           <span className="hidden sm:inline ml-2 px-2 py-0.5 bg-primary/10 border border-primary/20 rounded text-[9px] font-black uppercase tracking-widest text-primary">
-            Admin
+            {t('common.admin')}
           </span>
         </div>
 
-        {/* Desktop actions */}
         <div className="hidden md:flex items-center gap-3">
           {onSwitchToMonitoring && ownEstablishmentName && (
             <button
@@ -39,26 +40,25 @@ export default function AdminShell({ children, onLogout, ownEstablishmentName, o
               {ownEstablishmentName}
             </button>
           )}
+          <LanguageSwitcher />
           <button
             onClick={onLogout}
             className="flex items-center gap-2 px-4 py-2 bg-surface-alt border border-border text-text text-[10px] font-black uppercase tracking-widest rounded hover:bg-danger/10 hover:border-danger/20 hover:text-danger transition-all"
           >
             <LogOut size={12} />
-            Sair
+            {t('common.logout')}
           </button>
         </div>
 
-        {/* Mobile hamburger */}
         <button
           className="md:hidden p-2 text-text-dim hover:text-text transition-colors"
           onClick={() => setMenuOpen(true)}
-          aria-label="Abrir menu"
+          aria-label={t('common.openMenu')}
         >
           <Menu size={22} />
         </button>
       </header>
 
-      {/* Mobile drawer */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
@@ -82,7 +82,9 @@ export default function AdminShell({ children, onLogout, ownEstablishmentName, o
             </div>
 
             <div className="flex-1 space-y-2">
-              <p className="text-[10px] uppercase font-black tracking-widest text-text-dim px-3 mb-4">Admin Plataforma</p>
+              <p className="text-[10px] uppercase font-black tracking-widest text-text-dim px-3 mb-4">
+                {t('adminShell.adminPlatform')}
+              </p>
 
               {onSwitchToMonitoring && ownEstablishmentName && (
                 <button
@@ -95,20 +97,22 @@ export default function AdminShell({ children, onLogout, ownEstablishmentName, o
               )}
             </div>
 
-            <div className="pt-6 border-t border-border">
+            <div className="pt-6 border-t border-border space-y-2">
+              <div className="px-3">
+                <LanguageSwitcher size="md" />
+              </div>
               <button
                 onClick={() => { setMenuOpen(false); onLogout(); }}
                 className="w-full flex items-center gap-3 px-3 py-3.5 rounded-lg text-base font-medium text-danger hover:bg-danger/10 transition-colors"
               >
                 <LogOut size={20} />
-                Sair da conta
+                {t('common.signOut')}
               </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Content */}
       <main className="flex-1 px-4 md:px-10 py-6 md:py-8 w-full">
         {children}
       </main>

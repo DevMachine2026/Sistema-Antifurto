@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   PlayCircle, Users, CreditCard, ShoppingBag,
@@ -18,6 +19,7 @@ interface StepResult {
 }
 
 export default function Simulator() {
+  const { t } = useTranslation();
   const establishmentId = getCurrentEstablishmentId();
   const [log, setLog] = useState<LogEntry[]>([]);
   const [people, setPeople] = useState(85);
@@ -37,7 +39,7 @@ export default function Simulator() {
 
   async function resetDemo() {
     await setStep('reset', 'loading');
-    addLog('Limpando banco de dados...', 'info');
+    addLog(t('simulator.log.clearing'), 'info');
     try {
       await supabase.from('alerts').delete().eq('establishment_id', establishmentId);
       await supabase.from('transactions').delete().eq('establishment_id', establishmentId);
@@ -47,16 +49,17 @@ export default function Simulator() {
       setCompletedSteps(new Set());
       setStepStatus({});
       setLog([]);
-      addLog('Sistema resetado. Banco limpo. Pronto para demo.', 'success');
+      addLog(t('simulator.log.resetDone'), 'success');
     } catch (e: any) {
-      addLog(`Erro ao resetar: ${e.message}`, 'error');
+      addLog(t('simulator.log.resetError', { message: e.message }), 'error');
       await setStep('reset', 'error');
     }
   }
 
   async function simulateSTIngressos() {
     await setStep('st', 'loading');
-    addLog(`Importando ${Math.ceil(stAmount / 180)} transações do Sistema de Vendas...`, 'info');
+    const count = Math.ceil(stAmount / 180);
+    addLog(t('simulator.log.importingTransactions', { count }), 'info');
     try {
       const { data: batch } = await supabase
         .from('import_batches')
@@ -64,8 +67,8 @@ export default function Simulator() {
           establishment_id: establishmentId,
           source: 'st_ingressos',
           filename: `ST_INGRESSOS_DEMO_${Date.now()}.csv`,
-          rows_total: Math.ceil(stAmount / 180),
-          rows_imported: Math.ceil(stAmount / 180),
+          rows_total: count,
+          rows_imported: count,
           rows_failed: 0,
           status: 'done',
           imported_by: 'Demo',
@@ -73,7 +76,6 @@ export default function Simulator() {
         .select()
         .single();
 
-      const count = Math.ceil(stAmount / 180);
       const perTx = stAmount / count;
       const txs = Array.from({ length: count }).map((_, i) => ({
         establishment_id: establishmentId,
@@ -87,18 +89,19 @@ export default function Simulator() {
       }));
 
       await supabase.from('transactions').insert(txs);
-      addLog(`✓ ${count} transações registradas — Total: R$ ${stAmount.toFixed(2)} (Sistema de Vendas)`, 'success');
+      addLog(t('simulator.log.stDone', { count, amount: stAmount.toFixed(2) }), 'success');
       await setStep('st', 'done');
       setCompletedSteps(prev => new Set(prev).add('st'));
     } catch (e: any) {
-      addLog(`Erro: ${e.message}`, 'error');
+      addLog(t('simulator.log.error', { message: e.message }), 'error');
       await setStep('st', 'error');
     }
   }
 
   async function simulatePagbank() {
     await setStep('pagbank', 'loading');
-    addLog(`Importando ${Math.ceil(pagbankAmount / 150)} transações do PagBank...`, 'info');
+    const count = Math.ceil(pagbankAmount / 150);
+    addLog(t('simulator.log.importingPagbank', { count }), 'info');
     try {
       const { data: batch } = await supabase
         .from('import_batches')
@@ -106,8 +109,8 @@ export default function Simulator() {
           establishment_id: establishmentId,
           source: 'pagbank',
           filename: `PAGBANK_EXTRATO_DEMO_${Date.now()}.csv`,
-          rows_total: Math.ceil(pagbankAmount / 150),
-          rows_imported: Math.ceil(pagbankAmount / 150),
+          rows_total: count,
+          rows_imported: count,
           rows_failed: 0,
           status: 'done',
           imported_by: 'Demo',
@@ -115,7 +118,6 @@ export default function Simulator() {
         .select()
         .single();
 
-      const count = Math.ceil(pagbankAmount / 150);
       const perTx = pagbankAmount / count;
       const txs = Array.from({ length: count }).map((_, i) => ({
         establishment_id: establishmentId,
@@ -129,24 +131,24 @@ export default function Simulator() {
       }));
 
       await supabase.from('transactions').insert(txs);
-      addLog(`✓ ${count} transações registradas — Total: R$ ${pagbankAmount.toFixed(2)} (PagBank)`, 'success');
+      addLog(t('simulator.log.pagbankDone', { count, amount: pagbankAmount.toFixed(2) }), 'success');
 
       const gap = Math.abs(stAmount - pagbankAmount);
       if (gap > 200) {
-        addLog(`⚡ Gap detectado: R$ ${gap.toFixed(2)} entre Sistema de Vendas e PagBank`, 'alert');
+        addLog(t('simulator.log.gapDetected', { amount: gap.toFixed(2) }), 'alert');
       }
 
       await setStep('pagbank', 'done');
       setCompletedSteps(prev => new Set(prev).add('pagbank'));
     } catch (e: any) {
-      addLog(`Erro: ${e.message}`, 'error');
+      addLog(t('simulator.log.error', { message: e.message }), 'error');
       await setStep('pagbank', 'error');
     }
   }
 
   async function simulateCamera() {
     await setStep('camera', 'loading');
-    addLog(`Câmera registrando ${people} pessoas no salão...`, 'info');
+    addLog(t('simulator.log.cameraRecording', { count: people }), 'info');
     try {
       await supabase.from('people_count_events').insert({
         establishment_id: establishmentId,
@@ -157,37 +159,37 @@ export default function Simulator() {
         recorded_at: new Date().toISOString(),
       });
 
-      addLog(`✓ Câmera: ${people} pessoas confirmadas no salão`, 'success');
+      addLog(t('simulator.log.cameraDone', { count: people }), 'success');
       await setStep('camera', 'done');
       setCompletedSteps(prev => new Set(prev).add('camera'));
     } catch (e: any) {
-      addLog(`Erro: ${e.message}`, 'error');
+      addLog(t('simulator.log.error', { message: e.message }), 'error');
       await setStep('camera', 'error');
     }
   }
 
   async function simulateCashPayment() {
     await setStep('cash', 'loading');
-    addLog('Câmera no caixa detectando pagamento em espécie...', 'info');
+    addLog(t('simulator.log.cashDetecting'), 'info');
     try {
       await dataService.addCashPaymentEvent({
         cameraId: 'cam-caixa',
         detectedAt: new Date().toISOString(),
         windowMinutes: 15,
       });
-      addLog('✓ Câmera: cédula detectada — evento registrado sem lançamento no Sistema de Vendas', 'alert');
-      addLog('⚡ R05 será verificado na próxima execução do motor de regras', 'info');
+      addLog(t('simulator.log.cashDone'), 'alert');
+      addLog(t('simulator.log.cashR05'), 'info');
       await setStep('cash', 'done');
       setCompletedSteps(prev => new Set(prev).add('cash'));
     } catch (e: any) {
-      addLog(`Erro: ${e.message}`, 'error');
+      addLog(t('simulator.log.error', { message: e.message }), 'error');
       await setStep('cash', 'error');
     }
   }
 
   async function runRules() {
     await setStep('rules', 'loading');
-    addLog('Executando motor de regras antifraude...', 'info');
+    addLog(t('simulator.log.runningRules'), 'info');
     try {
       const { data, error } = await supabase.rpc('run_fraud_rules', {
         p_establishment_id: establishmentId,
@@ -196,18 +198,18 @@ export default function Simulator() {
 
       const result = data as StepResult['alerts'];
       if (!result || result.length === 0) {
-        addLog('Motor executado — nenhuma nova anomalia detectada.', 'info');
+        addLog(t('simulator.log.noAnomalies'), 'info');
       } else {
         result.forEach((r: any) => {
-          addLog(`🚨 ALERTA DISPARADO: ${r.description}`, 'alert');
+          addLog(t('simulator.log.alertFired', { desc: r.description }), 'alert');
         });
-        addLog(`${result.length} alerta(s) criado(s) — verifique a aba ALERTAS DE FRAUDE`, 'alert');
+        addLog(t('simulator.log.alertsCreated', { count: result.length }), 'alert');
       }
 
       await setStep('rules', 'done');
       setCompletedSteps(prev => new Set(prev).add('rules'));
     } catch (e: any) {
-      addLog(`Erro: ${e.message}`, 'error');
+      addLog(t('simulator.log.error', { message: e.message }), 'error');
       await setStep('rules', 'error');
     }
   }
@@ -218,49 +220,46 @@ export default function Simulator() {
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-12">
 
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-text uppercase tracking-tight">Simulador Interativo</h2>
-          <p className="text-text-dim text-sm">Acione cada evento e veja o sistema reagir em tempo real.</p>
+          <h2 className="text-2xl font-bold text-text uppercase tracking-tight">{t('simulator.title')}</h2>
+          <p className="text-text-dim text-sm">{t('simulator.subtitle')}</p>
         </div>
         <button
           onClick={resetDemo}
           className="flex items-center gap-2 px-4 py-2 bg-surface border border-border rounded text-[11px] font-black uppercase tracking-widest text-text-dim hover:text-danger hover:border-danger/40 transition-all"
         >
           <Trash2 size={14} />
-          Reset Demo
+          {t('simulator.resetDemo')}
         </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-        {/* Painel de Controles */}
         <div className="lg:col-span-3 space-y-4">
 
-          {/* Configuração dos valores */}
           <div className="bg-surface border border-border rounded-lg p-6 space-y-5">
             <h3 className="text-[11px] uppercase font-black tracking-widest text-text-dim">
-              1. Configure o Cenário
+              {t('simulator.configureScenario')}
             </h3>
 
             <div className="space-y-2">
               <div className="flex justify-between">
                 <label className="text-[12px] font-bold text-text uppercase tracking-wider flex items-center gap-2">
-                  <Users size={14} className="text-primary" /> Pessoas no Salão (câmera)
+                  <Users size={14} className="text-primary" /> {t('simulator.peopleLabel')}
                 </label>
                 <span className="font-mono font-black text-primary">{people}</span>
               </div>
               <input type="range" min={10} max={150} value={people}
                 onChange={e => setPeople(Number(e.target.value))}
                 className="w-full accent-primary" />
-              <p className="text-[10px] text-text-dim">R01 dispara se &gt;30 pessoas sem vendas nos últimos 30 min</p>
+              <p className="text-[10px] text-text-dim">{t('simulator.r01Hint')}</p>
             </div>
 
             <div className="space-y-2">
               <div className="flex justify-between">
                 <label className="text-[12px] font-bold text-text uppercase tracking-wider flex items-center gap-2">
-                  <ShoppingBag size={14} className="text-primary" /> Total Sistema de Vendas (consumo)
+                  <ShoppingBag size={14} className="text-primary" /> {t('simulator.stLabel')}
                 </label>
                 <span className="font-mono font-black text-text">R$ {stAmount.toFixed(2)}</span>
               </div>
@@ -272,7 +271,7 @@ export default function Simulator() {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <label className="text-[12px] font-bold text-text uppercase tracking-wider flex items-center gap-2">
-                  <CreditCard size={14} className="text-primary" /> Total PagBank (maquineta)
+                  <CreditCard size={14} className="text-primary" /> {t('simulator.pagbankLabel')}
                 </label>
                 <span className="font-mono font-black text-text">R$ {pagbankAmount.toFixed(2)}</span>
               </div>
@@ -281,29 +280,26 @@ export default function Simulator() {
                 className="w-full accent-primary" />
             </div>
 
-            {/* Gap preview */}
             <div className={cn(
               "flex items-center justify-between p-3 rounded border text-sm font-mono font-black transition-all",
               gapIsHigh
                 ? "bg-danger/10 border-danger/30 text-danger"
                 : "bg-success/10 border-success/30 text-success"
             )}>
-              <span className="text-[10px] uppercase tracking-widest">Gap Financeiro (R02)</span>
-              <span>R$ {gap.toFixed(2)} {gapIsHigh ? '⚠ FRAUDE' : '✓ OK'}</span>
+              <span className="text-[10px] uppercase tracking-widest">{t('simulator.gapLabel')}</span>
+              <span>R$ {gap.toFixed(2)} {gapIsHigh ? t('simulator.fraud') : t('simulator.okStatus')}</span>
             </div>
           </div>
 
-          {/* Steps */}
           <div className="bg-surface border border-border rounded-lg p-6 space-y-3">
             <h3 className="text-[11px] uppercase font-black tracking-widest text-text-dim mb-4">
-              2. Execute os Eventos (em ordem)
+              {t('simulator.executeEvents')}
             </h3>
 
             <Step
-              id="st"
-              number={1}
-              label="Importar Sistema de Vendas"
-              description={`Registra R$ ${stAmount.toFixed(2)} em consumo no sistema de pedidos`}
+              id="st" number={1}
+              label={t('simulator.steps.st.label')}
+              description={t('simulator.steps.st.desc', { amount: stAmount.toFixed(2) })}
               icon={ShoppingBag}
               status={stepStatus['st'] || 'idle'}
               done={completedSteps.has('st')}
@@ -311,10 +307,9 @@ export default function Simulator() {
             />
 
             <Step
-              id="pagbank"
-              number={2}
-              label="Importar PagBank"
-              description={`Registra R$ ${pagbankAmount.toFixed(2)} na maquineta de cartão`}
+              id="pagbank" number={2}
+              label={t('simulator.steps.pagbank.label')}
+              description={t('simulator.steps.pagbank.desc', { amount: pagbankAmount.toFixed(2) })}
               icon={CreditCard}
               status={stepStatus['pagbank'] || 'idle'}
               done={completedSteps.has('pagbank')}
@@ -322,10 +317,9 @@ export default function Simulator() {
             />
 
             <Step
-              id="camera"
-              number={3}
-              label="Acionar Câmera"
-              description={`Registra ${people} pessoas no salão agora`}
+              id="camera" number={3}
+              label={t('simulator.steps.camera.label')}
+              description={t('simulator.steps.camera.desc', { count: people })}
               icon={Users}
               status={stepStatus['camera'] || 'idle'}
               done={completedSteps.has('camera')}
@@ -333,10 +327,9 @@ export default function Simulator() {
             />
 
             <Step
-              id="cash"
-              number={4}
-              label="Câmera Detecta Espécie"
-              description="Simula câmera no caixa identificando pagamento em dinheiro sem lançamento no sistema de vendas"
+              id="cash" number={4}
+              label={t('simulator.steps.cash.label')}
+              description={t('simulator.steps.cash.desc')}
               icon={Banknote}
               status={stepStatus['cash'] || 'idle'}
               done={completedSteps.has('cash')}
@@ -344,10 +337,9 @@ export default function Simulator() {
             />
 
             <Step
-              id="rules"
-              number={5}
-              label="Executar Motor de Regras"
-              description="Cruza todos os dados e gera alertas (R01, R02, R05)"
+              id="rules" number={5}
+              label={t('simulator.steps.rules.label')}
+              description={t('simulator.steps.rules.desc')}
               icon={PlayCircle}
               status={stepStatus['rules'] || 'idle'}
               done={completedSteps.has('rules')}
@@ -363,8 +355,10 @@ export default function Simulator() {
               >
                 <Bell size={16} />
                 <div>
-                  <p className="text-[12px] font-black uppercase tracking-widest">Próximo passo</p>
-                  <p className="text-[11px] font-medium mt-0.5">Abra a aba <strong>Alertas de Fraude</strong> para ver os alertas gerados</p>
+                  <p className="text-[12px] font-black uppercase tracking-widest">{t('simulator.nextStep')}</p>
+                  <p className="text-[11px] font-medium mt-0.5">
+                    {t('simulator.openAlertsPrefix')} <strong>{t('nav.fraudAlerts')}</strong> {t('simulator.openAlertsSuffix')}
+                  </p>
                 </div>
                 <ChevronRight size={16} className="ml-auto" />
               </motion.div>
@@ -372,14 +366,13 @@ export default function Simulator() {
           </div>
         </div>
 
-        {/* Log em tempo real */}
         <div className="lg:col-span-2 bg-surface border border-border rounded-lg flex flex-col">
           <div className="p-4 border-b border-border">
-            <h3 className="text-[11px] uppercase font-black tracking-widest text-text-dim">Log em Tempo Real</h3>
+            <h3 className="text-[11px] uppercase font-black tracking-widest text-text-dim">{t('simulator.realtimeLog')}</h3>
           </div>
           <div className="flex-1 overflow-auto p-4 space-y-2 font-mono text-[11px] min-h-[400px]">
             {log.length === 0 ? (
-              <p className="text-text-dim text-center pt-8">Aguardando eventos...</p>
+              <p className="text-text-dim text-center pt-8">{t('simulator.waitingEvents')}</p>
             ) : (
               <AnimatePresence>
                 {log.map((entry, i) => (

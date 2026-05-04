@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle, CheckCircle2, ShieldAlert, History, MapPin, Clock, MessageCircle } from 'lucide-react';
 import { dataService } from '../services/dataService';
@@ -9,6 +10,7 @@ import { cn } from '../lib/utils';
 import { Alert } from '../types';
 
 export default function AlertsPage({ establishmentName }: { establishmentName?: string }) {
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<'all' | 'unresolved' | 'resolved'>('unresolved');
   const [allAlerts, setAllAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,9 +38,7 @@ export default function AlertsPage({ establishmentName }: { establishmentName?: 
       eventType: 'alert.resolved',
       targetType: 'alert',
       targetId: id,
-      metadata: {
-        resolved_by: 'Eduardo (Proprietário)',
-      },
+      metadata: { resolved_by: 'Eduardo (Proprietário)' },
     });
     await loadAlerts();
   };
@@ -46,7 +46,7 @@ export default function AlertsPage({ establishmentName }: { establishmentName?: 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
-        <div className="text-text-dim text-xs font-mono uppercase tracking-widest animate-pulse">Carregando alertas...</div>
+        <div className="text-text-dim text-xs font-mono uppercase tracking-widest animate-pulse">{t('alerts.loading')}</div>
       </div>
     );
   }
@@ -55,13 +55,13 @@ export default function AlertsPage({ establishmentName }: { establishmentName?: 
     <div className="space-y-6 max-w-5xl mx-auto pb-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-text uppercase tracking-tight">Audit Center</h2>
-          <p className="text-text-dim text-sm font-medium">Regras de anomalia executadas pelo motor de IA local.</p>
+          <h2 className="text-2xl font-bold text-text uppercase tracking-tight">{t('alerts.title')}</h2>
+          <p className="text-text-dim text-sm font-medium">{t('alerts.subtitle')}</p>
         </div>
         <div className="flex bg-surface p-1 rounded border border-border shadow-sm self-start">
-          <FilterBtn active={filter === 'unresolved'} onClick={() => setFilter('unresolved')} label="Ativos" count={allAlerts.filter(a => !a.resolved).length} />
-          <FilterBtn active={filter === 'resolved'} onClick={() => setFilter('resolved')} label="Resolvidos" count={allAlerts.filter(a => a.resolved).length} />
-          <FilterBtn active={filter === 'all'} onClick={() => setFilter('all')} label="Todos" count={allAlerts.length} />
+          <FilterBtn active={filter === 'unresolved'} onClick={() => setFilter('unresolved')} label={t('alerts.filterActive')} count={allAlerts.filter(a => !a.resolved).length} />
+          <FilterBtn active={filter === 'resolved'} onClick={() => setFilter('resolved')} label={t('alerts.filterResolved')} count={allAlerts.filter(a => a.resolved).length} />
+          <FilterBtn active={filter === 'all'} onClick={() => setFilter('all')} label={t('alerts.filterAll')} count={allAlerts.length} />
         </div>
       </div>
 
@@ -74,8 +74,8 @@ export default function AlertsPage({ establishmentName }: { establishmentName?: 
                 <CheckCircle2 size={24} />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-text uppercase">Operação Segura</h4>
-                <p className="text-text-dim text-xs mt-1">Nenhum desvio detectado para os filtros aplicados.</p>
+                <h4 className="text-sm font-bold text-text uppercase">{t('alerts.safeOperation')}</h4>
+                <p className="text-text-dim text-xs mt-1">{t('alerts.noDeviations')}</p>
               </div>
             </motion.div>
           ) : (
@@ -110,6 +110,7 @@ interface AlertCardProps {
 }
 
 function AlertCard({ alert, onResolve, establishmentName }: AlertCardProps) {
+  const { t } = useTranslation();
   const isHigh = alert.severity === 'high';
 
   return (
@@ -133,7 +134,7 @@ function AlertCard({ alert, onResolve, establishmentName }: AlertCardProps) {
                 "text-[9px] uppercase font-black px-2 py-0.5 rounded tracking-[0.1em] border",
                 isHigh ? "bg-danger/10 text-danger border-danger/20" : "bg-warning/10 text-warning border-warning/20"
               )}>
-                {alert.severity === 'high' ? 'Crítico — Prioridade de Auditoria' : 'Médio — Investigação Recomendada'}
+                {isHigh ? t('alerts.criticalPriority') : t('alerts.mediumInvestigation')}
               </span>
               <h3 className="text-lg font-bold text-text mt-2 uppercase tracking-tight">{alert.description}</h3>
             </div>
@@ -144,24 +145,27 @@ function AlertCard({ alert, onResolve, establishmentName }: AlertCardProps) {
           </div>
 
           <p className="text-text-dim text-[13px] leading-relaxed font-medium">
-            O motor de regras detectou este comportamento anômalo baseado no cruzamento de dados de{' '}
-            {alert.type === 'card_gap' ? 'sistemas financeiros externos' : 'sensores de presença e vendas'}.
+            {t('alerts.anomalyDetected', {
+              source: alert.type === 'card_gap'
+                ? t('alerts.financialSystems')
+                : t('alerts.presenceSensors'),
+            })}
           </p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2 text-xs">
             <div className="bg-surface-alt p-3 rounded border border-border">
-              <p className="text-[10px] uppercase font-bold text-text-dim tracking-widest">Local</p>
+              <p className="text-[10px] uppercase font-bold text-text-dim tracking-widest">{t('alerts.local')}</p>
               <div className="flex items-center gap-1.5 mt-1 font-bold text-text">
-                <MapPin size={12} className="text-primary" /> {establishmentName ?? 'Estabelecimento'}
+                <MapPin size={12} className="text-primary" /> {establishmentName ?? t('common.establishment')}
               </div>
             </div>
             <div className="bg-surface-alt p-3 rounded border border-border">
-              <p className="text-[10px] uppercase font-bold text-text-dim tracking-widest">Regra_Code</p>
+              <p className="text-[10px] uppercase font-bold text-text-dim tracking-widest">{t('alerts.ruleCode')}</p>
               <div className="mt-1 font-mono font-bold text-text uppercase truncate">{alert.type}</div>
             </div>
             {alert.context?.diff && (
               <div className="bg-danger/5 p-3 rounded border border-danger/20 col-span-2">
-                <p className="text-[10px] uppercase font-bold text-danger tracking-widest">Divergência_Gap</p>
+                <p className="text-[10px] uppercase font-bold text-danger tracking-widest">{t('alerts.divergenceGap')}</p>
                 <div className="mt-1 font-mono font-black text-danger text-sm">
                   {Math.abs(alert.context.diff).toLocaleString('pt-br', { style: 'currency', currency: 'BRL' })}
                 </div>
@@ -174,20 +178,20 @@ function AlertCard({ alert, onResolve, establishmentName }: AlertCardProps) {
               <button onClick={() => onResolve(alert.id)}
                 className="bg-primary text-white px-6 py-2.5 rounded font-black uppercase text-[11px] tracking-[0.1em] hover:bg-primary/90 transition-all flex items-center gap-2 group shadow-xl shadow-primary/20">
                 <CheckCircle2 size={16} className="group-hover:scale-110 transition-transform" />
-                Auditado & Validado
+                {t('alerts.auditedValidated')}
               </button>
             )}
             <button onClick={() => window.open(notificationService.getWhatsAppLink(alert), '_blank')}
               className="bg-surface border border-border text-text-dim px-6 py-2.5 rounded font-black uppercase text-[11px] tracking-[0.1em] hover:text-success hover:border-success/50 transition-all flex items-center gap-2 group">
               <MessageCircle size={16} className="group-hover:scale-110 transition-transform" />
-              Notificar Staff
+              {t('alerts.notifyStaff')}
             </button>
           </div>
 
           {alert.resolved && (
             <div className="flex items-center gap-2 pt-2 text-success font-black text-[11px] uppercase tracking-widest">
               <History size={14} />
-              Resolvido por {alert.resolvedBy?.split(' ')[0]}
+              {t('alerts.resolvedBy', { name: alert.resolvedBy?.split(' ')[0] })}
             </div>
           )}
         </div>

@@ -1,8 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import { BookOpen, ChevronRight, HelpCircle } from 'lucide-react';
 import guideContent from '../GUIDE.md?raw';
 
 export default function Guide() {
+  const { t } = useTranslation();
+
   return (
     <div className="max-w-4xl mx-auto pb-12">
       <div className="flex items-center gap-3 mb-6">
@@ -10,8 +13,8 @@ export default function Guide() {
           <BookOpen size={24} />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-text uppercase tracking-tight">Manual de Operação</h2>
-          <p className="text-text-dim text-sm">Entenda como funcionam as regras de auditoria e hardware.</p>
+          <h2 className="text-2xl font-bold text-text uppercase tracking-tight">{t('guide.title')}</h2>
+          <p className="text-text-dim text-sm">{t('guide.subtitle')}</p>
         </div>
       </div>
 
@@ -49,24 +52,24 @@ export default function Guide() {
           </ReactMarkdown>
         </div>
       </div>
-      
+
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-surface-alt p-6 rounded border border-border border-l-4 border-l-primary">
           <div className="flex items-center gap-2 text-primary mb-2">
             <HelpCircle size={18} />
-            <span className="text-xs font-black uppercase tracking-widest">Suporte Técnico</span>
+            <span className="text-xs font-black uppercase tracking-widest">{t('guide.support.title')}</span>
           </div>
-          <p className="text-text font-bold text-sm">Problemas com as Câmeras?</p>
-          <p className="text-text-dim text-xs mt-1">Sincronize o hardware na aba Configurações.</p>
+          <p className="text-text font-bold text-sm">{t('guide.support.problem')}</p>
+          <p className="text-text-dim text-xs mt-1">{t('guide.support.hint')}</p>
         </div>
-        
+
         <div className="bg-surface-alt p-6 rounded border border-border border-l-4 border-l-success">
           <div className="flex items-center gap-2 text-success mb-2">
             <ChevronRight size={18} />
-            <span className="text-xs font-black uppercase tracking-widest">Dica de Segurança</span>
+            <span className="text-xs font-black uppercase tracking-widest">{t('guide.tip.title')}</span>
           </div>
-          <p className="text-text font-bold text-sm">Fechamento de Caixa</p>
-          <p className="text-text-dim text-xs mt-1">Sempre faça o upload do CSV do PagBank ao final de cada turno.</p>
+          <p className="text-text font-bold text-sm">{t('guide.tip.problem')}</p>
+          <p className="text-text-dim text-xs mt-1">{t('guide.tip.hint')}</p>
         </div>
       </div>
     </div>
