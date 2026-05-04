@@ -5,7 +5,7 @@ import {
   Camera as CameraIcon, Plus, Clock, Trash2, Edit3,
   Check, X, Loader2, AlertCircle, Copy,
   ArrowLeft, Zap, CheckCircle2, Radio, HelpCircle,
-  Wifi, WifiOff, ChevronDown, ChevronRight,
+  Wifi, WifiOff, ChevronDown, ChevronRight, Maximize2,
 } from 'lucide-react';
 import { Camera, CameraBrand, CameraType } from '../types';
 import { cameraService } from '../services/cameraService';
@@ -13,6 +13,7 @@ import { scanNetwork, detectLocalSubnet, slugify, checkScanCapability, ScanCapab
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
 import { cn } from '../lib/utils';
+import { CameraPlayer } from '../components/CameraPlayer';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,60 +49,124 @@ function useSettings() {
 
 function CameraCard({ cam, onDelete }: { cam: Camera; onDelete: () => void }) {
   const { t } = useTranslation();
+  const [fullscreen, setFullscreen] = useState(false);
   const brandLabel: Record<CameraBrand, string> = {
     intelbras: 'Intelbras', hikvision: 'Hikvision', dahua: 'Dahua', generic: t('cameras.brandGeneric'),
   };
   const typeLabel = cam.cameraType === 'people_counting' ? t('cameras.type.counting') : t('cameras.type.cash');
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-xl p-4 space-y-3"
-      style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: 'rgba(79,124,255,0.1)', border: '1px solid rgba(79,124,255,0.2)' }}>
-            <CameraIcon size={15} style={{ color: 'var(--color-primary)' }} />
+    <>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+        className="rounded-xl overflow-hidden"
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
+
+        {/* Player — 160px mobile / 200px desktop */}
+        <div
+          className="relative cursor-pointer group h-[160px] md:h-[200px]"
+          onClick={() => setFullscreen(true)}>
+          <div className="rounded-t-xl overflow-hidden h-full">
+            <CameraPlayer
+              cameraId={cam.cameraId}
+              ip={cam.ip}
+              status={cam.status}
+              height={undefined}
+            />
           </div>
-          <div className="min-w-0">
-            <p className="text-[14px] font-semibold text-text truncate">{cam.name}</p>
-            <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-dim)' }}>
-              ID: <span className="font-mono">{cam.cameraId}</span>
-            </p>
+          {/* expand hint on hover */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ background: 'rgba(0,0,0,0.3)' }}>
+            <Maximize2 size={20} className="text-white drop-shadow" />
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {statusDot(cam.status)}
-          <span className="text-[11px] font-medium" style={{
-            color: cam.status === 'online' ? 'var(--color-success)' :
-                   cam.status === 'offline' ? 'var(--color-danger)' : 'var(--color-warning)',
-          }}>{t(`cameras.status.${cam.status}`)}</span>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-2 text-[12px]">
-        {([
-          [t('cameras.brand'), brandLabel[cam.brand]],
-          [t('cameras.type.label'), typeLabel],
-          ...(cam.ip ? [['IP', `${cam.ip}:${cam.port}`]] : []),
-          [t('cameras.lastEvent'), fmtDate(cam.lastEventAt)],
-        ] as [string, string][]).map(([label, value]) => (
-          <div key={label}>
-            <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
-            <p className="font-medium text-text mt-0.5 flex items-center gap-1">
-              {label === t('cameras.lastEvent') && <Clock size={10} />}
-              <span className={label === 'IP' ? 'font-mono' : ''}>{value}</span>
-            </p>
+        <div className="p-4 space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: 'rgba(79,124,255,0.1)', border: '1px solid rgba(79,124,255,0.2)' }}>
+                <CameraIcon size={15} style={{ color: 'var(--color-primary)' }} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[14px] font-semibold text-text truncate">{cam.name}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-dim)' }}>
+                  ID: <span className="font-mono">{cam.cameraId}</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {statusDot(cam.status)}
+              <span className="text-[11px] font-medium" style={{
+                color: cam.status === 'online' ? 'var(--color-success)' :
+                       cam.status === 'offline' ? 'var(--color-danger)' : 'var(--color-warning)',
+              }}>{t(`cameras.status.${cam.status}`)}</span>
+            </div>
           </div>
-        ))}
-      </div>
 
-      <button onClick={onDelete}
-        className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
-        style={{ background: 'rgba(240,82,82,0.07)', border: '1px solid rgba(240,82,82,0.15)', color: 'var(--color-danger)' }}>
-        <Trash2 size={12} /> {t('cameras.delete')}
-      </button>
-    </motion.div>
+          <div className="grid grid-cols-2 gap-2 text-[12px]">
+            {([
+              [t('cameras.brand'), brandLabel[cam.brand]],
+              [t('cameras.type.label'), typeLabel],
+              ...(cam.ip ? [['IP', `${cam.ip}:${cam.port}`]] : []),
+              [t('cameras.lastEvent'), fmtDate(cam.lastEventAt)],
+            ] as [string, string][]).map(([label, value]) => (
+              <div key={label}>
+                <span className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
+                <p className="font-medium text-text mt-0.5 flex items-center gap-1">
+                  {label === t('cameras.lastEvent') && <Clock size={10} />}
+                  <span className={label === 'IP' ? 'font-mono' : ''}>{value}</span>
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={onDelete}
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
+            style={{ background: 'rgba(240,82,82,0.07)', border: '1px solid rgba(240,82,82,0.15)', color: 'var(--color-danger)' }}>
+            <Trash2 size={12} /> {t('cameras.delete')}
+          </button>
+        </div>
+      </motion.div>
+
+      {/* Fullscreen modal */}
+      <AnimatePresence>
+        {fullscreen && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(6px)' }}
+            onClick={() => setFullscreen(false)}>
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+              className="w-full max-w-3xl rounded-2xl overflow-hidden"
+              style={{ background: '#000', border: '1px solid var(--color-border-strong)' }}
+              onClick={(e) => e.stopPropagation()}>
+              {/* header */}
+              <div className="flex items-center justify-between px-4 py-3"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <span className="text-[14px] font-semibold text-white">{cam.name}</span>
+                <button onClick={() => setFullscreen(false)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center"
+                  style={{ background: 'rgba(255,255,255,0.1)' }}>
+                  <X size={14} className="text-white" />
+                </button>
+              </div>
+              {/* player — fills width, 16:9 */}
+              <div style={{ aspectRatio: '16/9', width: '100%' }}>
+                <CameraPlayer
+                  cameraId={cam.cameraId}
+                  ip={cam.ip}
+                  status={cam.status}
+                  height={undefined}
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
