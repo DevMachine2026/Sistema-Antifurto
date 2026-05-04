@@ -15,6 +15,23 @@ import { getCurrentEstablishmentId } from '../lib/tenant';
 import { cn } from '../lib/utils';
 import { CameraPlayer } from '../components/CameraPlayer';
 
+// ── types ────────────────────────────────────────────────────────────────────
+
+interface DiscoveredCamera {
+  ip: string;
+  port: number;
+  brand: string;
+  hasRtsp: boolean;
+  snapshotUrl?: string;
+  onvifProfileToken?: string;
+  manufacturer?: string;
+  model?: string;
+}
+
+const BACKEND_BRAND_LABELS: Record<string, string> = {
+  intelbras: 'Intelbras', hikvision: 'Hikvision', dahua: 'Dahua', generic: 'Genérica',
+};
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 function statusDot(status: Camera['status']) {
@@ -314,6 +331,8 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
   const [scanProgress, setScanProgress]       = useState(0);
   const [rtspDevices, setRtspDevices]         = useState<string[]>([]);
   const [subnet, setSubnet]                   = useState('192.168.1');
+  const [discoverySource, setDiscoverySource] = useState<'backend' | 'browser' | null>(null);
+  const [backendDevices, setBackendDevices]   = useState<DiscoveredCamera[]>([]);
   const scanAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -331,9 +350,27 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
   async function startScan() {
     setScanning(true);
     setRtspDevices([]);
+    setBackendDevices([]);
     setScanProgress(0);
+    setDiscoverySource(null);
 
-    // calibração rápida
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch('http://localhost:3456/api/cameras/discover', { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data: DiscoveredCamera[] = await res.json();
+        setBackendDevices(data);
+        setDiscoverySource('backend');
+        setScanning(false);
+        return;
+      }
+    } catch {
+      // backend indisponível — cai no scan do browser
+    }
+
+    setDiscoverySource('browser');
     const cap = await checkScanCapability(subnet);
     setScanCapability(cap);
     if (cap === 'blocked') { setScanning(false); return; }
@@ -342,7 +379,6 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
     scanAbortRef.current = abort;
 
     const found = await scanNetwork(subnet, (partial, scanned, total) => {
-      // só RTSP (porta 554) ou SDK câmera (8000, 37777)
       const cameras = partial
         .filter((c) => c.hasRtsp || c.openPorts.includes(8000) || c.openPorts.includes(37777))
         .map((c) => c.ip);
@@ -355,6 +391,18 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
       .map((c) => c.ip);
     setRtspDevices(cameras);
     setScanning(false);
+  }
+
+  function selectBackendCamera(cam: DiscoveredCamera) {
+    setIp(cam.ip);
+    setPort(String(cam.port || 80));
+    const brandMap: Record<string, CameraBrand> = {
+      intelbras: 'intelbras', hikvision: 'hikvision', dahua: 'dahua',
+    };
+    setBrand(brandMap[cam.brand?.toLowerCase()] ?? 'generic');
+    if (cam.manufacturer || cam.model) {
+      handleNameChange([cam.manufacturer, cam.model].filter(Boolean).join(' '));
+    }
   }
 
   async function saveCamera() {
@@ -475,7 +523,7 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
                 {t('cameras.wizard.scanDesc')} <span className="font-mono">{subnet}.x</span>
               </p>
 
-              {scanCapability === 'blocked' && (
+              {scanCapability === 'blocked' && discoverySource === 'browser' && (
                 <div className="flex gap-2 p-2 rounded-lg" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
                   <AlertCircle size={13} className="shrink-0 mt-0.5" style={{ color: 'var(--color-warning)' }} />
                   <p className="text-[11px]" style={{ color: 'var(--color-warning)' }}>{t('cameras.scanBlocked')}</p>
@@ -484,13 +532,22 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
 
               {scanning ? (
                 <div className="space-y-2">
-                  <div className="flex justify-between text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
-                    <span>{t('cameras.scanningNet')}</span><span>{scanProgress}%</span>
-                  </div>
-                  <div className="w-full h-1 rounded-full" style={{ background: 'var(--color-surface-2)' }}>
-                    <motion.div className="h-full rounded-full" style={{ background: 'var(--color-primary)' }}
-                      animate={{ width: `${scanProgress}%` }} transition={{ duration: 0.3 }} />
-                  </div>
+                  {discoverySource === 'browser' ? (
+                    <>
+                      <div className="flex justify-between text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
+                        <span>{t('cameras.scanningNet')}</span><span>{scanProgress}%</span>
+                      </div>
+                      <div className="w-full h-1 rounded-full" style={{ background: 'var(--color-surface-2)' }}>
+                        <motion.div className="h-full rounded-full" style={{ background: 'var(--color-primary)' }}
+                          animate={{ width: `${scanProgress}%` }} transition={{ duration: 0.3 }} />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex items-center justify-center gap-2 py-2">
+                      <Loader2 size={14} className="animate-spin" style={{ color: 'var(--color-primary)' }} />
+                      <span className="text-[12px]" style={{ color: 'var(--color-text-dim)' }}>Detectando câmeras...</span>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <button onClick={startScan}
@@ -502,7 +559,58 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
                 </button>
               )}
 
-              {rtspDevices.length > 0 && (
+              {/* Resultados do backend */}
+              {!scanning && discoverySource === 'backend' && backendDevices.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold" style={{ color: 'var(--color-success)' }}>
+                    {t('cameras.wizard.cameraFound', { count: backendDevices.length })}
+                  </p>
+                  {backendDevices.map((cam) => (
+                    <button key={cam.ip} onClick={() => selectBackendCamera(cam)}
+                      className={cn('w-full text-left rounded-xl overflow-hidden transition-all',
+                        ip === cam.ip ? 'ring-1 ring-primary' : '')}
+                      style={{
+                        background: ip === cam.ip ? 'rgba(79,124,255,0.1)' : 'var(--color-surface-2)',
+                        border: `1px solid ${ip === cam.ip ? 'rgba(79,124,255,0.4)' : 'var(--color-border-strong)'}`,
+                      }}>
+                      <div className="flex gap-3 p-2.5 items-center">
+                        <div className="relative w-16 h-10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center"
+                          style={{ background: 'var(--color-surface)' }}>
+                          {cam.snapshotUrl && (
+                            <img src={cam.snapshotUrl} alt=""
+                              className="absolute inset-0 w-full h-full object-cover"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          )}
+                          <CameraIcon size={16} style={{ color: 'var(--color-text-muted)' }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-mono text-[13px] text-text font-medium">{cam.ip}</p>
+                          <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-dim)' }}>
+                            {BACKEND_BRAND_LABELS[cam.brand?.toLowerCase()] ?? cam.brand ?? 'Câmera'}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-1 shrink-0">
+                          {cam.onvifProfileToken && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                              style={{ background: 'rgba(79,124,255,0.15)', color: 'var(--color-primary)' }}>
+                              ONVIF
+                            </span>
+                          )}
+                          {cam.hasRtsp && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold"
+                              style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--color-success)' }}>
+                              RTSP
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Resultados do scan do browser */}
+              {!scanning && discoverySource === 'browser' && rtspDevices.length > 0 && (
                 <div className="space-y-1.5">
                   <p className="text-[11px] font-semibold" style={{ color: 'var(--color-success)' }}>
                     {t('cameras.wizard.cameraFound', { count: rtspDevices.length })}
@@ -519,14 +627,15 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
                       {ip === rip ? `✓ ${rip}` : rip}
                     </button>
                   ))}
-                  {!scanning && rtspDevices.length === 0 && (
-                    <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                      {t('cameras.noCandidates')}
-                    </p>
-                  )}
                 </div>
               )}
-              {!scanning && scanCapability !== null && rtspDevices.length === 0 && scanCapability !== 'blocked' && (
+
+              {!scanning && discoverySource === 'backend' && backendDevices.length === 0 && (
+                <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                  {t('cameras.noCandidates')}
+                </p>
+              )}
+              {!scanning && discoverySource === 'browser' && scanCapability !== null && rtspDevices.length === 0 && scanCapability !== 'blocked' && (
                 <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                   {t('cameras.noCandidates')}
                 </p>
