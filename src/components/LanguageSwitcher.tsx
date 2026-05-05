@@ -15,27 +15,42 @@ export default function LanguageSwitcher({ size = 'sm' }: LanguageSwitcherProps)
   };
 
   const textSize = size === 'md' ? 'text-[12px]' : 'text-[10px]';
+  const pad = size === 'md' ? 'px-2.5 py-1.5' : 'px-2 py-1';
+  const fixedWidth = size === 'md' ? 'w-[74px]' : 'w-[64px]';
 
   return (
     <button
       onClick={toggle}
+      type="button"
+      aria-label={isEN ? 'Switch to Portuguese' : 'Switch to English'}
       title={isEN ? 'Switch to Portuguese' : 'Switch to English'}
-      className={`flex items-center rounded-md overflow-hidden transition-all ${textSize} font-black uppercase tracking-wider shrink-0`}
-      style={{ border: '1px solid var(--color-border-strong)' }}
+      className={`relative inline-grid grid-cols-2 rounded-lg overflow-hidden shrink-0 ${fixedWidth} ${textSize} font-black uppercase tracking-wider transition-colors duration-300`}
+      style={{
+        border: '1px solid var(--color-border-strong)',
+        background: 'var(--color-surface-alt)',
+      }}
     >
       <span
-        className="px-2 py-1 transition-colors"
+        aria-hidden
+        className={`absolute top-[2px] bottom-[2px] w-[calc(50%-4px)] rounded-md transition-transform duration-300 ease-out will-change-transform`}
         style={{
-          background: !isEN ? 'var(--color-primary)' : 'var(--color-surface-alt)',
+          left: '2px',
+          transform: isEN ? 'translateX(100%)' : 'translateX(0%)',
+          background: 'var(--color-primary)',
+          boxShadow: '0 6px 16px rgba(0,0,0,0.2)',
+        }}
+      />
+      <span
+        className={`${pad} relative z-10 transition-colors duration-300`}
+        style={{
           color: !isEN ? '#fff' : 'var(--color-text-dim)',
         }}
       >
         PT
       </span>
       <span
-        className="px-2 py-1 transition-colors"
+        className={`${pad} relative z-10 transition-colors duration-300`}
         style={{
-          background: isEN ? 'var(--color-primary)' : 'var(--color-surface-alt)',
           color: isEN ? '#fff' : 'var(--color-text-dim)',
         }}
       >
