@@ -60,21 +60,21 @@ CREATE POLICY "service_role_agent_heartbeats"
 CREATE POLICY "service_role_agent_camera_candidates"
   ON public.agent_camera_candidates USING (true) WITH CHECK (true);
 
--- merchant_admin: acessa apenas seu establishment
-CREATE POLICY "merchant_agent_configs_select"
+-- tenant_admin: acessa apenas seu establishment
+CREATE POLICY "tenant_agent_configs_select"
   ON public.agent_configs FOR SELECT TO authenticated
   USING (public.user_has_establishment_access(establishment_id));
 
-CREATE POLICY "merchant_agent_configs_insert"
+CREATE POLICY "tenant_agent_configs_insert"
   ON public.agent_configs FOR INSERT TO authenticated
   WITH CHECK (public.user_has_establishment_access(establishment_id));
 
-CREATE POLICY "merchant_agent_configs_update"
+CREATE POLICY "tenant_agent_configs_update"
   ON public.agent_configs FOR UPDATE TO authenticated
   USING (public.user_has_establishment_access(establishment_id))
   WITH CHECK (public.user_has_establishment_access(establishment_id));
 
-CREATE POLICY "merchant_agent_heartbeats_select"
+CREATE POLICY "tenant_agent_heartbeats_select"
   ON public.agent_heartbeats FOR SELECT TO authenticated
   USING (
     EXISTS (
@@ -84,7 +84,7 @@ CREATE POLICY "merchant_agent_heartbeats_select"
     )
   );
 
-CREATE POLICY "merchant_agent_camera_candidates_select"
+CREATE POLICY "tenant_agent_camera_candidates_select"
   ON public.agent_camera_candidates FOR SELECT TO authenticated
   USING (
     EXISTS (
@@ -94,12 +94,49 @@ CREATE POLICY "merchant_agent_camera_candidates_select"
     )
   );
 
-CREATE POLICY "merchant_agent_camera_candidates_update"
+CREATE POLICY "tenant_agent_camera_candidates_update"
   ON public.agent_camera_candidates FOR UPDATE TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.agent_configs ac
       WHERE ac.id = agent_camera_candidates.agent_id
         AND public.user_has_establishment_access(ac.establishment_id)
+    )
+  );
+
+CREATE POLICY "tenant_agent_camera_candidates_delete"
+  ON public.agent_camera_candidates FOR DELETE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.agent_configs ac
+      WHERE ac.id = agent_camera_candidates.agent_id
+        AND public.user_has_establishment_access(ac.establishment_id)
+    )
+  );
+
+-- platform_admin: acessa todos os agentes (visão global no AdminPanel)
+CREATE POLICY "platform_admin_agent_configs"
+  ON public.agent_configs FOR ALL TO authenticated
+  USING (public.current_user_is_platform_admin())
+  WITH CHECK (public.current_user_is_platform_admin());
+
+CREATE POLICY "platform_admin_agent_heartbeats"
+  ON public.agent_heartbeats FOR ALL TO authenticated
+  USING (
+    public.current_user_is_platform_admin() OR
+    EXISTS (
+      SELECT 1 FROM public.agent_configs ac
+      WHERE ac.id = agent_heartbeats.agent_id
+        AND public.current_user_is_platform_admin()
+    )
+  );
+
+CREATE POLICY "platform_admin_agent_camera_candidates"
+  ON public.agent_camera_candidates FOR ALL TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.agent_configs ac
+      WHERE ac.id = agent_camera_candidates.agent_id
+        AND public.current_user_is_platform_admin()
     )
   );
