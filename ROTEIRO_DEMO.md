@@ -1,109 +1,114 @@
-# Roteiro de Demonstração — Sistema Antifraude
+# Roteiro de Demonstração — Olho Vivo
 
-**Duração estimada:** 15–20 minutos  
-**Objetivo:** Mostrar ao contratante como o sistema detecta fraudes reais automaticamente
+**Duração:** 15–20 minutos
+**Objetivo:** Mostrar ao contratante como o sistema detecta fraudes automaticamente
 
 ---
 
 ## Preparação (antes da reunião)
 
 1. Execute `supabase/seed_demo.sql` no SQL Editor do Supabase
-2. Abra o sistema em `http://localhost:3000` (ou URL de produção)
+2. Abra o sistema em produção (ou `npm run dev` para demo local)
 3. Deixe o Dashboard visível na tela
 
 ---
 
-## Roteiro da Apresentação
+## Ato 1 — O Contexto (2 min)
 
-### Ato 1 — O Contexto (2 min)
-
-> *"Imagine uma sexta-feira no Bar Central. O movimento começa às 19h, atinge pico de 85 pessoas às 22h e termina à meia-noite. Esse sistema monitorou tudo em tempo real."*
+> *"Imagine uma sexta-feira no Bar Central. O movimento começa às 19h, atinge pico de 85 pessoas às 22h e termina à meia-noite. Esse sistema monitorou tudo em tempo real — sem ninguém olhando."*
 
 **Mostre o Dashboard:**
 - Métricas no topo: Consumo vs Pagamentos
 - Gráfico de Vendas vs Fluxo de Câmera
-- Destaque o **GAP vermelho** — já está visível
+- Destaque o **Gap vermelho** — já visível nos dados de demo
 
 ---
 
-### Ato 2 — Anomalia R02: Gap Financeiro (5 min)
+## Ato 2 — Anomalia R02: Gap Financeiro (5 min)
 
-**O que aconteceu nessa noite:**
-- ST Ingressos (sistema de pedidos) registrou **~R$ 4.672**
+O que aconteceu nessa noite:
+- ST Ingressos (bilheteria) registrou **~R$ 4.672**
 - PagBank (maquineta) registrou **~R$ 3.521**
-- **Gap: R$ 1.151** — o motor detectou automaticamente
+- **Gap: R$ 1.151** — detectado automaticamente
 
-> *"Repara que o sistema de pedidos diz que vendeu R$ 4.672, mas a maquineta registrou apenas R$ 3.521. Cadê esse dinheiro?"*
+> *"O sistema de pedidos diz que vendeu R$ 4.672. A maquineta registrou R$ 3.521. Cadê esse dinheiro?"*
 
-**Mostre a aba Alertas de Fraude:**
-- Alerta R02 em vermelho: `Divergência Crítica detectada entre PagBank e Bilheteria`
-- Mostre o contexto do alerta (valores detalhados)
-- Demonstre o botão **"Notificar Staff"** → abre WhatsApp com mensagem pronta
+**Mostre a aba Alertas:**
+- Alerta R02 em vermelho: divergência crítica
+- Contexto do alerta com os valores detalhados
+- Botão **"Notificar Staff"** → notificação WhatsApp/Telegram
 
-> *"O proprietário teria recebido essa notificação no celular em tempo real, sem precisar abrir nenhum relatório."*
+> *"O proprietário recebeu esse alerta no celular em tempo real. Não no relatório do dia seguinte."*
 
 ---
 
-### Ato 3 — Anomalia R01: Salão Cheio, Caixa Vazio (5 min)
+## Ato 3 — Anomalia R01: Salão Cheio, Caixa Vazio (5 min)
 
-> *"Às 22h, a câmera registrou 85 pessoas no salão. Mas o sistema de pedidos não registrou nenhuma venda entre 21h30 e 22h30. Uma hora inteira. Bar lotado, zero lançamento."*
+> *"Às 22h, a câmera registrou 85 pessoas no salão. O sistema de pedidos não registrou nenhuma venda entre 21h30 e 22h30. Uma hora inteira. Bar lotado, zero lançamento."*
 
 **Mostre no gráfico do Dashboard:**
-- Linha tracejada (pessoas) sobe para 85
-- Linha azul (vendas) cai para zero no mesmo período
-- O sistema cruzou isso automaticamente e disparou o alerta
+- Linha de pessoas sobe para 85
+- Linha de vendas cai para zero no mesmo período
+- O sistema cruzou automaticamente e disparou o alerta
 
-> *"Pode ser um funcionário desviando vendas em dinheiro. Pode ser uma falha de sistema. Qualquer que seja a causa, o proprietário foi alertado em até 30 minutos — não no dia seguinte quando já não há como investigar."*
-
----
-
-### Ato 4 — Fluxo de Resolução (3 min)
-
-**Demonstre o workflow completo:**
-1. Clique no alerta R02 na aba de Alertas
-2. Mostre as informações de contexto (pagbank_total, st_total, diff)
-3. Clique em **"Auditado & Validado"** → alerta movido para Resolvidos
-4. Mostre o histórico de alertas resolvidos com o nome do auditor
-
-> *"Cada decisão fica registrada: quem resolveu, quando resolveu, e os dados originais que geraram o alerta. Isso é trilha de auditoria — vale em processo trabalhista, em seguro e em demissão por justa causa."*
+> *"Pode ser garçom desviando em dinheiro. Pode ser falha de sistema. Qualquer que seja, o proprietário foi alertado em até 30 minutos — não no dia seguinte."*
 
 ---
 
-### Ato 5 — Escalabilidade (2 min)
+## Ato 4 — Como a câmera funciona (3 min)
 
-> *"O sistema foi desenhado para crescer. Hoje detecta R01 e R02. Mas o motor de regras está pronto para:"*
+> *"Não é necessário nenhum firmware especial. Instalamos um software no computador do estabelecimento — o Olho Vivo Agent."*
 
-- R03: Pico anormal de vendas (funcionário passando valores inflados)
-- R04: Janela morta no horário de pico
-- R05: Padrão de cancelamentos suspeitos por operador
-- Integração com balanças (peso na câmera vs peso registrado — como no açougue)
-- Multi-estabelecimento: um dashboard para 10 bares ao mesmo tempo
+**Mostre a aba Agentes:**
+- Agente com status **Online**
+- Câmeras descobertas automaticamente na rede
+- Contagem em tempo real: entrou / saiu / pessoas dentro
+
+> *"O agente roda em qualquer PC com Windows. Usa inteligência artificial (YOLOv8) para contar pessoas pelo vídeo — sem configurar nada na câmera."*
 
 ---
 
-## Perguntas Esperadas e Respostas
+## Ato 5 — Resolução e Auditoria (2 min)
 
-**"E se a câmera falhar?"**
-> O sistema registra o evento de falha e não dispara falsos positivos. R01 só aciona quando há dados confirmados de câmera.
+1. Clique no alerta R02
+2. Mostre os dados de contexto (pagbank_total, st_total, diferença)
+3. Clique em **"Auditado & Validado"** → alerta resolvido
+4. Mostre o histórico com nome do auditor e timestamp
 
-**"Os dados ficam onde?"**
-> Banco de dados seguro na nuvem (Supabase/PostgreSQL), com backup automático. Nada fica só no computador.
+> *"Cada decisão fica registrada. Isso vale em processo trabalhista, em seguro e em demissão por justa causa."*
 
-**"Quanto custa para colocar em produção?"**
-> Infraestrutura custa entre R$ 200–400/mês. O investimento principal é integrar com as câmeras e maquinetas do estabelecimento (feito uma vez).
+---
 
-**"E a LGPD?"**
-> As câmeras não gravam rostos — apenas contam pessoas. Nenhum dado biométrico é armazenado.
+## Ato 6 — Escalabilidade (2 min)
+
+> *"O sistema funciona para 1 bar ou para 50. Cada estabelecimento tem seu próprio painel, regras configuráveis e agente independente."*
+
+Próximas regras no roadmap:
+- R03: Velocidade anormal de vendas por operador
+- R06: Desconto excessivo por operador
+- Multi-câmera: entrada, saída, caixa, área VIP
+
+---
+
+## Perguntas Esperadas
+
+| Pergunta | Resposta |
+|---|---|
+| "E se a câmera falhar?" | O agente detecta a falha, tenta reconectar. R01 só dispara com dados confirmados — sem falsos positivos. |
+| "Os dados ficam onde?" | Banco na nuvem (Supabase/PostgreSQL) com backup automático. Nada local. |
+| "Quanto custa instalar?" | O agente é um arquivo .exe que o dono baixa e executa. Sem técnico, sem configuração de câmera. |
+| "E a LGPD?" | Câmeras contam silhuetas — não identificam rostos. Nenhum dado biométrico armazenado. |
+| "Funciona com qualquer câmera?" | Qualquer câmera com cabo de rede. Intelbras, Hikvision, Dahua, genérica. |
 
 ---
 
 ## Números para Impressionar
 
-- **Tempo de detecção:** < 30 minutos após o evento
-- **Sem dependência humana:** roda 24/7 automático
-- **Custo médio de um garçom desonesto:** R$ 500–2.000/mês desviados
-- **ROI do sistema:** Se pega 1 fraude/mês de R$ 500, paga a infraestrutura e ainda sobra
+- **Detecção em < 30 minutos** após o evento
+- **Zero dependência humana** — roda 24/7 automático
+- **Custo médio de fraude não detectada:** R$ 500–2.000/mês por estabelecimento
+- **ROI:** 1 fraude detectada por mês já paga o sistema
 
 ---
 
-*Sistema Antifraude — Dev Machine*
+*Olho Vivo — Dev Machine*

@@ -1,58 +1,94 @@
-# Runbook de Incidentes
+# Runbook de Incidentes — Olho Vivo
 
-Guia rapido para resposta operacional em producao.
+## Classificação
 
-## 1) Classificacao
+- **P1 Crítico:** perda de ingestão, alerta não dispara, agente offline em todos os estabelecimentos
+- **P2 Alto:** degradação parcial, atraso de notificação, agente offline em um estabelecimento
+- **P3 Médio:** problema pontual sem impacto amplo
 
-- P1 Critico: perda de ingestao, alerta nao dispara, erro em massa
-- P2 Alto: degradacao parcial, atraso de notificacao
-- P3 Medio: problema pontual sem impacto amplo
+---
 
-## 2) Primeiros 15 minutos
+## Primeiros 15 minutos
 
-1. Registrar horario de inicio e responsavel.
-2. Identificar integracao afetada:
-   - `webhook-camera`
-   - `webhook-cash`
-   - `webhook-st-ingressos`
-   - `send-telegram`
-3. Coletar evidencias:
-   - logs da function com `request_id`
-   - erro retornado ao cliente
-   - periodo e tenant afetado
-4. Comunicar status inicial ao time.
+1. Registrar horário de início e responsável
+2. Identificar componente afetado:
+   - **Agente** (`agent-config`, `agent-heartbeat`, `agent-cameras-found`)
+   - **Ingestão** (`webhook-camera`, `webhook-cash`, `webhook-st-ingressos`)
+   - **Notificações** (`send-telegram`, `send-whatsapp`)
+   - **Frontend** (Vercel)
+3. Coletar evidências: logs da function com `request_id`, erro retornado, período e tenant afetado
+4. Comunicar status inicial
 
-## 3) Diagnostico tecnico
+---
 
-### Banco e regras
+## Diagnóstico por Componente
 
-- Verificar alertas abertos e backlog com `supabase/observability_queries.sql`
-- Confirmar RLS e policies ativas com `supabase/rls_validation_check.sql`
+### Agente aparece Offline no AdminPanel
 
-### Secrets e configuracao
+1. Verificar se o PC do restaurante está ligado e com internet
+2. Verificar se o processo `olhovivo-agent` está rodando
+3. Verificar token em `token.txt` — copiar novamente do AdminPanel se necessário
+4. Verificar logs do agente: erros de conexão com Supabase?
+5. Confirmar JWT desativado em `agent-config`, `agent-heartbeat`, `agent-cameras-found` (Supabase → Edge Functions → Settings)
 
-- Verificar secrets no Supabase:
-  - `TELEGRAM_BOT_TOKEN`
-- Verificar `settings.telegram_chat_id` do tenant impactado
+### Câmeras não contam pessoas
 
-### Integracoes
+1. Agente está Online? (se não, ver seção acima)
+2. Câmera aprovada no AdminPanel → Agentes?
+3. Câmera acessível via RTSP? Testar: `ffprobe rtsp://admin:SENHA@IP:554/stream1`
+4. Verificar logs do agente: `cap.read() failed` indica câmera desconectada
+5. Câmera na mesma rede que o PC? Reiniciar câmera e aguardar re-descoberta
 
-- Validar token de webhook (`settings.webhook_token`)
-- Confirmar formato de payload recebido
-- Confirmar deduplicacao por `external_event_key`
+### Alerta R01/R02 não dispara
 
-## 4) Contencao e mitigacao
+1. Dados de câmera chegando? Verificar `people_count_events` no Supabase
+2. Dados de vendas chegando? Verificar `transactions` no Supabase
+3. Confirmar threshold configurado em Configurações (R01: pessoas e janela de tempo; R02: gap financeiro)
+4. Janela de monitoramento inclui o horário atual?
+5. Executar `run_fraud_rules()` manualmente no SQL Editor para testar
 
-- Se problema for Telegram:
-  - manter sistema rodando com push/WhatsApp
-  - corrigir secret/configuracao e retestar envio
-- Se problema for ingestao:
-  - pausar origem com payload invalido
-  - corrigir validacao/formato
-  - reprocessar lote quando necessario
+### Telegram não recebe notificações
 
-## 5) Encerramento
+1. `TELEGRAM_BOT_TOKEN` presente em Supabase Secrets?
+2. `telegram_chat_id` configurado corretamente em Configurações → Salvar?
+3. Testar via Configurações → "Testar notificação"
+4. Verificar logs da `send-telegram` no Supabase
 
-1. Confirmar normalizacao por no minimo 30 minutos.
-2. Registrar causa raiz e acao corretiva permanente.
-3. Atualizar checklist de producao se surgir nova lacuna.
+### Banco / RLS
+
+```sql
+-- Verificar alertas e backlog:
+-- supabase/observability_queries.sql
+
+-- Verificar policies:
+-- supabase/rls_validation_check.sql
+```
+
+---
+
+## Contenção e Mitigação
+
+**Agente offline:**
+- Sistema continua operando; ingestão via webhooks diretos ainda funciona
+- Importar CSV PagBank e PDF ST Ingressos manualmente enquanto resolve
+
+**Telegram com falha:**
+- Usar WhatsApp como canal alternativo
+- Corrigir secret/configuração e retestar envio
+
+**Ingestão com payload inválido:**
+- Pausar origem com erro
+- Corrigir validação/formato
+- Reprocessar lote quando correto
+
+---
+
+## Encerramento
+
+1. Confirmar normalização por mínimo 30 minutos
+2. Registrar causa raiz e ação corretiva permanente
+3. Atualizar este runbook se surgir nova lacuna
+
+---
+
+*Atualizado mai/2026*
