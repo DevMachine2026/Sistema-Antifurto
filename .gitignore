@@ -15,3 +15,11 @@ __pycache__/
 
 .fuse_*
 .superpowers/
+
+# Modelos e artefatos de runtime do agente
+*.pt
+*.onnx
+*.db
+*.db-shm
+*.db-wal
+runs/
