@@ -13,8 +13,12 @@ class LineCrossDetector:
     """Rastreia posição de tracks e detecta cruzamento de linha horizontal."""
 
     def __init__(self, line_y: float, frame_height: int):
+        self._line_y = line_y
         self._line_px = line_y * frame_height
         self._prev: dict[int, float] = {}  # track_id -> centroid_y anterior
+
+    def set_frame_height(self, frame_height: int) -> None:
+        self._line_px = self._line_y * frame_height
 
     def update_track(self, track_id: int, centroid_y: float) -> Optional[str]:
         """Atualiza posição do track. Retorna 'in', 'out' ou None."""
@@ -52,8 +56,10 @@ class PeopleCounter:
         self._last_inference: Optional[datetime.datetime] = None
         self._running = False
         self._thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
 
     def start(self) -> None:
+        self._stop_event.clear()
         self._running = True
         self._thread = threading.Thread(
             target=self._run, daemon=True, name=f"counter-{self._camera.id}"
@@ -62,6 +68,7 @@ class PeopleCounter:
         logger.info("people counter started: camera=%s", self._camera.id)
 
     def stop(self) -> None:
+        self._stop_event.set()
         self._running = False
         if self._thread:
             self._thread.join(timeout=5)
@@ -78,7 +85,9 @@ class PeopleCounter:
             logger.error("missing dependency: %s — install requirements.txt", exc)
             return
 
-        model = YOLO("yolov8n.pt")  # baixa na primeira execução (~6MB)
+        import os
+        model_path = os.environ.get("YOLO_MODEL_PATH", "yolov8n.pt")
+        model = YOLO(model_path)  # baixa na primeira execução (~6MB)
         detector = LineCrossDetector(
             line_y=self._camera.line_y,
             frame_height=480,  # será atualizado após primeiro frame
@@ -87,6 +96,7 @@ class PeopleCounter:
         cap = cv2.VideoCapture(self._camera.rtsp_url)
         if not cap.isOpened():
             logger.error("cannot open RTSP stream: %s", self._camera.id)
+            cap.release()
             return
 
         frame_count = 0
@@ -97,8 +107,7 @@ class PeopleCounter:
             if not ret:
                 logger.warning("camera %s lost, reconnecting...", self._camera.id)
                 cap.release()
-                import time
-                time.sleep(5)
+                self._stop_event.wait(5)
                 cap = cv2.VideoCapture(self._camera.rtsp_url)
                 continue
 
@@ -107,7 +116,7 @@ class PeopleCounter:
                 continue
 
             h, w = frame.shape[:2]
-            detector._line_px = self._camera.line_y * h
+            detector.set_frame_height(h)
 
             results = model.track(
                 frame,
