@@ -42,7 +42,8 @@
     "guide": "Operation Guide",
     "analytics": "Analytics",
     "settings": "Settings",
-    "readiness": "Readiness"
+    "readiness": "Readiness",
+    "agents": "Agents"
   },
   "readiness": {
     "title": "System readiness",

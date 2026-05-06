@@ -42,7 +42,8 @@
     "guide": "Guia de Operação",
     "analytics": "Analítico",
     "settings": "Configurações",
-    "readiness": "Prontidão"
+    "readiness": "Prontidão",
+    "agents": "Agentes"
   },
   "readiness": {
     "title": "Prontidão do sistema",

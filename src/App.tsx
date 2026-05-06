@@ -19,6 +19,7 @@ import Integrations from './pages/Integrations';
 import AuditTrail from './pages/AuditTrail';
 import Cameras from './pages/Cameras';
 import Readiness from './pages/Readiness';
+import Agents from './pages/Agents';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -150,6 +151,8 @@ export default function App() {
         return <AuditTrail />;
       case 'cameras':
         return <Cameras />;
+      case 'agents':
+        return <Agents />;
       case 'readiness':
         return <Readiness />;
       case 'analytics':
