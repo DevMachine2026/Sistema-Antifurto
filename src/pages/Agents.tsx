@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Cpu, Plus, X, Loader2, CheckCircle2, XCircle,
-  Wifi, WifiOff, ChevronDown, ChevronRight,
+  Wifi, WifiOff, ChevronDown, ChevronRight, Download, Copy, Check,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
+
+const INSTALL_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-install`;
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -58,45 +60,140 @@ function isOnline(hb: AgentHeartbeat | undefined): boolean {
   return Date.now() - new Date(hb.reported_at).getTime() < 10 * 60 * 1000;
 }
 
-// ── AgentToken ────────────────────────────────────────────────────────────────
+// ── InstallModal ──────────────────────────────────────────────────────────────
 
-function AgentToken({ agentId }: { agentId: string }) {
+function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => void }) {
+  const [platform, setPlatform] = useState<'windows' | 'linux'>('windows');
   const [token, setToken] = useState<string | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  async function loadToken() {
-    const { data } = await supabase
+  useEffect(() => {
+    supabase
       .from('agent_configs')
       .select('token')
       .eq('id', agentId)
-      .single();
-    setToken(data?.token ?? null);
-    setVisible(true);
+      .single()
+      .then(({ data }) => setToken(data?.token ?? null));
+  }, [agentId]);
+
+  const cmd = token
+    ? platform === 'windows'
+      ? `irm "${INSTALL_URL}?token=${token}&platform=windows" | iex`
+      : `curl -fsSL "${INSTALL_URL}?token=${token}&platform=linux" | bash`
+    : '';
+
+  function copy() {
+    if (!cmd) return;
+    navigator.clipboard.writeText(cmd);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
-  if (!visible)
-    return (
-      <button
-        type="button"
-        onClick={loadToken}
-        className="text-xs font-bold hover:underline"
-        style={{ color: 'var(--color-primary)' }}
-      >
-        Mostrar token de instalação
-      </button>
-    );
-
   return (
-    <code
-      className="text-xs font-mono rounded px-2 py-1 select-all break-all"
-      style={{
-        background: 'var(--color-surface-alt)',
-        border: '1px solid var(--color-border)',
-        color: 'var(--color-text)',
-      }}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      {token ?? 'carregando...'}
-    </code>
+      <motion.div
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 30, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 350, damping: 35 }}
+        className="w-full max-w-lg rounded-2xl"
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border-strong)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* header */}
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
+          <div className="flex items-center gap-2">
+            <Download size={16} style={{ color: 'var(--color-primary)' }} />
+            <p className="text-[15px] font-bold text-text">Instalar agente</p>
+          </div>
+          <button type="button" onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-surface-alt)' }}>
+            <X size={14} style={{ color: 'var(--color-text-dim)' }} />
+          </button>
+        </div>
+
+        <div className="px-5 py-5 space-y-4">
+          {/* instrução */}
+          <p className="text-[13px]" style={{ color: 'var(--color-text-dim)' }}>
+            Escolha o sistema operacional do PC do estabelecimento, copie o comando e cole no terminal. O agente instala e configura tudo automaticamente.
+          </p>
+
+          {/* tabs */}
+          <div className="flex gap-2">
+            {(['windows', 'linux'] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPlatform(p)}
+                className="px-4 py-1.5 rounded-lg text-[12px] font-semibold transition-all"
+                style={platform === p
+                  ? { background: 'var(--color-primary)', color: '#fff' }
+                  : { background: 'var(--color-surface-alt)', color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }
+                }
+              >
+                {p === 'windows' ? '🪟 Windows' : '🐧 Linux'}
+              </button>
+            ))}
+          </div>
+
+          {/* instrução por plataforma */}
+          <p className="text-[12px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
+            {platform === 'windows'
+              ? 'Abra o PowerShell como Administrador e cole o comando:'
+              : 'Abra o Terminal e cole o comando:'}
+          </p>
+
+          {/* comando */}
+          <div className="relative">
+            <div
+              className="rounded-xl px-4 py-3 pr-12 font-mono text-[12px] break-all select-all"
+              style={{
+                background: 'var(--color-surface-alt)',
+                border: '1px solid var(--color-border-strong)',
+                color: 'var(--color-text)',
+                minHeight: 56,
+              }}
+            >
+              {cmd || <span style={{ color: 'var(--color-text-muted)' }}>carregando...</span>}
+            </div>
+            <button
+              type="button"
+              onClick={copy}
+              disabled={!cmd}
+              className="absolute top-2.5 right-2.5 w-8 h-8 rounded-lg flex items-center justify-center transition-all disabled:opacity-40"
+              style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+              title="Copiar"
+            >
+              {copied
+                ? <Check size={13} style={{ color: 'var(--color-success)' }} />
+                : <Copy size={13} style={{ color: 'var(--color-text-dim)' }} />}
+            </button>
+          </div>
+
+          {/* o que acontece */}
+          <div className="rounded-xl px-4 py-3 space-y-1.5" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-primary)' }}>O que esse comando faz</p>
+            {[
+              'Baixa o agente do GitHub automaticamente',
+              'Configura o token de autenticação',
+              'Configura inicialização automática com o sistema',
+              'Inicia o agente — aparece Online em segundos',
+            ].map((s) => (
+              <div key={s} className="flex items-center gap-2">
+                <CheckCircle2 size={11} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+                <p className="text-[12px]" style={{ color: 'var(--color-text-dim)' }}>{s}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -118,6 +215,7 @@ function AgentCard({
   const online = isOnline(heartbeat);
   const [expanded, setExpanded] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [showInstall, setShowInstall] = useState(false);
 
   async function handleApprove(c: CameraCandidate) {
     setApprovingId(c.id);
@@ -223,10 +321,29 @@ function AgentCard({
         </div>
       )}
 
-      {/* ── Token ── */}
+      {/* ── Install button ── */}
       <div className="px-4 pb-4">
-        <AgentToken agentId={agent.id} />
+        <button
+          type="button"
+          onClick={() => setShowInstall(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all w-full justify-center"
+          style={{
+            background: online ? 'var(--color-surface-alt)' : 'var(--color-primary)',
+            color: online ? 'var(--color-text-dim)' : '#fff',
+            border: online ? '1px solid var(--color-border)' : 'none',
+          }}
+        >
+          <Download size={14} />
+          {online ? 'Instalar em outro PC' : 'Instalar agente'}
+        </button>
       </div>
+
+      {/* ── Install modal ── */}
+      <AnimatePresence>
+        {showInstall && (
+          <InstallModal agentId={agent.id} onClose={() => setShowInstall(false)} />
+        )}
+      </AnimatePresence>
 
       {/* ── Camera candidates ── */}
       <AnimatePresence>
@@ -577,7 +694,7 @@ export default function Agents() {
               className="text-[13px] mt-1 max-w-xs mx-auto"
               style={{ color: 'var(--color-text-dim)' }}
             >
-              Crie um agente para obter o token de instalação e conectar um Raspberry Pi ou PC.
+              Crie um agente e instale com um único comando — sem configuração manual.
             </p>
           </div>
           <button

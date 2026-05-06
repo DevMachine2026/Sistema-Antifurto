@@ -6,15 +6,13 @@
 ## Como funciona
 
 ```
-[Câmera IP]──── rede local ────[PC do restaurante]
-                                   │  olhovivo-agent.exe
+[Câmera IP]──── rede local ────[PC do estabelecimento]
+                                   │  olhovivo-agent (instalado via 1 comando)
                                    │  (conta pessoas com IA)
                             [Supabase → Dashboard]
                                    │
                           [Telegram do Eduardo]
 ```
-
-O **agente** é um executável único (`.exe` no Windows). O dono do restaurante só precisa baixar, colocar o token e executar. Sem instalar Python, sem configurar câmera, sem terminal.
 
 ---
 
@@ -23,7 +21,7 @@ O **agente** é um executável único (`.exe` no Windows). O dono do restaurante
 | Item | Observação |
 |---|---|
 | **PC no restaurante** | Windows 10/11 ou Linux, com internet |
-| **Câmera IP** | RTSP/ONVIF (Intelbras, Hikvision, Dahua...) na mesma rede do PC |
+| **Câmera IP** | Qualquer câmera RTSP/ONVIF na mesma rede do PC |
 | **Celular do Eduardo** | Para receber alertas no Telegram |
 
 ---
@@ -38,102 +36,54 @@ O **agente** é um executável único (`.exe` no Windows). O dono do restaurante
 ## Passo 2 — Configurar Telegram
 
 ### 2a. Criar o bot
-1. Abra o Telegram → pesquise `@BotFather` → envie `/newbot`
+1. Telegram → `@BotFather` → `/newbot`
 2. Nome: `Olho Vivo Restaurante` | Username: `olhovivo_eduardo_bot`
-3. BotFather devolve um **token** (ex: `7123456789:AAF...xyz`) — **anote**
+3. Anote o **token** retornado
 
 ### 2b. Descobrir o Chat ID
-1. Abra o bot criado no Telegram e envie qualquer mensagem
-2. Acesse no browser: `https://api.telegram.org/botSEU_TOKEN/getUpdates`
-3. Procure `"chat": { "id": 123456789 }` — esse número é o **Chat ID**
+1. Abra o bot no Telegram e envie qualquer mensagem
+2. Acesse: `https://api.telegram.org/botSEU_TOKEN/getUpdates`
+3. Anote o número em `"chat": { "id": ... }`
 
 ### 2c. Configurar no sistema
-1. No sistema → **Configurações** → campo **Telegram Chat ID** → cole o número → **Salvar**
-2. Clique em **Testar notificação** — Eduardo deve receber no celular ✅
+1. **Configurações** → campo **Telegram Chat ID** → cole o número → **Salvar**
+2. **Testar notificação** → Eduardo recebe no celular ✅
 
 ---
 
-## Passo 3 — Criar o Agente e gerar o token
+## Passo 3 — Criar o Agente
 
-1. No sistema → menu **Agentes** (ícone de chip na barra lateral)
-2. **Novo Agente** → Nome: `Restaurante do Eduardo` → **Criar**
-3. No card criado, clique em **Revelar Token** e **copie o token**
-
----
-
-## Passo 4 — Instalar o agente no PC do restaurante
-
-### 4a. Baixar o executável
-
-Acesse a página de releases do projeto e baixe o arquivo:
-- **Windows:** `olhovivo-agent-windows.zip`
-- **Linux:** `olhovivo-agent-linux.zip`
-
-Extraia o zip. Vai criar uma pasta chamada `olhovivo-agent/`.
-
-### 4b. Criar o arquivo de token
-
-Dentro da pasta `olhovivo-agent/`, crie um arquivo chamado **`token.txt`** com apenas o token copiado no Passo 3:
-
-```
-a1b2c3d4-e5f6-7890-abcd-ef1234567890
-```
-
-> Sem espaços, sem aspas. Só o token e nada mais.
-
-### 4c. Executar
-
-**Windows:** Clique duas vezes em `olhovivo-agent.exe`
-
-**Linux:**
-```bash
-chmod +x olhovivo-agent/olhovivo-agent
-./olhovivo-agent/olhovivo-agent
-```
-
-Uma janela de terminal vai abrir com os logs do agente:
-```
-INFO  agent starting v0.1.0
-INFO  config fetched: agent_id=... cameras=0
-INFO  ONVIF discovery started
-INFO  heartbeat sent: cameras_online=0
-```
-
-### 4d. Verificar no AdminPanel
-
-1. No sistema → **Agentes**
-2. O card "Restaurante do Eduardo" deve mostrar **Online** ✅
+1. Menu **Agentes** → **Novo Agente**
+2. Nome: `Restaurante do Eduardo` → **Criar**
+3. No card criado, clique em **Instalar agente**
 
 ---
 
-## Passo 5 — Câmera descoberta e aprovada
+## Passo 4 — Instalar no PC do restaurante
 
-### 5a. Posicionar a câmera
+Uma janela vai abrir com o comando de instalação. Escolha o sistema:
 
-Posicione a câmera **sobre a porta de entrada**, apontando para baixo:
+**Windows** — abra o **PowerShell como Administrador** e cole o comando mostrado na tela.
 
-```
-     [câmera]
-        ↓↓↓
-|=== entrada ===|
-```
-Altura ideal: 2,5m a 3m, cobrindo todo o vão.
+**Linux** — abra o **Terminal** e cole o comando mostrado na tela.
 
-### 5b. Conectar à mesma rede do PC
+O comando faz tudo automaticamente:
+- Baixa o agente
+- Configura o token
+- Configura inicialização automática com o sistema
+- Inicia o agente
 
-Câmera e PC precisam estar no mesmo roteador (cabo ou Wi-Fi).
+Em até 1 minuto o card do agente mostra **Online** ✅
 
-### 5c. Aprovar a câmera no AdminPanel
+---
 
-O agente descobre câmeras automaticamente via ONVIF. Em até 2 minutos após iniciar:
+## Passo 5 — Câmera e aprovação
 
-1. No sistema → **Agentes** → card do restaurante
-2. A câmera vai aparecer como candidata com o IP
-3. Clique em **Aprovar**
+1. Câmera conectada ao mesmo roteador do PC (cabo recomendado)
+2. No AdminPanel → **Agentes** → card do restaurante → câmera aparece como candidata
+3. Clique **Aprovar** → agente começa a contar automaticamente
 
-O agente recebe a atualização e começa a contar automaticamente.
-
-> **Câmera não apareceu?** Adicione manualmente com a URL RTSP:
+> **Câmera não apareceu?** Adicione manualmente com a URL RTSP no card do agente.
 
 | Fabricante | URL RTSP |
 |---|---|
@@ -145,36 +95,9 @@ O agente recebe a atualização e começa a contar automaticamente.
 
 ## Passo 6 — Testar
 
-### Teste de contagem:
-Peça para alguém entrar e sair da porta 3 vezes.
-Os logs do agente devem mostrar:
-```
-← ENTROU  |  dentro=1  in=1  out=0
-→ SAIU    |  dentro=0  in=1  out=1
-```
-O contador no dashboard atualiza em tempo real ✅
+**Contagem:** passar na frente da câmera → ver ENTROU/SAIU no card do agente
 
-### Teste de alerta de fraude (R01):
-1. Garanta pelo menos 1 pessoa contada como "dentro"
-2. Não registre vendas por 15 minutos
-3. Eduardo deve receber no Telegram:
-   ```
-   🚨 Alerta Olho Vivo
-   Restaurante do Eduardo
-   R01: X pessoas no salão sem vendas nos últimos 15 min.
-   ```
-
----
-
-## Passo 7 — Fazer o agente iniciar automaticamente com o Windows
-
-Para que o agente suba sozinho quando o PC ligar:
-
-1. Pressione `Win + R`, digite `shell:startup` e pressione Enter
-2. Uma pasta do Explorer vai abrir
-3. Crie um atalho para o `olhovivo-agent.exe` nessa pasta
-
-Pronto — o agente vai iniciar automaticamente com o Windows.
+**Alerta R01:** deixar 1+ pessoa "dentro" por 15 min sem registrar venda → Eduardo recebe no Telegram
 
 ---
 
@@ -182,41 +105,25 @@ Pronto — o agente vai iniciar automaticamente com o Windows.
 
 | Sintoma | O que verificar |
 |---|---|
-| Terminal abre e fecha rápido | Token errado em `token.txt`? Copie novamente do AdminPanel |
-| Agente aparece Offline | Sem internet? Token correto? Aguardar 1 min e recarregar página |
-| Câmera não descoberta | Câmera e PC na mesma rede? Adicionar manualmente com URL RTSP |
-| Contagem não aparece no dashboard | Câmera aprovada no AdminPanel? |
-| Telegram não recebe | Chat ID correto? Clicou em Salvar? Testar notificação funciona? |
-| Alerta não disparado | Há venda registrada no período? |
-| Windows Defender bloqueia o .exe | Clicar em "Mais informações" → "Executar assim mesmo" |
+| PowerShell bloqueou o comando | Executar como Administrador |
+| Windows Defender bloqueou | Clicar "Mais informações" → "Executar assim mesmo" |
+| Agente Offline após instalação | Sem internet? Aguardar 1 min e recarregar |
+| Câmera não descoberta | Câmera e PC na mesma rede? Adicionar com URL RTSP |
+| Telegram não recebe | Chat ID correto? Clicou em Salvar? |
 
 ---
 
-## Checklist de implantação
+## Checklist
 
-- [ ] Conta do Eduardo criada
-- [ ] Telegram configurado e testado ✅
-- [ ] Agente criado no AdminPanel → token copiado
-- [ ] `olhovivo-agent.zip` baixado e extraído no PC do restaurante
-- [ ] `token.txt` criado na pasta do agente com o token
-- [ ] Agente executando → aparece **Online** no AdminPanel ✅
-- [ ] Câmera na rede, descoberta e aprovada
-- [ ] Teste de contagem: entrou/saiu nos logs ✅
-- [ ] Teste de alerta R01: Telegram recebeu ✅
-- [ ] Atalho de inicialização automática criado
+- [ ] Conta criada
+- [ ] Telegram testado ✅
+- [ ] Agente criado no AdminPanel
+- [ ] Comando de instalação executado no PC
+- [ ] Agente **Online** ✅
+- [ ] Câmera aprovada
+- [ ] Teste de contagem OK
+- [ ] Alerta R01 recebido no Telegram ✅
 
 ---
 
-## Para o desenvolvedor — gerar nova versão
-
-```bash
-# Na raiz do repositório
-git tag agent-v0.2.0
-git push origin agent-v0.2.0
-```
-
-O GitHub Actions vai compilar o `.exe` para Windows e Linux automaticamente e criar um Release com os downloads.
-
----
-
-*Documento atualizado em mai/2026 — Olho Vivo Agent v0.1.0 · implantação Restaurante do Eduardo, Fortaleza/CE*
+*Olho Vivo — Dev Machine · mai/2026*
