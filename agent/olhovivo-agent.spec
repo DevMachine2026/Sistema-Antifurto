@@ -35,8 +35,8 @@ all_hiddenimports += [
 ]
 
 a = Analysis(
-    ["agent/main.py"],
-    pathex=["."],
+    ["main.py"],
+    pathex=[".."],
     binaries=all_binaries,
     datas=all_datas,
     hiddenimports=all_hiddenimports,

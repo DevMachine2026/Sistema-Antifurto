@@ -16,7 +16,7 @@ fi
 "$VENV/bin/pip" install lapx>=0.5.12 --quiet
 "$VENV/bin/pip" install pyinstaller --quiet
 
-PYTHONPATH=$(pwd) "$VENV/bin/pyinstaller" agent/olhovivo-agent.spec --noconfirm
+PYTHONPATH=$(pwd) "$VENV/bin/pyinstaller" agent/olhovivo-agent.spec --noconfirm --workpath /tmp/olhovivo-build --distpath dist
 
 echo ""
 echo "=== Build concluído ==="
