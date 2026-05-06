@@ -3,261 +3,220 @@
 
 ---
 
-## Visão geral antes de começar
+## Como funciona
 
-O sistema tem **duas partes independentes**:
+```
+[Câmera IP]──── rede local ────[PC do restaurante]
+                                   │  olhovivo-agent.exe
+                                   │  (conta pessoas com IA)
+                            [Supabase → Dashboard]
+                                   │
+                          [Telegram do Eduardo]
+```
 
-| Parte | O que faz | Precisa de quê |
-|---|---|---|
-| **Detecção de fraude** | Conta pessoas na entrada, cruza com vendas, dispara alerta no Telegram | Câmera com firmware de contagem + internet |
-| **Vídeo ao vivo** | Exibe a imagem da câmera no dashboard | Raspberry Pi na rede local |
-
-**Para a validação inicial, foque só na Parte 1.** O vídeo ao vivo é opcional e pode ser instalado depois.
+O **agente** é um executável único (`.exe` no Windows). O dono do restaurante só precisa baixar, colocar o token e executar. Sem instalar Python, sem configurar câmera, sem terminal.
 
 ---
 
-## O que você precisa comprar / ter em mãos
+## Pré-requisitos
 
 | Item | Observação |
 |---|---|
-| Câmera IP com "People Counting" | Recomendado: **Intelbras VIP 3230** ou superior. Precisa estar na mesma rede Wi-Fi/cabo do roteador do restaurante. |
-| Roteador com acesso à internet | Qualquer roteador doméstico ou comercial serve |
-| Celular do Eduardo | Para configurar o bot do Telegram e receber alertas |
-
-> Se o Eduardo já tem câmera Intelbras, Hikvision ou Dahua, verifique se o modelo tem "People Counting" no menu de configurações. Câmeras mais simples não têm essa função.
+| **PC no restaurante** | Windows 10/11 ou Linux, com internet |
+| **Câmera IP** | RTSP/ONVIF (Intelbras, Hikvision, Dahua...) na mesma rede do PC |
+| **Celular do Eduardo** | Para receber alertas no Telegram |
 
 ---
 
-## Passo 1 — Criar a conta do restaurante no sistema
+## Passo 1 — Criar a conta do restaurante
 
 1. Acesse **https://sistema-antifurto.vercel.app**
-2. Clique em **Criar conta**
-3. Preencha:
-   - Nome do comércio: `Restaurante do Eduardo` (ou o nome real)
-   - E-mail e senha do Eduardo
-4. Clique em **Cadastrar**
-5. O sistema cria automaticamente o estabelecimento e redireciona para o dashboard
-
-> Se o e-mail pedir confirmação, verifique a caixa de entrada. Se não chegar em 2 minutos, acesse o Supabase e desative "Confirm email" em Auth → Settings.
+2. **Criar conta** → nome do comércio, e-mail, senha → **Cadastrar**
 
 ---
 
-## Passo 2 — Configurar o Telegram para receber alertas
+## Passo 2 — Configurar Telegram
 
-### 2a. Criar o bot (feito uma vez para sempre)
+### 2a. Criar o bot
+1. Abra o Telegram → pesquise `@BotFather` → envie `/newbot`
+2. Nome: `Olho Vivo Restaurante` | Username: `olhovivo_eduardo_bot`
+3. BotFather devolve um **token** (ex: `7123456789:AAF...xyz`) — **anote**
 
-1. No celular do Eduardo, abra o Telegram
-2. Pesquise por `@BotFather`
-3. Envie o comando `/newbot`
-4. Escolha um nome: `Olho Vivo Restaurante`
-5. Escolha um username: `olhovivo_restaurante_bot`
-6. O BotFather vai responder com um **token** parecido com: `7123456789:AAF...xyz`
-7. **Guarde esse token** — você vai precisar dele
+### 2b. Descobrir o Chat ID
+1. Abra o bot criado no Telegram e envie qualquer mensagem
+2. Acesse no browser: `https://api.telegram.org/botSEU_TOKEN/getUpdates`
+3. Procure `"chat": { "id": 123456789 }` — esse número é o **Chat ID**
 
-### 2b. Descobrir o Chat ID do Eduardo
-
-1. Pesquise no Telegram pelo bot que você acabou de criar
-2. Envie qualquer mensagem para ele (ex: "oi")
-3. Acesse no browser: `https://api.telegram.org/botSEU_TOKEN/getUpdates`
-   - Substitua `SEU_TOKEN` pelo token do passo anterior
-4. Vai aparecer um JSON. Procure por `"id"` dentro de `"chat":`
-   ```json
-   "chat": { "id": 123456789, ... }
-   ```
-5. Esse número é o **Chat ID** — anote
-
-### 2c. Configurar no Supabase (feito uma vez)
-
-1. Acesse o painel do Supabase do projeto
-2. Vá em **Edge Functions → Secrets**
-3. Confirme que existe o secret `TELEGRAM_BOT_TOKEN` com o token do passo 2a
-   - Se não existir: clique em **New secret**, nome `TELEGRAM_BOT_TOKEN`, valor = token do BotFather
-
-### 2d. Configurar no sistema
-
-1. No sistema (sistema-antifurto.vercel.app), faça login com a conta do Eduardo
-2. Vá em **Configurações** (ícone de engrenagem na barra lateral)
-3. No campo **Telegram Chat ID**, cole o número do Chat ID do passo 2b
-4. Clique em **Salvar**
-5. Clique em **Testar notificação** — Eduardo deve receber uma mensagem no Telegram em segundos
-
-✅ **Status de validação (mai/2026):** teste de Telegram executado com sucesso no ambiente de implantação.
+### 2c. Configurar no sistema
+1. No sistema → **Configurações** → campo **Telegram Chat ID** → cole o número → **Salvar**
+2. Clique em **Testar notificação** — Eduardo deve receber no celular ✅
 
 ---
 
-## Passo 3 — Instalar e configurar a câmera
+## Passo 3 — Criar o Agente e gerar o token
 
-### 3a. Posicionamento físico
+1. No sistema → menu **Agentes** (ícone de chip na barra lateral)
+2. **Novo Agente** → Nome: `Restaurante do Eduardo` → **Criar**
+3. No card criado, clique em **Revelar Token** e **copie o token**
 
-Coloque a câmera **sobre a porta de entrada**, apontando para baixo, cobrindo todo o vão. Quanto mais centrada e mais alta, melhor a contagem.
+---
+
+## Passo 4 — Instalar o agente no PC do restaurante
+
+### 4a. Baixar o executável
+
+Acesse a página de releases do projeto e baixe o arquivo:
+- **Windows:** `olhovivo-agent-windows.zip`
+- **Linux:** `olhovivo-agent-linux.zip`
+
+Extraia o zip. Vai criar uma pasta chamada `olhovivo-agent/`.
+
+### 4b. Criar o arquivo de token
+
+Dentro da pasta `olhovivo-agent/`, crie um arquivo chamado **`token.txt`** com apenas o token copiado no Passo 3:
+
+```
+a1b2c3d4-e5f6-7890-abcd-ef1234567890
+```
+
+> Sem espaços, sem aspas. Só o token e nada mais.
+
+### 4c. Executar
+
+**Windows:** Clique duas vezes em `olhovivo-agent.exe`
+
+**Linux:**
+```bash
+chmod +x olhovivo-agent/olhovivo-agent
+./olhovivo-agent/olhovivo-agent
+```
+
+Uma janela de terminal vai abrir com os logs do agente:
+```
+INFO  agent starting v0.1.0
+INFO  config fetched: agent_id=... cameras=0
+INFO  ONVIF discovery started
+INFO  heartbeat sent: cameras_online=0
+```
+
+### 4d. Verificar no AdminPanel
+
+1. No sistema → **Agentes**
+2. O card "Restaurante do Eduardo" deve mostrar **Online** ✅
+
+---
+
+## Passo 5 — Câmera descoberta e aprovada
+
+### 5a. Posicionar a câmera
+
+Posicione a câmera **sobre a porta de entrada**, apontando para baixo:
 
 ```
      [câmera]
-        ↓
+        ↓↓↓
 |=== entrada ===|
 ```
+Altura ideal: 2,5m a 3m, cobrindo todo o vão.
 
-### 3b. Acessar a interface da câmera
+### 5b. Conectar à mesma rede do PC
 
-1. Conecte a câmera ao roteador via cabo de rede
-2. Descubra o IP da câmera:
-   - Acesse o roteador (geralmente `192.168.1.1`) → seção "Dispositivos conectados"
-   - Ou use o app **IntelbrasCAM** no celular
-3. Acesse o IP da câmera no browser: `http://192.168.1.XXX`
-4. Login padrão Intelbras: usuário `admin`, senha `admin` ou em branco
+Câmera e PC precisam estar no mesmo roteador (cabo ou Wi-Fi).
 
-### 3c. Ativar o People Counting na câmera
+### 5c. Aprovar a câmera no AdminPanel
 
-1. Dentro da interface da câmera, vá em:
-   **Configurações → Inteligência / Smart → People Counting**
-2. Ative a função
-3. Configure a linha virtual no centro do vão da porta:
-   - Linha horizontal no centro da imagem
-   - Seta para cima = entrada, seta para baixo = saída
-4. Salve
+O agente descobre câmeras automaticamente via ONVIF. Em até 2 minutos após iniciar:
 
-### 3d. Configurar o webhook da câmera
+1. No sistema → **Agentes** → card do restaurante
+2. A câmera vai aparecer como candidata com o IP
+3. Clique em **Aprovar**
 
-Esse é o passo que faz a câmera enviar os dados para o sistema.
+O agente recebe a atualização e começa a contar automaticamente.
 
-**Pegue as credenciais no sistema:**
-1. No sistema, vá em **Integrações**
-2. Copie:
-   - **URL do webhook:** `https://uoxcwvjtsebwmbsmyszj.supabase.co/functions/v1/webhook-camera`
-   - **Token:** o token gerado para o estabelecimento
+> **Câmera não apareceu?** Adicione manualmente com a URL RTSP:
 
-**Na interface da câmera (Intelbras):**
-1. Vá em **Configurações → Rede → HTTP Push** (ou "Notificação HTTP")
-2. Preencha:
-   - URL: a URL copiada acima
-   - Método: `POST`
-   - Header de autenticação: `Authorization: Bearer SEU_TOKEN`
-3. Salve e ative
-
-> **Câmera Hikvision:** o caminho é `Configurações → Rede → HTTP Listening` ou `Event → HTTP Event`
-> **Câmera Dahua:** o caminho é `Configurações → Rede → Notificação HTTP`
+| Fabricante | URL RTSP |
+|---|---|
+| Intelbras | `rtsp://admin:SENHA@IP:554/cam/realmonitor?channel=1&subtype=0` |
+| Hikvision | `rtsp://admin:SENHA@IP:554/Streaming/Channels/101` |
+| Dahua | `rtsp://admin:SENHA@IP:554/cam/realmonitor?channel=1&subtype=0` |
 
 ---
 
-## Passo 4 — Cadastrar a câmera no sistema
+## Passo 6 — Testar
 
-1. No sistema, vá em **Câmeras**
-2. Clique em **Adicionar câmera**
-3. Preencha o wizard:
-   - Marca: Intelbras (ou a marca da câmera)
-   - IP: o IP da câmera (ex: `192.168.1.100`)
-   - Porta: `80`
-   - Nome: `Entrada Principal`
-   - Tipo: **Contagem de pessoas**
-4. Salve
-5. O sistema vai mostrar o card da câmera com status **Online** quando os dados chegarem
+### Teste de contagem:
+Peça para alguém entrar e sair da porta 3 vezes.
+Os logs do agente devem mostrar:
+```
+← ENTROU  |  dentro=1  in=1  out=0
+→ SAIU    |  dentro=0  in=1  out=1
+```
+O contador no dashboard atualiza em tempo real ✅
 
----
-
-## Passo 5 — Testar o sistema completo
-
-### Teste básico (5 minutos):
-
-1. Com o sistema aberto na tela **Dashboard**, peça para alguém entrar e sair da porta 3 vezes
-2. Aguarde até 2 minutos e veja se o contador de "Pessoas no salão" aumenta
-3. Se o contador subir, a câmera está comunicando corretamente ✅
-
-### Teste de alerta (simula fraude):
-
-A regra **R01** dispara quando há pessoas no salão mas nenhuma venda nos últimos X minutos.
-
-1. Garanta que há pelo menos 1 pessoa contada como "dentro"
-2. Não registre nenhuma venda por 15 minutos
-3. O sistema deve criar um alerta na aba **Alertas de Fraude**
-4. Eduardo deve receber a mensagem no Telegram:
+### Teste de alerta de fraude (R01):
+1. Garanta pelo menos 1 pessoa contada como "dentro"
+2. Não registre vendas por 15 minutos
+3. Eduardo deve receber no Telegram:
    ```
    🚨 Alerta Olho Vivo
    Restaurante do Eduardo
    R01: X pessoas no salão sem vendas nos últimos 15 min.
    ```
 
-> Se o alerta não chegar, vá em **Configurações → Testar notificação** para verificar se o Telegram está funcionando. Se funcionar no teste mas não no alerta, o problema é que nenhum dado de venda está chegando (normal se o POS ainda não foi integrado).
-
 ---
 
-## Passo 6 — Integração com o caixa (opcional para validação)
+## Passo 7 — Fazer o agente iniciar automaticamente com o Windows
 
-Para o sistema detectar vendas automaticamente, o POS precisa enviar dados via webhook.
+Para que o agente suba sozinho quando o PC ligar:
 
-**Se o Eduardo usa PagBank/PagSeguro:**
-1. No sistema, vá em **Integrações**
-2. Siga as instruções da seção PagBank para exportar o CSV de transações
-3. Na tela **Importar Dados**, faça o upload do CSV
+1. Pressione `Win + R`, digite `shell:startup` e pressione Enter
+2. Uma pasta do Explorer vai abrir
+3. Crie um atalho para o `olhovivo-agent.exe` nessa pasta
 
-**Se o Eduardo usa outro sistema:**
-Entre em contato para analisar a integração específica. Qualquer sistema que possa fazer uma chamada HTTP pode ser integrado.
-
----
-
-## Apêndice — Teste técnico com webcam local (equipe Dev)
-
-Use este fluxo apenas para homologação técnica. Não substitui câmera IP de produção.
-
-1. Subir stream local:
-   ```bash
-   USE_TESTSRC=1 ./scripts/dev-stream-local.sh
-   ```
-2. Subir backend local:
-   ```bash
-   cd server && npm run dev
-   ```
-3. Subir frontend:
-   ```bash
-   npm run dev
-   ```
-4. Cadastrar câmera de teste no Supabase:
-   - `camera_id=teste`
-   - `brand=generic`
-   - `status=online`
-   - `ip=127.0.0.1`
-
-> Esse teste valida o player ao vivo (HLS). Contagem de pessoas continua dependendo de webhook/simulador.
-
----
-
-## Resumo visual do fluxo
-
-```
-Eduardo entra no salão
-        ↓
-Câmera detecta → envia para o sistema
-        ↓
-Sistema acumula: 8 pessoas dentro
-        ↓
-Sistema verifica: alguma venda nos últimos 15 min?
-   SIM → tudo ok, nenhum alerta
-   NÃO → cria alerta + manda mensagem no Telegram do Eduardo
-        ↓
-Eduardo recebe no celular:
-"🚨 8 pessoas no salão sem vendas nos últimos 15 min."
-```
+Pronto — o agente vai iniciar automaticamente com o Windows.
 
 ---
 
 ## Problemas comuns
 
-| Problema | O que verificar |
+| Sintoma | O que verificar |
 |---|---|
-| Câmera aparece offline no sistema | Câmera e servidor na mesma rede? IP correto? |
-| Contador de pessoas não sobe | People Counting ativado na câmera? Linha virtual configurada? |
-| Telegram não recebe | Chat ID correto? Token do bot no Supabase Secrets? Clicou em Salvar nas configurações? |
-| Erro CORS ao testar Telegram no navegador | Confirmar deploy mais recente da Edge Function `send-telegram` (headers CORS com `x-client-info`) |
-| Alerta não é criado | Alguma venda foi registrada no período? A regra só dispara se não houver vendas |
-| Não consigo acessar a câmera pelo browser | Tente desligar e religar. Use o app do fabricante para descobrir o IP atual |
+| Terminal abre e fecha rápido | Token errado em `token.txt`? Copie novamente do AdminPanel |
+| Agente aparece Offline | Sem internet? Token correto? Aguardar 1 min e recarregar página |
+| Câmera não descoberta | Câmera e PC na mesma rede? Adicionar manualmente com URL RTSP |
+| Contagem não aparece no dashboard | Câmera aprovada no AdminPanel? |
+| Telegram não recebe | Chat ID correto? Clicou em Salvar? Testar notificação funciona? |
+| Alerta não disparado | Há venda registrada no período? |
+| Windows Defender bloqueia o .exe | Clicar em "Mais informações" → "Executar assim mesmo" |
 
 ---
 
-## Contatos / próximos passos
+## Checklist de implantação
 
-- **Vídeo ao vivo no dashboard:** requer Raspberry Pi conectado à rede do restaurante — instalar depois da validação
-- **Integração com caixa em tempo real:** requer análise do sistema de POS do Eduardo
-- **Suporte:** Ronald / Dev Machine
+- [ ] Conta do Eduardo criada
+- [ ] Telegram configurado e testado ✅
+- [ ] Agente criado no AdminPanel → token copiado
+- [ ] `olhovivo-agent.zip` baixado e extraído no PC do restaurante
+- [ ] `token.txt` criado na pasta do agente com o token
+- [ ] Agente executando → aparece **Online** no AdminPanel ✅
+- [ ] Câmera na rede, descoberta e aprovada
+- [ ] Teste de contagem: entrou/saiu nos logs ✅
+- [ ] Teste de alerta R01: Telegram recebeu ✅
+- [ ] Atalho de inicialização automática criado
 
 ---
 
-*Documento gerado em mai/2026 para implantação no restaurante do Eduardo — Fortaleza/CE*
+## Para o desenvolvedor — gerar nova versão
+
+```bash
+# Na raiz do repositório
+git tag agent-v0.2.0
+git push origin agent-v0.2.0
+```
+
+O GitHub Actions vai compilar o `.exe` para Windows e Linux automaticamente e criar um Release com os downloads.
+
+---
+
+*Documento atualizado em mai/2026 — Olho Vivo Agent v0.1.0 · implantação Restaurante do Eduardo, Fortaleza/CE*

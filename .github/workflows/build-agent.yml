@@ -1,0 +1,115 @@
+name: Build Agent
+
+on:
+  push:
+    tags:
+      - "agent-v*"
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Build Windows (.exe)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r agent/requirements.txt
+          pip install lapx>=0.5.12
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          $env:PYTHONPATH = $PWD
+          pyinstaller agent/olhovivo-agent.spec --noconfirm
+
+      - name: Zip artifact
+        run: Compress-Archive -Path dist/olhovivo-agent -DestinationPath olhovivo-agent-windows.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: olhovivo-agent-windows
+          path: olhovivo-agent-windows.zip
+          retention-days: 30
+
+  build-linux:
+    name: Build Linux (binary)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system deps (OpenCV)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libgl1 libglib2.0-0 libgomp1
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r agent/requirements.txt
+          pip install lapx>=0.5.12
+          pip install pyinstaller
+
+      - name: Build with PyInstaller
+        run: |
+          PYTHONPATH=$(pwd) pyinstaller agent/olhovivo-agent.spec --noconfirm
+
+      - name: Zip artifact
+        run: zip -r olhovivo-agent-linux.zip dist/olhovivo-agent/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: olhovivo-agent-linux
+          path: olhovivo-agent-linux.zip
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: [build-windows, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: olhovivo-agent-windows
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: olhovivo-agent-linux
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Olho Vivo Agent ${{ github.ref_name }}"
+          body: |
+            ## Como instalar
+
+            1. Baixe o arquivo para o seu sistema operacional
+            2. Extraia o zip
+            3. Crie um arquivo `token.txt` na pasta extraída com o token do AdminPanel
+            4. Execute `olhovivo-agent.exe` (Windows) ou `./olhovivo-agent` (Linux)
+
+            O agente aparecerá como **Online** no AdminPanel em até 1 minuto.
+          files: |
+            olhovivo-agent-windows.zip
+            olhovivo-agent-linux.zip

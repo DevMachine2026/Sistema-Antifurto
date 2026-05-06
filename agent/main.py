@@ -2,17 +2,18 @@
 """
 Olho Vivo Agent — entry point.
 
-Env vars obrigatórias:
-  ESTABLISHMENT_TOKEN  — token único do agente (de agent_configs)
-  SUPABASE_URL         — URL do projeto Supabase
+Modo normal (executável distribuído):
+  Crie um arquivo token.txt na mesma pasta do executável com o token do AdminPanel.
 
-Opcionais:
-  AGENT_VERSION        — versão do agente (default: 0.1.0)
-  TOKEN_FILE           — caminho para arquivo com token (alternativa à env var)
-  YOLO_MODEL_PATH      — path do modelo YOLO (default: yolov8n.pt)
+Modo desenvolvedor (variáveis de ambiente):
+  ESTABLISHMENT_TOKEN — token único do agente
+  SUPABASE_URL        — sobrescreve a URL padrão do Supabase (opcional)
+  AGENT_VERSION       — versão do agente (default: 0.1.0)
+  YOLO_MODEL_PATH     — path do modelo YOLO (default: yolov8n.pt)
 """
 import logging
 import os
+import sys
 import time
 import threading
 from typing import Optional
@@ -31,26 +32,34 @@ logging.basicConfig(
 logger = logging.getLogger("agent.main")
 
 VERSION = os.getenv("AGENT_VERSION", "0.1.0")
+_DEFAULT_SUPABASE_URL = "https://uoxcwvjtsebwmbsmyszj.supabase.co"
+
+
+def _exe_dir() -> str:
+    """Diretório do executável (funciona com PyInstaller e Python normal)."""
+    if getattr(sys, "frozen", False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
 
 
 def load_token() -> str:
     token = os.getenv("ESTABLISHMENT_TOKEN")
     if token:
         return token.strip()
-    token_file = os.getenv("TOKEN_FILE", "/boot/olhovivo.token")
+    token_file = os.getenv("TOKEN_FILE") or os.path.join(_exe_dir(), "token.txt")
     if os.path.exists(token_file):
         with open(token_file) as f:
-            return f.read().strip()
+            value = f.read().strip()
+        if value:
+            return value
     raise RuntimeError(
-        "ESTABLISHMENT_TOKEN não configurado. "
-        "Defina a variável de ambiente ou crie /boot/olhovivo.token"
+        "Token não encontrado.\n"
+        "Crie um arquivo token.txt na mesma pasta do agente com o token do AdminPanel."
     )
 
 
 def main() -> None:
-    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
-    if not supabase_url:
-        raise RuntimeError("SUPABASE_URL não configurada")
+    supabase_url = os.getenv("SUPABASE_URL", _DEFAULT_SUPABASE_URL).rstrip("/")
 
     token = load_token()
     logger.info("agent starting v%s", VERSION)
