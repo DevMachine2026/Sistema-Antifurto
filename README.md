@@ -1,6 +1,6 @@
-# Olho Vivo — Sistema Antifraude para Bares e Eventos
+# Olho Vivo — Sistema Antifraude para Comércio
 
-**Auditoria digital 24/7 que cruza câmeras, vendas e pagamentos para detectar desvios financeiros em tempo real.**
+**Auditoria digital 24/7 que cruza câmeras, vendas e pagamentos para detectar desvios financeiros em tempo real — para qualquer comércio.**
 
 Desenvolvido por **Dev Machine**
 
@@ -15,7 +15,7 @@ O Olho Vivo monitora o estabelecimento de forma contínua: conta quantas pessoas
 | Fonte | Como chega | O que gera |
 |---|---|---|
 | **Câmeras IP** (Intelbras, Hikvision, Dahua) | Agente local via RTSP | Contagem de pessoas em tempo real |
-| **Agente Olho Vivo** (PC no restaurante) | YOLOv8 na borda | Contagem com IA, sem firmware especial |
+| **Agente Olho Vivo** (PC no estabelecimento) | YOLOv8 na borda | Contagem com IA, sem firmware especial |
 | **ST Ingressos** | Webhook ou importação PDF | Vendas da bilheteria |
 | **PagBank** | Importação CSV | Transações da maquineta |
 | **Câmera no caixa** | Webhook | Detecção de espécie (R05) |
@@ -128,10 +128,10 @@ As regras rodam no banco (PostgreSQL) via `run_fraud_rules()`, acionada automati
 
 ## Agente Olho Vivo (edge device)
 
-O agente é um **executável único** (`.exe` no Windows, binário no Linux) instalado no PC do restaurante. Não requer Python, Docker ou configuração técnica.
+O agente é um **executável único** (`.exe` no Windows, binário no Linux) instalado no PC do estabelecimento. Não requer Python, Docker ou configuração técnica.
 
 ```
-PC do restaurante
+PC do estabelecimento
 └── olhovivo-agent.exe
     ├── Lê câmeras via RTSP
     ├── Detecta pessoas com YOLOv8-nano
