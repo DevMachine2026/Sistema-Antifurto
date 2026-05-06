@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class ConfigSync:
     def __init__(self, token: str, supabase_url: str):
         self._token = token
-        self._url = f"{supabase_url}/functions/v1/agent-config"
+        self._url = f"{supabase_url.rstrip('/')}/functions/v1/agent-config"
 
     def fetch(self) -> AgentConfig:
         response = httpx.get(

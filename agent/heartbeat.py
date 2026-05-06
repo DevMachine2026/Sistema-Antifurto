@@ -1,9 +1,9 @@
 # agent/heartbeat.py
-import json
 import logging
 import datetime
 import httpx
 from typing import Optional
+from agent.models import HeartbeatPayload
 
 logger = logging.getLogger(__name__)
 
@@ -13,25 +13,26 @@ class HeartbeatSender:
     def __init__(self, token: str, supabase_url: str, version: str = VERSION,
                  last_config_changed_at: str = ""):
         self._token = token
-        self._url = f"{supabase_url}/functions/v1/agent-heartbeat"
+        self._url = f"{supabase_url.rstrip('/')}/functions/v1/agent-heartbeat"
         self._version = version
         self._last_config_changed_at: str = last_config_changed_at
 
+    def update_config_changed_at(self, value: str) -> None:
+        self._last_config_changed_at = value
+
     def send(self, cameras_online: int, last_inference: Optional[datetime.datetime]) -> dict:
-        payload = {
-            "version":               self._version,
-            "cameras_online":        cameras_online,
-            "last_inference":        last_inference.isoformat() + "Z" if last_inference else None,
-            "last_config_changed_at": self._last_config_changed_at,
-        }
+        payload_obj = HeartbeatPayload(
+            version=self._version,
+            cameras_online=cameras_online,
+            last_inference=last_inference,
+            last_config_changed_at=self._last_config_changed_at,
+        )
+        payload = payload_obj.to_dict()
         try:
             resp = httpx.post(
                 self._url,
-                content=json.dumps(payload),
-                headers={
-                    "Authorization": f"Bearer {self._token}",
-                    "Content-Type": "application/json",
-                },
+                json=payload,
+                headers={"Authorization": f"Bearer {self._token}"},
                 timeout=10,
             )
             resp.raise_for_status()

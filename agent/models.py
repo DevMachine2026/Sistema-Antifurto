@@ -1,8 +1,24 @@
 # agent/models.py
 from __future__ import annotations
 import datetime
+import logging
 from dataclasses import dataclass
 from typing import Optional
+from urllib.parse import quote
+
+logger = logging.getLogger(__name__)
+
+
+def _to_utc_iso(dt: datetime.datetime) -> str:
+    """Normalize a datetime to UTC and return a Z-suffixed ISO 8601 string.
+
+    Handles both naive datetimes (assumed UTC) and timezone-aware datetimes.
+    """
+    if dt.tzinfo is not None:
+        # Convert to UTC and strip tzinfo so isoformat() never emits +00:00
+        dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    return dt.isoformat() + "Z"
+
 
 @dataclass
 class Camera:
@@ -17,7 +33,7 @@ class Camera:
 
     @property
     def rtsp_url(self) -> str:
-        return f"rtsp://{self.user}:{self.password}@{self.ip}{self.rtsp_path}"
+        return f"rtsp://{quote(self.user, safe='')}:{quote(self.password, safe='')}@{self.ip}{self.rtsp_path}"
 
     @staticmethod
     def from_dict(d: dict) -> Camera:
@@ -49,10 +65,16 @@ class AgentConfig:
 
     @staticmethod
     def from_dict(d: dict) -> AgentConfig:
+        cameras = []
+        for c in d.get("cameras", []):
+            try:
+                cameras.append(Camera.from_dict(c))
+            except (KeyError, ValueError, TypeError) as e:
+                logger.error("skipping malformed camera %r: %s", c.get("id", "?"), e)
         return AgentConfig(
             agent_id=d["agent_id"],
             name=d["name"],
-            cameras=[Camera.from_dict(c) for c in d.get("cameras", [])],
+            cameras=cameras,
             thresholds=d.get("thresholds", {}),
             heartbeat_interval=int(d.get("heartbeat_interval", 300)),
             webhook_token=d["webhook_token"],
@@ -74,7 +96,7 @@ class CountEvent:
             "count_in":      self.count_in,
             "count_out":     self.count_out,
             "people_inside": self.people_inside,
-            "recorded_at":   self.recorded_at.isoformat() + "Z",
+            "recorded_at":   _to_utc_iso(self.recorded_at),
         }
 
 @dataclass
@@ -88,6 +110,6 @@ class HeartbeatPayload:
         return {
             "version":               self.version,
             "cameras_online":        self.cameras_online,
-            "last_inference":        self.last_inference.isoformat() + "Z" if self.last_inference else None,
+            "last_inference":        _to_utc_iso(self.last_inference) if self.last_inference else None,
             "last_config_changed_at": self.last_config_changed_at,
         }
