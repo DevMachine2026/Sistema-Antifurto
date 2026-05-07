@@ -43,7 +43,8 @@
     "analytics": "Analítico",
     "settings": "Configurações",
     "readiness": "Prontidão",
-    "agents": "Agentes"
+    "agents": "Agentes",
+    "onboarding": "Implantação"
   },
   "readiness": {
     "title": "Prontidão do sistema",

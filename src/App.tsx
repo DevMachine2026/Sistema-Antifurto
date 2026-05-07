@@ -20,6 +20,7 @@ import AuditTrail from './pages/AuditTrail';
 import Cameras from './pages/Cameras';
 import Readiness from './pages/Readiness';
 import Agents from './pages/Agents';
+import Onboarding from './pages/Onboarding';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -153,6 +154,8 @@ export default function App() {
         return <Cameras />;
       case 'agents':
         return <Agents />;
+      case 'onboarding':
+        return <Onboarding />;
       case 'readiness':
         return <Readiness />;
       case 'analytics':

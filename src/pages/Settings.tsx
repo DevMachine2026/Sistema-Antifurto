@@ -1,15 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Shield, Bell, Database, Megaphone, Save, Loader2, CheckCircle2, Send } from 'lucide-react';
+import { Shield, Bell, Database, Megaphone, Save, Loader2, CheckCircle2, Send, ExternalLink, XCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
 import { notificationService } from '../services/notificationService';
 import { auditService } from '../services/auditService';
 import { cn } from '../lib/utils';
 
+const BOT_USERNAME = 'sistemantifraude_bot';
+
 interface SettingsData {
   whatsapp_number: string;
-  telegram_chat_id: string;
   r01_min_people: number;
   r01_window_minutes: number;
   r02_gap_threshold: number;
@@ -20,7 +21,6 @@ interface SettingsData {
 
 const DEFAULTS: SettingsData = {
   whatsapp_number: '',
-  telegram_chat_id: '',
   r01_min_people: 30,
   r01_window_minutes: 30,
   r02_gap_threshold: 200,
@@ -38,6 +38,8 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [telegramChatId, setTelegramChatId] = useState<string | null>(null);
+  const [webhookToken, setWebhookToken] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -50,7 +52,6 @@ export default function Settings() {
       if (data) {
         setForm({
           whatsapp_number:       data.whatsapp_number       ?? '',
-          telegram_chat_id:      data.telegram_chat_id      ?? '',
           r01_min_people:        data.r01_min_people,
           r01_window_minutes:    data.r01_window_minutes,
           r02_gap_threshold:     Number(data.r02_gap_threshold),
@@ -58,10 +59,28 @@ export default function Settings() {
           monitoring_start_time: data.monitoring_start_time?.slice(0, 5) ?? '18:00',
           monitoring_end_time:   data.monitoring_end_time?.slice(0, 5)   ?? '04:00',
         });
+        setTelegramChatId(data.telegram_chat_id ?? null);
+        setWebhookToken(data.webhook_token ?? null);
       }
       setLoading(false);
     }
     load();
+
+    const channel = supabase
+      .channel(`settings:${establishmentId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'settings', filter: `establishment_id=eq.${establishmentId}` },
+        (payload) => {
+          const updated = payload.new as Record<string, unknown>;
+          if ('telegram_chat_id' in updated) {
+            setTelegramChatId((updated.telegram_chat_id as string | null) ?? null);
+          }
+        },
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   function set<K extends keyof SettingsData>(key: K, value: SettingsData[K]) {
@@ -75,7 +94,6 @@ export default function Settings() {
       .from('settings')
       .update({
         whatsapp_number:       form.whatsapp_number    || null,
-        telegram_chat_id:      form.telegram_chat_id   || null,
         r01_min_people:        form.r01_min_people,
         r01_window_minutes:    form.r01_window_minutes,
         r02_gap_threshold:     form.r02_gap_threshold,
@@ -99,7 +117,7 @@ export default function Settings() {
           monitoring_start_time: form.monitoring_start_time,
           monitoring_end_time: form.monitoring_end_time,
           has_whatsapp: !!form.whatsapp_number,
-          has_telegram: !!form.telegram_chat_id,
+          has_telegram: !!telegramChatId,
         },
       });
       setSaved(true);
@@ -107,16 +125,25 @@ export default function Settings() {
     }
   }
 
+  async function disconnectTelegram() {
+    await supabase
+      .from('settings')
+      .update({ telegram_chat_id: null })
+      .eq('establishment_id', establishmentId);
+    setTelegramChatId(null);
+    setTestResult(null);
+  }
+
   async function testNotification() {
     setTesting(true);
     setTestResult(null);
 
-    if (form.telegram_chat_id) {
+    if (telegramChatId) {
       try {
         const { error } = await supabase.functions.invoke('send-telegram', {
           body: {
             establishment_id: establishmentId,
-            chat_id: form.telegram_chat_id,
+            chat_id: telegramChatId,
             message: '✅ *Olho Vivo — TESTE*\n\nNotificação funcionando corretamente!\n\n_Dev Machine_',
           },
         });
@@ -214,42 +241,59 @@ export default function Settings() {
 
       <Section icon={Send} title={t('settings.telegram.title')} color="primary">
         <p className="text-text-dim text-xs mb-4 leading-relaxed">{t('settings.telegram.desc')}</p>
-        <div className="space-y-3">
-          <label className="block">
-            <span className="text-[10px] uppercase font-black text-text-dim tracking-widest block mb-1.5">
-              {t('settings.telegram.label')}
-            </span>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={form.telegram_chat_id}
-                onChange={e => set('telegram_chat_id', e.target.value.trim())}
-                placeholder={t('settings.telegram.placeholder')}
-                className="flex-1 min-w-0 bg-surface-alt border border-border rounded px-3 py-2.5 text-text font-mono text-sm focus:outline-none focus:border-primary transition-colors"
-              />
+        {telegramChatId ? (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-4 py-3 bg-primary/10 border border-primary/30 rounded">
+              <div className="flex items-center gap-2 text-primary text-sm font-bold">
+                <CheckCircle2 size={16} />
+                Telegram conectado
+              </div>
               <button
-                onClick={testNotification}
-                disabled={testing || !form.telegram_chat_id}
-                className="shrink-0 flex items-center gap-1.5 px-3 py-2.5 bg-primary/10 border border-primary/30 text-primary rounded font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all disabled:opacity-40"
+                onClick={disconnectTelegram}
+                className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-danger/60 hover:text-danger transition-colors"
               >
-                {testing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
-                {t('settings.test')}
+                <XCircle size={12} />
+                Desconectar
               </button>
             </div>
-            <p className="text-[10px] text-text-dim mt-1.5">{t('settings.telegram.hint')}</p>
-          </label>
-          {testResult && (
-            <div className={cn(
-              "mt-3 px-4 py-3 rounded border text-[12px] font-bold flex items-center gap-2",
-              testResult.ok
-                ? "bg-success/10 border-success/30 text-success"
-                : "bg-danger/10 border-danger/30 text-danger"
-            )}>
-              {testResult.ok ? <CheckCircle2 size={14} /> : <Send size={14} />}
-              {testResult.msg}
-            </div>
-          )}
-        </div>
+            <button
+              onClick={testNotification}
+              disabled={testing}
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-primary/10 border border-primary/30 text-primary rounded font-black text-[10px] uppercase tracking-widest hover:bg-primary/20 transition-all disabled:opacity-40"
+            >
+              {testing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+              {t('settings.test')}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-[10px] text-text-dim">Clique no botão abaixo — o bot confirma a conexão automaticamente em segundos.</p>
+            <a
+              href={webhookToken ? `https://t.me/${BOT_USERNAME}?start=${webhookToken}` : undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                "inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded font-black text-[11px] uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20",
+                !webhookToken && "opacity-50 pointer-events-none"
+              )}
+            >
+              <ExternalLink size={14} />
+              Conectar Telegram
+            </a>
+            <p className="text-[10px] text-text-dim">Abrirá o Telegram com @{BOT_USERNAME}. Basta clicar em Iniciar.</p>
+          </div>
+        )}
+        {testResult && (
+          <div className={cn(
+            "mt-3 px-4 py-3 rounded border text-[12px] font-bold flex items-center gap-2",
+            testResult.ok
+              ? "bg-success/10 border-success/30 text-success"
+              : "bg-danger/10 border-danger/30 text-danger"
+          )}>
+            {testResult.ok ? <CheckCircle2 size={14} /> : <Send size={14} />}
+            {testResult.msg}
+          </div>
+        )}
       </Section>
 
       <Section icon={Database} title={t('settings.r01.title')} color="warning">

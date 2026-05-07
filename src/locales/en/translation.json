@@ -43,7 +43,8 @@
     "analytics": "Analytics",
     "settings": "Settings",
     "readiness": "Readiness",
-    "agents": "Agents"
+    "agents": "Agents",
+    "onboarding": "Onboarding"
   },
   "readiness": {
     "title": "System readiness",

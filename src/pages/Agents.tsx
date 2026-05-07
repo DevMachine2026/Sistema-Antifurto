@@ -65,7 +65,6 @@ function isOnline(hb: AgentHeartbeat | undefined): boolean {
 function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => void }) {
   const [platform, setPlatform] = useState<'windows' | 'linux'>('windows');
   const [token, setToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     supabase
@@ -76,18 +75,7 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
       .then(({ data }) => setToken(data?.token ?? null));
   }, [agentId]);
 
-  const cmd = token
-    ? platform === 'windows'
-      ? `irm "${INSTALL_URL}?token=${token}&platform=windows" | iex`
-      : `curl -fsSL "${INSTALL_URL}?token=${token}&platform=linux" | bash`
-    : '';
-
-  function copy() {
-    if (!cmd) return;
-    navigator.clipboard.writeText(cmd);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
+  const downloadUrl = token ? `${INSTALL_URL}?token=${token}&platform=${platform}&download=true` : '#';
 
   return (
     <motion.div
@@ -107,7 +95,6 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
         style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border-strong)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* header */}
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
           <div className="flex items-center gap-2">
             <Download size={16} style={{ color: 'var(--color-primary)' }} />
@@ -119,12 +106,10 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
         </div>
 
         <div className="px-5 py-5 space-y-4">
-          {/* instrução */}
           <p className="text-[13px]" style={{ color: 'var(--color-text-dim)' }}>
-            Escolha o sistema operacional do PC do estabelecimento, copie o comando e cole no terminal. O agente instala e configura tudo automaticamente.
+            Escolha o sistema operacional do PC do estabelecimento e baixe o instalador.
           </p>
 
-          {/* tabs */}
           <div className="flex gap-2">
             {(['windows', 'linux'] as const).map((p) => (
               <button
@@ -142,51 +127,41 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
             ))}
           </div>
 
-          {/* instrução por plataforma */}
-          <p className="text-[12px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
-            {platform === 'windows'
-              ? 'Abra o PowerShell como Administrador e cole o comando:'
-              : 'Abra o Terminal e cole o comando:'}
-          </p>
 
-          {/* comando */}
-          <div className="relative">
-            <div
-              className="rounded-xl px-4 py-3 pr-12 font-mono text-[12px] break-all select-all"
-              style={{
-                background: 'var(--color-surface-alt)',
-                border: '1px solid var(--color-border-strong)',
-                color: 'var(--color-text)',
-                minHeight: 56,
-              }}
+          {/* ── DOWNLOAD (ação principal) ── */}
+          {token ? (
+            <a
+              href={downloadUrl}
+              download={platform === 'windows' ? 'instalar-olhovivo.ps1' : 'instalar-olhovivo.sh'}
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[14px] font-bold text-white transition-all"
+              style={{ background: 'var(--color-primary)', boxShadow: '0 4px 20px rgba(79,124,255,0.3)' }}
             >
-              {cmd || <span style={{ color: 'var(--color-text-muted)' }}>carregando...</span>}
-            </div>
-            <button
-              type="button"
-              onClick={copy}
-              disabled={!cmd}
-              className="absolute top-2.5 right-2.5 w-8 h-8 rounded-lg flex items-center justify-center transition-all disabled:opacity-40"
-              style={{ background: copied ? 'rgba(16,185,129,0.15)' : 'var(--color-surface)', border: '1px solid var(--color-border)' }}
-              title="Copiar"
-            >
-              {copied
-                ? <Check size={13} style={{ color: 'var(--color-success)' }} />
-                : <Copy size={13} style={{ color: 'var(--color-text-dim)' }} />}
-            </button>
-          </div>
+              <Download size={16} />
+              {platform === 'windows' ? 'Baixar instalador (.ps1)' : 'Baixar script (.sh)'}
+            </a>
+          ) : (
+            <div className="h-12 rounded-xl animate-pulse" style={{ background: 'var(--color-surface-alt)' }} />
+          )}
 
-          {/* o que acontece */}
-          <div className="rounded-xl px-4 py-3 space-y-1.5" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}>
-            <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-primary)' }}>O que esse comando faz</p>
-            {[
-              'Baixa o agente do GitHub automaticamente',
-              'Configura o token de autenticação',
-              'Configura inicialização automática com o sistema',
-              'Inicia o agente — aparece Online em segundos',
-            ].map((s) => (
-              <div key={s} className="flex items-center gap-2">
-                <CheckCircle2 size={11} style={{ color: 'var(--color-success)', flexShrink: 0 }} />
+          {/* instrução passo a passo */}
+          <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}>
+            <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-primary)' }}>
+              {platform === 'windows' ? 'Como instalar (Windows)' : 'Como instalar (Linux)'}
+            </p>
+            {(platform === 'windows' ? [
+              'Clique em "Baixar instalador" acima',
+              'Vá para a pasta Downloads',
+              'Botão direito no arquivo .ps1 → "Executar com PowerShell"',
+              'Clique Sim no aviso do Windows',
+              'Aguarde "instalado com sucesso" aparecer',
+            ] : [
+              'Clique em "Baixar script" acima',
+              'Abra o Terminal',
+              'bash ~/Downloads/instalar-olhovivo.sh',
+              'Aguarde "instalado com sucesso" aparecer',
+            ]).map((s, i) => (
+              <div key={s} className="flex items-start gap-2">
+                <span className="text-[10px] font-black rounded px-1.5 py-0.5 shrink-0 mt-0.5" style={{ background: 'rgba(79,124,255,0.2)', color: 'var(--color-primary)' }}>{i + 1}</span>
                 <p className="text-[12px]" style={{ color: 'var(--color-text-dim)' }}>{s}</p>
               </div>
             ))}

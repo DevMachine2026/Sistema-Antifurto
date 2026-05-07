@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard, Upload, AlertTriangle, BarChart3, Settings,
   Menu, X, BookOpen, FlaskConical, Plug, ClipboardList,
-  ShieldCheck, LogOut, ChevronLeft, Camera, ListChecks, Cpu,
+  ShieldCheck, LogOut, ChevronLeft, Camera, ListChecks, Cpu, Rocket,
 } from 'lucide-react';
 import { dataService } from '../../services/dataService';
 import { cn } from '../../lib/utils';
@@ -24,6 +24,7 @@ const NAV_ITEMS = [
   { id: 'readiness',    labelKey: 'nav.readiness',    icon: ListChecks },
   { id: 'cameras',      labelKey: 'nav.cameras',      icon: Camera },
   { id: 'agents',       labelKey: 'nav.agents',       icon: Cpu },
+  { id: 'onboarding',   labelKey: 'nav.onboarding',   icon: Rocket },
   { id: 'upload',       labelKey: 'nav.importData',   icon: Upload },
   { id: 'alerts',       labelKey: 'nav.fraudAlerts',  icon: AlertTriangle },
   { id: 'simulator',    labelKey: 'nav.simulator',    icon: FlaskConical },
