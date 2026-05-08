@@ -38,12 +38,19 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
-          # cria o bucket se não existir (ignora erro 409 = já existe)
+          # cria o bucket (ignora 409 = já existe) e define limite de 200MB
           curl -s -o /dev/null -X POST \
             "${SUPABASE_URL}/storage/v1/bucket" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
-            -d '{"id":"agent-releases","name":"agent-releases","public":true}' || true
+            -d '{"id":"agent-releases","name":"agent-releases","public":true,"file_size_limit":209715200}' || true
+
+          # garante que o limite de 200MB está aplicado (atualiza se o bucket já existia)
+          curl -s -o /dev/null -X PUT \
+            "${SUPABASE_URL}/storage/v1/bucket/agent-releases" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"public":true,"file_size_limit":209715200}' || true
 
           # faz o upload do zip
           curl -f -X POST \
