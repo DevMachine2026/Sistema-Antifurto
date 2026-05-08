@@ -60,7 +60,13 @@ export default function Settings() {
           monitoring_end_time:   data.monitoring_end_time?.slice(0, 5)   ?? '04:00',
         });
         setTelegramChatId(data.telegram_chat_id ?? null);
-        setWebhookToken(data.webhook_token ?? null);
+
+        let token = data.webhook_token ?? null;
+        if (!token) {
+          token = crypto.randomUUID().replace(/-/g, '');
+          await supabase.from('settings').update({ webhook_token: token }).eq('establishment_id', establishmentId);
+        }
+        setWebhookToken(token);
       }
       setLoading(false);
     }

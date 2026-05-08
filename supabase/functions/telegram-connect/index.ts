@@ -26,6 +26,23 @@ async function sendMessage(botToken: string, chatId: number, text: string) {
 }
 
 Deno.serve(async (req) => {
+  const url = new URL(req.url);
+
+  // GET /telegram-connect?setup=1 — registra o webhook automaticamente
+  if (req.method === "GET" && url.searchParams.get("setup") === "1") {
+    const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
+    const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/telegram-connect`;
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: webhookUrl }),
+    });
+    const data = await res.json();
+    return new Response(JSON.stringify(data), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   if (req.method !== "POST") {
     return new Response("ok", { status: 200 });
   }
