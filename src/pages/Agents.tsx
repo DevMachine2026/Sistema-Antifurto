@@ -129,7 +129,10 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
         </div>
 
         <div className="px-5 py-6 space-y-3">
-          {/* Passo 1 — agente */}
+          <p className="text-[13px]" style={{ color: 'var(--color-text-dim)' }}>
+            Baixe os dois arquivos, coloque o <strong>token.txt</strong> dentro da pasta extraída e envie a pasta compactada para o cliente pelo WhatsApp.
+          </p>
+
           <a
             href={GITHUB_RELEASE}
             target="_blank"
@@ -138,10 +141,9 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
             style={{ background: 'var(--color-primary)', boxShadow: '0 4px 24px rgba(79,124,255,0.3)' }}
           >
             <Download size={17} />
-            1. Baixar agente (.zip)
+            Baixar agente (.zip)
           </a>
 
-          {/* Passo 2 — token */}
           <button
             type="button"
             onClick={downloadToken}
@@ -150,7 +152,7 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
             style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
           >
             {downloading ? <Loader2 size={17} className="animate-spin" /> : <Download size={17} />}
-            2. Baixar token.txt
+            Baixar token.txt
           </button>
 
           {error && (
@@ -159,13 +161,12 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
 
           <div className="rounded-xl px-4 py-3 space-y-2 mt-1" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}>
             <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-primary)' }}>
-              Instruções para o cliente
+              O que o cliente faz
             </p>
             {[
-              'Baixe os dois arquivos acima',
-              'Extraia o .zip — vai criar a pasta olhovivo-agent',
-              'Coloque o token.txt dentro da pasta olhovivo-agent',
-              'Dê duplo clique em olhovivo-agent.exe',
+              'Recebe a pasta pelo WhatsApp',
+              'Extrai o .zip',
+              'Dá duplo clique em olhovivo-agent.exe',
             ].map((s, i) => (
               <div key={s} className="flex items-start gap-2">
                 <span className="text-[10px] font-black rounded px-1.5 py-0.5 shrink-0 mt-0.5" style={{ background: 'rgba(79,124,255,0.2)', color: 'var(--color-primary)' }}>{i + 1}</span>
