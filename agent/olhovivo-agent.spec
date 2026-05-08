@@ -1,27 +1,17 @@
-# agent/olhovivo-agent.spec
-# PyInstaller spec para gerar o executável distribuível do Olho Vivo Agent.
-# Executar a partir da raiz do repositório:
-#   pyinstaller agent/olhovivo-agent.spec
-
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_all
 
 block_cipher = None
 
 all_datas, all_binaries, all_hiddenimports = [], [], []
 
-for pkg in ("ultralytics", "cv2"):
+for pkg in ("onnxruntime", "cv2"):
     d, b, h = collect_all(pkg)
     all_datas += d
     all_binaries += b
     all_hiddenimports += h
 
-all_hiddenimports += collect_submodules("torch")
 all_hiddenimports += [
-    "PIL",
-    "PIL.Image",
-    "yaml",
-    "scipy",
-    "lapx",
+    "numpy",
     "wsdiscovery",
     "wsdiscovery.discovery",
     "httpx",
@@ -34,6 +24,9 @@ all_hiddenimports += [
     "agent.models",
 ]
 
+# inclui o modelo ONNX no binário
+all_datas += [("yolov8n.onnx", ".")]
+
 a = Analysis(
     ["main.py"],
     pathex=[".."],
@@ -43,7 +36,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=["tkinter", "matplotlib", "notebook", "IPython", "jupyter"],
+    excludes=["tkinter", "matplotlib", "torch", "ultralytics", "PIL", "scipy"],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
