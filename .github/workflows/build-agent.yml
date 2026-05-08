@@ -22,7 +22,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r agent/requirements.txt
-          pip install lapx>=0.5.12
           pip install pyinstaller
 
       - name: Build with PyInstaller
@@ -33,6 +32,19 @@ jobs:
       - name: Zip artifact
         run: Compress-Archive -Path dist/olhovivo-agent -DestinationPath olhovivo-agent-windows.zip
 
+      - name: Upload to Supabase Storage
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl -f -X POST \
+            "${SUPABASE_URL}/storage/v1/object/agent-releases/olhovivo-agent-windows.zip" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/octet-stream" \
+            -H "x-upsert: true" \
+            --data-binary @olhovivo-agent-windows.zip
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -40,45 +52,8 @@ jobs:
           path: olhovivo-agent-windows.zip
           retention-days: 30
 
-  build-linux:
-    name: Build Linux (binary)
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install system deps (OpenCV)
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y libgl1 libglib2.0-0 libgomp1
-
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r agent/requirements.txt
-          pip install lapx>=0.5.12
-          pip install pyinstaller
-
-      - name: Build with PyInstaller
-        run: |
-          PYTHONPATH=$(pwd) pyinstaller agent/olhovivo-agent.spec --noconfirm
-
-      - name: Zip artifact
-        run: zip -r olhovivo-agent-linux.zip dist/olhovivo-agent/
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: olhovivo-agent-linux
-          path: olhovivo-agent-linux.zip
-          retention-days: 30
-
   release:
-    name: Create Release
+    name: Create GitHub Release
     needs: [build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
@@ -99,8 +74,6 @@ jobs:
           body: |
             ## Como instalar
 
-            Baixe o arquivo, extraia o zip e dê duplo clique em olhovivo-agent.exe.
-
-            O agente aparecerá como **Online** no AdminPanel em até 1 minuto.
+            Use o link de instalação gerado na plataforma. O download inicia automaticamente.
           files: |
             olhovivo-agent-windows.zip

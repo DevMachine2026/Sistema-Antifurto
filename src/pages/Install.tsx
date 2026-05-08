@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import JSZip from 'jszip';
 import { Loader2, CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 
-const AGENT_DOWNLOAD_URL = '/agent-download';
+const AGENT_DOWNLOAD_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/agent-releases/olhovivo-agent-windows.zip`;
 
 type Status = 'downloading' | 'done' | 'error';
 

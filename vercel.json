@@ -1,9 +1,3 @@
 {
-  "rewrites": [
-    {
-      "source": "/agent-download",
-      "destination": "https://github.com/DevMachine2026/Sistema-Antifurto/releases/latest/download/olhovivo-agent-windows.zip"
-    },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
