@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import JSZip from 'jszip';
 import {
   Cpu, Plus, X, Loader2, CheckCircle2, XCircle,
   Wifi, WifiOff, ChevronDown, ChevronRight, Download, Copy, Check,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
-
-const INSTALL_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-install`;
-const GITHUB_RELEASE = 'https://github.com/DevMachine2026/Sistema-Antifurto/releases/latest/download/olhovivo-agent-windows.zip';
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -66,8 +62,7 @@ function isOnline(hb: AgentHeartbeat | undefined): boolean {
 
 function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => void }) {
   const [token, setToken] = useState<string | null>(null);
-  const [downloading, setDownloading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     supabase
@@ -78,30 +73,13 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
       .then(({ data }) => setToken(data?.token ?? null));
   }, [agentId]);
 
-  async function downloadPackage() {
-    if (!token) return;
-    setDownloading(true);
-    setError(null);
-    try {
-      // baixa o zip do agente direto do GitHub (público)
-      const agentRes = await fetch(GITHUB_RELEASE);
-      if (!agentRes.ok) throw new Error('Release não encontrada no GitHub. Aguarde o build finalizar.');
-      const agentBuf = await agentRes.arrayBuffer();
+  const installUrl = token ? `${window.location.origin}/install/${token}` : null;
 
-      // injeta o token.txt dentro do zip via JSZip (tudo no browser, sem servidor)
-      const zip = await JSZip.loadAsync(agentBuf);
-      zip.file('olhovivo-agent/token.txt', token);
-
-      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 1 } });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'olhovivo-agent.zip'; a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao gerar pacote');
-    } finally {
-      setDownloading(false);
-    }
+  async function copyLink() {
+    if (!installUrl) return;
+    await navigator.clipboard.writeText(installUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   }
 
   return (
@@ -133,19 +111,25 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
         </div>
 
         <div className="px-5 py-6 space-y-4">
+          <p className="text-[13px] text-text-dim text-center">
+            Copie o link abaixo e mande para o cliente. Ele abre no navegador e o download começa sozinho.
+          </p>
+
           <button
             type="button"
-            onClick={downloadPackage}
-            disabled={!token || downloading}
-            className="flex items-center justify-center gap-3 w-full py-4 rounded-xl text-[15px] font-bold text-white disabled:opacity-50 transition-all"
-            style={{ background: 'var(--color-primary)', boxShadow: '0 4px 24px rgba(79,124,255,0.35)' }}
+            onClick={copyLink}
+            disabled={!installUrl}
+            className="flex items-center justify-center gap-3 w-full py-4 rounded-xl text-[15px] font-bold text-white disabled:opacity-40 transition-all"
+            style={{ background: copied ? 'var(--color-success)' : 'var(--color-primary)', boxShadow: '0 4px 24px rgba(79,124,255,0.35)' }}
           >
-            {downloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-            {downloading ? 'Preparando pacote...' : 'Baixar pacote completo'}
+            {copied ? <Check size={18} /> : <Copy size={18} />}
+            {copied ? 'Link copiado!' : 'Copiar link de instalação'}
           </button>
 
-          {error && (
-            <p className="text-[12px] text-center" style={{ color: 'var(--color-error)' }}>{error}</p>
+          {installUrl && (
+            <p className="text-[11px] font-mono break-all text-center px-2" style={{ color: 'var(--color-text-muted)' }}>
+              {installUrl}
+            </p>
           )}
 
           <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}>
@@ -153,8 +137,9 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
               O que o cliente faz
             </p>
             {[
-              'Recebe o .zip pelo WhatsApp',
-              'Extrai o arquivo',
+              'Recebe o link pelo WhatsApp',
+              'Abre o link no navegador — download começa sozinho',
+              'Extrai o arquivo zip',
               'Dá duplo clique em olhovivo-agent.exe',
             ].map((s, i) => (
               <div key={s} className="flex items-start gap-2">
