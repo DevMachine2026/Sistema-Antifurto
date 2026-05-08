@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import JSZip from 'jszip';
 import { Loader2, CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 
-const AGENT_DOWNLOAD_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/agent-releases/olhovivo-agent-windows.zip`;
+const GITHUB_API_RELEASE = 'https://api.github.com/repos/DevMachine2026/Sistema-Antifurto/releases/latest';
 
 type Status = 'downloading' | 'done' | 'error';
 
@@ -16,8 +16,16 @@ export default function Install({ token }: { token: string }) {
 
     async function run() {
       try {
-        const res = await fetch(AGENT_DOWNLOAD_URL);
-        if (!res.ok) throw new Error('Arquivo não encontrado. Tente novamente em alguns minutos.');
+        // busca metadados da release (api.github.com tem CORS)
+        const releaseRes = await fetch(GITHUB_API_RELEASE);
+        if (!releaseRes.ok) throw new Error('Release não encontrada. Aguarde o build finalizar.');
+        const release = await releaseRes.json();
+        const asset = release.assets?.find((a: { name: string }) => a.name === 'olhovivo-agent-windows.zip');
+        if (!asset) throw new Error('Arquivo do agente não encontrado na release.');
+
+        // baixa o zip pelo CDN do GitHub via API (objects.githubusercontent.com tem CORS)
+        const res = await fetch(asset.url, { headers: { Accept: 'application/octet-stream' } });
+        if (!res.ok) throw new Error('Falha ao baixar o agente. Tente novamente.');
         const buf = await res.arrayBuffer();
         if (cancelled) return;
 
