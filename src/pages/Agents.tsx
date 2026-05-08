@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import JSZip from 'jszip';
 import {
   Cpu, Plus, X, Loader2, CheckCircle2, XCircle,
   Wifi, WifiOff, ChevronDown, ChevronRight, Download, Copy, Check,
@@ -77,24 +78,27 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
       .then(({ data }) => setToken(data?.token ?? null));
   }, [agentId]);
 
-  async function downloadToken() {
+  async function downloadPackage() {
     if (!token) return;
     setDownloading(true);
     setError(null);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const bearer = session?.access_token ?? (import.meta.env.VITE_SUPABASE_ANON_KEY as string);
-      const res = await fetch(`${INSTALL_URL}?token=${token}`, {
-        headers: { Authorization: `Bearer ${bearer}` },
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const blob = await res.blob();
+      // baixa o zip do agente direto do GitHub (público)
+      const agentRes = await fetch(GITHUB_RELEASE);
+      if (!agentRes.ok) throw new Error('Release não encontrada no GitHub. Aguarde o build finalizar.');
+      const agentBuf = await agentRes.arrayBuffer();
+
+      // injeta o token.txt dentro do zip via JSZip (tudo no browser, sem servidor)
+      const zip = await JSZip.loadAsync(agentBuf);
+      zip.file('olhovivo-agent/token.txt', token);
+
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 1 } });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = 'token.txt'; a.click();
+      a.href = url; a.download = 'olhovivo-agent.zip'; a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao baixar token');
+      setError(e instanceof Error ? e.message : 'Erro ao gerar pacote');
     } finally {
       setDownloading(false);
     }
@@ -128,44 +132,29 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
           </button>
         </div>
 
-        <div className="px-5 py-6 space-y-3">
-          <p className="text-[13px]" style={{ color: 'var(--color-text-dim)' }}>
-            Baixe os dois arquivos, coloque o <strong>token.txt</strong> dentro da pasta extraída e envie a pasta compactada para o cliente pelo WhatsApp.
-          </p>
-
-          <a
-            href={GITHUB_RELEASE}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 w-full py-3.5 px-4 rounded-xl text-[14px] font-bold text-white transition-all"
-            style={{ background: 'var(--color-primary)', boxShadow: '0 4px 24px rgba(79,124,255,0.3)' }}
-          >
-            <Download size={17} />
-            Baixar agente (.zip)
-          </a>
-
+        <div className="px-5 py-6 space-y-4">
           <button
             type="button"
-            onClick={downloadToken}
+            onClick={downloadPackage}
             disabled={!token || downloading}
-            className="flex items-center gap-3 w-full py-3.5 px-4 rounded-xl text-[14px] font-bold transition-all disabled:opacity-50"
-            style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
+            className="flex items-center justify-center gap-3 w-full py-4 rounded-xl text-[15px] font-bold text-white disabled:opacity-50 transition-all"
+            style={{ background: 'var(--color-primary)', boxShadow: '0 4px 24px rgba(79,124,255,0.35)' }}
           >
-            {downloading ? <Loader2 size={17} className="animate-spin" /> : <Download size={17} />}
-            Baixar token.txt
+            {downloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+            {downloading ? 'Preparando pacote...' : 'Baixar pacote completo'}
           </button>
 
           {error && (
-            <p className="text-[12px]" style={{ color: 'var(--color-error)' }}>{error}</p>
+            <p className="text-[12px] text-center" style={{ color: 'var(--color-error)' }}>{error}</p>
           )}
 
-          <div className="rounded-xl px-4 py-3 space-y-2 mt-1" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}>
+          <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}>
             <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-primary)' }}>
               O que o cliente faz
             </p>
             {[
-              'Recebe a pasta pelo WhatsApp',
-              'Extrai o .zip',
+              'Recebe o .zip pelo WhatsApp',
+              'Extrai o arquivo',
               'Dá duplo clique em olhovivo-agent.exe',
             ].map((s, i) => (
               <div key={s} className="flex items-start gap-2">
