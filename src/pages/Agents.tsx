@@ -63,8 +63,9 @@ function isOnline(hb: AgentHeartbeat | undefined): boolean {
 // ── InstallModal ──────────────────────────────────────────────────────────────
 
 function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => void }) {
-  const [platform, setPlatform] = useState<'windows' | 'linux'>('windows');
   const [token, setToken] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase
@@ -75,7 +76,28 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
       .then(({ data }) => setToken(data?.token ?? null));
   }, [agentId]);
 
-  const downloadUrl = token ? `${INSTALL_URL}?token=${token}&platform=${platform}&download=true` : '#';
+  async function handleDownload() {
+    if (!token) return;
+    setDownloading(true);
+    setError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const bearer = session?.access_token ?? (import.meta.env.VITE_SUPABASE_ANON_KEY as string);
+      const res = await fetch(`${INSTALL_URL}?token=${token}&platform=windows`, {
+        headers: { Authorization: `Bearer ${bearer}` },
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'olhovivo-agent.zip'; a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro ao baixar');
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   return (
     <motion.div
@@ -91,7 +113,7 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 30, opacity: 0 }}
         transition={{ type: 'spring', stiffness: 350, damping: 35 }}
-        className="w-full max-w-lg rounded-2xl"
+        className="w-full max-w-md rounded-2xl"
         style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border-strong)' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -105,61 +127,32 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
           </button>
         </div>
 
-        <div className="px-5 py-5 space-y-4">
-          <p className="text-[13px]" style={{ color: 'var(--color-text-dim)' }}>
-            Escolha o sistema operacional do PC do estabelecimento e baixe o instalador.
-          </p>
+        <div className="px-5 py-6 space-y-5">
+          <button
+            type="button"
+            onClick={handleDownload}
+            disabled={!token || downloading}
+            className="flex items-center justify-center gap-3 w-full py-4 rounded-xl text-[15px] font-bold text-white disabled:opacity-50 transition-all"
+            style={{ background: 'var(--color-primary)', boxShadow: '0 4px 24px rgba(79,124,255,0.35)' }}
+          >
+            {downloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+            {downloading ? 'Preparando pacote...' : 'Baixar pacote de instalação'}
+          </button>
 
-          <div className="flex gap-2">
-            {(['windows', 'linux'] as const).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPlatform(p)}
-                className="px-4 py-1.5 rounded-lg text-[12px] font-semibold transition-all"
-                style={platform === p
-                  ? { background: 'var(--color-primary)', color: '#fff' }
-                  : { background: 'var(--color-surface-alt)', color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }
-                }
-              >
-                {p === 'windows' ? '🪟 Windows' : '🐧 Linux'}
-              </button>
-            ))}
-          </div>
-
-
-          {/* ── DOWNLOAD (ação principal) ── */}
-          {token ? (
-            <a
-              href={downloadUrl}
-              download={platform === 'windows' ? 'instalar-olhovivo.ps1' : 'instalar-olhovivo.sh'}
-              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[14px] font-bold text-white transition-all"
-              style={{ background: 'var(--color-primary)', boxShadow: '0 4px 20px rgba(79,124,255,0.3)' }}
-            >
-              <Download size={16} />
-              {platform === 'windows' ? 'Baixar instalador (.ps1)' : 'Baixar script (.sh)'}
-            </a>
-          ) : (
-            <div className="h-12 rounded-xl animate-pulse" style={{ background: 'var(--color-surface-alt)' }} />
+          {error && (
+            <p className="text-[12px] text-center" style={{ color: 'var(--color-error)' }}>{error}</p>
           )}
 
-          {/* instrução passo a passo */}
           <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}>
             <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-primary)' }}>
-              {platform === 'windows' ? 'Como instalar (Windows)' : 'Como instalar (Linux)'}
+              Instruções para o cliente
             </p>
-            {(platform === 'windows' ? [
-              'Clique em "Baixar instalador" acima',
-              'Vá para a pasta Downloads',
-              'Botão direito no arquivo .ps1 → "Executar com PowerShell"',
-              'Clique Sim no aviso do Windows',
-              'Aguarde "instalado com sucesso" aparecer',
-            ] : [
-              'Clique em "Baixar script" acima',
-              'Abra o Terminal',
-              'bash ~/Downloads/instalar-olhovivo.sh',
-              'Aguarde "instalado com sucesso" aparecer',
-            ]).map((s, i) => (
+            {[
+              'Receba o arquivo .zip pelo WhatsApp ou e-mail',
+              'Clique com botão direito → Extrair tudo',
+              'Abra a pasta extraída',
+              'Dê duplo clique em olhovivo-agent.exe',
+            ].map((s, i) => (
               <div key={s} className="flex items-start gap-2">
                 <span className="text-[10px] font-black rounded px-1.5 py-0.5 shrink-0 mt-0.5" style={{ background: 'rgba(79,124,255,0.2)', color: 'var(--color-primary)' }}>{i + 1}</span>
                 <p className="text-[12px]" style={{ color: 'var(--color-text-dim)' }}>{s}</p>

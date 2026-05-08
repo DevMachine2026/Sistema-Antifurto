@@ -19,6 +19,7 @@ import { cn } from '../lib/utils';
 
 const BOT_USERNAME = 'sistemantifraude_bot';
 const INSTALL_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-install`;
+const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 type StepStatus = 'pending' | 'active' | 'done';
 
@@ -32,9 +33,28 @@ interface State {
   cameraApproved: boolean;
 }
 
+async function downloadInstaller(token: string, platform: 'windows' | 'linux') {
+  const { data: { session } } = await supabase.auth.getSession();
+  const bearerToken = session?.access_token ?? ANON_KEY;
+
+  const res = await fetch(`${INSTALL_URL}?token=${token}&platform=${platform}`, {
+    headers: { Authorization: `Bearer ${bearerToken}` },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  const blob = await res.blob();
+  const filename = platform === 'windows' ? 'instalar-olhovivo.ps1' : 'instalar-olhovivo.sh';
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function Onboarding() {
   const estId = getCurrentEstablishmentId();
   const [platform, setPlatform] = useState<'windows' | 'linux'>('windows');
+  const [downloading, setDownloading] = useState(false);
   const [state, setState] = useState<State>({
     telegramChatId: null,
     webhookToken: null,
@@ -134,7 +154,6 @@ export default function Onboarding() {
   const allDone = step1 === 'done' && step2 === 'done' && step3 === 'done';
 
   const telegramLink = state.webhookToken ? `https://t.me/${BOT_USERNAME}?start=${state.webhookToken}` : null;
-  const downloadUrl = state.agentToken ? `${INSTALL_URL}?token=${state.agentToken}&platform=${platform}` : null;
 
   if (loading) {
     return (
@@ -239,16 +258,20 @@ export default function Onboarding() {
               ))}
             </div>
 
-            {downloadUrl ? (
-              <a
-                href={downloadUrl}
-                download={platform === 'windows' ? 'instalar-olhovivo.ps1' : 'instalar-olhovivo.sh'}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[14px] font-bold text-white"
+            {state.agentToken ? (
+              <button
+                onClick={async () => {
+                  setDownloading(true);
+                  try { await downloadInstaller(state.agentToken!, platform); }
+                  finally { setDownloading(false); }
+                }}
+                disabled={downloading}
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[14px] font-bold text-white disabled:opacity-60"
                 style={{ background: 'var(--color-primary)', boxShadow: '0 4px 20px rgba(79,124,255,0.3)' }}
               >
-                <Download size={16} />
+                {downloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                 {platform === 'windows' ? 'Baixar instalador para Windows' : 'Baixar script para Linux'}
-              </a>
+              </button>
             ) : (
               <div className="flex items-center gap-2 text-warning text-xs">
                 <AlertTriangle size={14} /> Crie um agente primeiro em Agentes → Novo agente.
