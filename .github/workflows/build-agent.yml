@@ -32,34 +32,6 @@ jobs:
       - name: Zip artifact
         run: Compress-Archive -Path dist/olhovivo-agent -DestinationPath olhovivo-agent-windows.zip
 
-      - name: Upload to Supabase Storage
-        shell: bash
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          # cria o bucket (ignora 409 = já existe) e define limite de 200MB
-          curl -s -o /dev/null -X POST \
-            "${SUPABASE_URL}/storage/v1/bucket" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "Content-Type: application/json" \
-            -d '{"id":"agent-releases","name":"agent-releases","public":true,"file_size_limit":209715200}' || true
-
-          # garante que o limite de 200MB está aplicado (atualiza se o bucket já existia)
-          curl -s -o /dev/null -X PUT \
-            "${SUPABASE_URL}/storage/v1/bucket/agent-releases" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "Content-Type: application/json" \
-            -d '{"public":true,"file_size_limit":209715200}' || true
-
-          # faz o upload do zip
-          curl -f -X POST \
-            "${SUPABASE_URL}/storage/v1/object/agent-releases/olhovivo-agent-windows.zip" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "Content-Type: application/octet-stream" \
-            -H "x-upsert: true" \
-            --data-binary @olhovivo-agent-windows.zip
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
