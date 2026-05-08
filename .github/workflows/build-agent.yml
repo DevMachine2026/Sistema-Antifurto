@@ -79,7 +79,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: [build-windows, build-linux]
+    needs: [build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
 
@@ -92,11 +92,6 @@ jobs:
         with:
           name: olhovivo-agent-windows
 
-      - name: Download Linux artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: olhovivo-agent-linux
-
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -104,12 +99,8 @@ jobs:
           body: |
             ## Como instalar
 
-            1. Baixe o arquivo para o seu sistema operacional
-            2. Extraia o zip
-            3. Crie um arquivo `token.txt` na pasta extraída com o token do AdminPanel
-            4. Execute `olhovivo-agent.exe` (Windows) ou `./olhovivo-agent` (Linux)
+            Baixe o arquivo, extraia o zip e dê duplo clique em olhovivo-agent.exe.
 
             O agente aparecerá como **Online** no AdminPanel em até 1 minuto.
           files: |
             olhovivo-agent-windows.zip
-            olhovivo-agent-linux.zip
