@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
 
 const INSTALL_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-install`;
+const GITHUB_RELEASE = 'https://github.com/DevMachine2026/Sistema-Antifurto/releases/latest/download/olhovivo-agent-windows.zip';
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -76,24 +77,24 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
       .then(({ data }) => setToken(data?.token ?? null));
   }, [agentId]);
 
-  async function handleDownload() {
+  async function downloadToken() {
     if (!token) return;
     setDownloading(true);
     setError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const bearer = session?.access_token ?? (import.meta.env.VITE_SUPABASE_ANON_KEY as string);
-      const res = await fetch(`${INSTALL_URL}?token=${token}&platform=windows`, {
+      const res = await fetch(`${INSTALL_URL}?token=${token}`, {
         headers: { Authorization: `Bearer ${bearer}` },
       });
       if (!res.ok) throw new Error(await res.text());
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = 'olhovivo-agent.zip'; a.click();
+      a.href = url; a.download = 'token.txt'; a.click();
       URL.revokeObjectURL(url);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erro ao baixar');
+      setError(e instanceof Error ? e.message : 'Erro ao baixar token');
     } finally {
       setDownloading(false);
     }
@@ -127,30 +128,43 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
           </button>
         </div>
 
-        <div className="px-5 py-6 space-y-5">
+        <div className="px-5 py-6 space-y-3">
+          {/* Passo 1 — agente */}
+          <a
+            href={GITHUB_RELEASE}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 w-full py-3.5 px-4 rounded-xl text-[14px] font-bold text-white transition-all"
+            style={{ background: 'var(--color-primary)', boxShadow: '0 4px 24px rgba(79,124,255,0.3)' }}
+          >
+            <Download size={17} />
+            1. Baixar agente (.zip)
+          </a>
+
+          {/* Passo 2 — token */}
           <button
             type="button"
-            onClick={handleDownload}
+            onClick={downloadToken}
             disabled={!token || downloading}
-            className="flex items-center justify-center gap-3 w-full py-4 rounded-xl text-[15px] font-bold text-white disabled:opacity-50 transition-all"
-            style={{ background: 'var(--color-primary)', boxShadow: '0 4px 24px rgba(79,124,255,0.35)' }}
+            className="flex items-center gap-3 w-full py-3.5 px-4 rounded-xl text-[14px] font-bold transition-all disabled:opacity-50"
+            style={{ background: 'var(--color-surface-alt)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
           >
-            {downloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-            {downloading ? 'Preparando pacote...' : 'Baixar pacote de instalação'}
+            {downloading ? <Loader2 size={17} className="animate-spin" /> : <Download size={17} />}
+            2. Baixar token.txt
           </button>
 
           {error && (
-            <p className="text-[12px] text-center" style={{ color: 'var(--color-error)' }}>{error}</p>
+            <p className="text-[12px]" style={{ color: 'var(--color-error)' }}>{error}</p>
           )}
 
-          <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}>
+          <div className="rounded-xl px-4 py-3 space-y-2 mt-1" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}>
             <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-primary)' }}>
               Instruções para o cliente
             </p>
             {[
-              'Receba o arquivo .zip pelo WhatsApp ou e-mail',
-              'Clique com botão direito → Extrair tudo',
-              'Abra a pasta extraída',
+              'Baixe os dois arquivos acima',
+              'Extraia o .zip — vai criar a pasta olhovivo-agent',
+              'Coloque o token.txt dentro da pasta olhovivo-agent',
               'Dê duplo clique em olhovivo-agent.exe',
             ].map((s, i) => (
               <div key={s} className="flex items-start gap-2">
