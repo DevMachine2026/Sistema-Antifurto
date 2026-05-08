@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import JSZip from 'jszip';
 import { Loader2, CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 
-const GITHUB_RELEASE =
-  'https://github.com/DevMachine2026/Sistema-Antifurto/releases/latest/download/olhovivo-agent-windows.zip';
+const AGENT_DOWNLOAD_URL = '/agent-download';
 
 type Status = 'downloading' | 'done' | 'error';
 
@@ -17,7 +16,7 @@ export default function Install({ token }: { token: string }) {
 
     async function run() {
       try {
-        const res = await fetch(GITHUB_RELEASE);
+        const res = await fetch(AGENT_DOWNLOAD_URL);
         if (!res.ok) throw new Error('Arquivo não encontrado. Tente novamente em alguns minutos.');
         const buf = await res.arrayBuffer();
         if (cancelled) return;
