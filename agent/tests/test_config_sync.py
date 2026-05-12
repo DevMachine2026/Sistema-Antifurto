@@ -36,6 +36,23 @@ def test_fetch_config_success(mocker):
     assert config.cameras[0].rtsp_url == "rtsp://admin:1234@192.168.1.10/stream1"
     assert config.config_changed_at == "2026-05-05T10:00:00Z"
 
+def test_fetch_sends_apikey_and_authorization_headers(mocker):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = FAKE_RESPONSE
+    mock_response.raise_for_status = MagicMock()
+
+    mock_get = mocker.patch("httpx.get", return_value=mock_response)
+
+    sync = ConfigSync(token="my-token", supabase_url="https://x.supabase.co",
+                      anon_key="anon-key-xyz")
+    sync.fetch()
+
+    _, kwargs = mock_get.call_args
+    headers = kwargs["headers"]
+    assert headers["apikey"] == "anon-key-xyz"
+    assert headers["Authorization"] == "Bearer my-token"
+
 def test_fetch_config_invalid_token(mocker):
     import httpx
     mock_response = MagicMock()

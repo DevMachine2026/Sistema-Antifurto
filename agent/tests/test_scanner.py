@@ -195,6 +195,25 @@ def test_report_discovered_posts_correct_payload(monkeypatch):
     assert cameras[0]["manufacturer"] == "Dahua"
 
 
+def test_report_discovered_sends_apikey_and_establishment_token(monkeypatch):
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.json.return_value = {"inserted": 1}
+
+    with patch("agent.scanner.httpx.post", return_value=mock_resp) as mock_post:
+        from agent.scanner import report_discovered
+        report_discovered(
+            [{"ip": "10.0.0.1", "port": 554, "service_url": "rtsp://10.0.0.1:554/", "manufacturer": None}],
+            token="est-tok-uuid",
+            supabase_url="https://example.supabase.co",
+            anon_key="anon-key-abc",
+        )
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["headers"]["apikey"] == "anon-key-abc"
+    assert kwargs["headers"]["Authorization"] == "Bearer est-tok-uuid"
+    assert kwargs["json"]["establishment_token"] == "est-tok-uuid"
+
 def test_report_discovered_noop_on_empty():
     with patch("agent.scanner.httpx.post") as mock_post:
         from agent.scanner import report_discovered

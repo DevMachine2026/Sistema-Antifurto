@@ -94,13 +94,24 @@ Isso remove a pasta do aplicativo em `AppData\Local\Programs\Olho Vivo`. A pasta
 |----------|-------------|
 | Instalador diz que falta `TOKEN_` no nome | Baixe de novo pelo **link do painel**. Não use só o `OlhoVivoSetup.exe` genérico do GitHub sem o nome completo. |
 | Agente não fica Online | Internet, firewall do Windows ou antivírus bloqueando saída para a internet; verifique `agente.log` na pasta acima. |
+| `agente.log` mostra `401 Unauthorized` | A `SUPABASE_ANON_KEY` não está configurada no agente. Em ambiente dev: defina a variável de ambiente (veja README). No instalador Windows gerado pelo painel, isso já vem embutido. |
 | Câmeras não aparecem | Rede: PC e câmeras na mesma LAN; credenciais RTSP configuradas no painel após aprovação. |
 
 ---
 
 ## Linux ou ambiente de desenvolvimento
 
-Para **Linux** ou testes com código-fonte, o fluxo é outro: use variável de ambiente `ESTABLISHMENT_TOKEN` ou o arquivo `token.txt`, conforme documentado em `agent/main.py` e `.env.example`. O instalador Inno descrito acima é **só para Windows**.
+Para **Linux** ou testes com código-fonte, o fluxo é outro. Variáveis necessárias:
+
+```bash
+export ESTABLISHMENT_TOKEN="uuid-do-agente"
+export SUPABASE_ANON_KEY="sua_anon_key_aqui"   # obrigatória — chave anon/public do Supabase
+export SUPABASE_URL="https://SEU_REF.supabase.co"  # opcional
+```
+
+Sem a `SUPABASE_ANON_KEY`, todos os requests ao Supabase retornam **401 Unauthorized**. O valor fica em **Project Settings → API** no painel do Supabase.
+
+Alternativamente, use o arquivo `token.txt` para o token e coloque `SUPABASE_ANON_KEY` no `.env` ao lado do `main.py`, conforme documentado em `agent/main.py` e `.env.example`. O instalador Inno descrito acima é **só para Windows**.
 
 ---
 

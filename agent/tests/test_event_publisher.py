@@ -39,6 +39,20 @@ def test_publish_queues_on_failure(mocker):
 
     assert pub.queue_size() == 1
 
+def test_publish_sends_apikey_header(mocker):
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.raise_for_status = MagicMock()
+    mock_post = mocker.patch("httpx.post", return_value=mock_resp)
+
+    pub = EventPublisher(webhook_url="https://x.supabase.co/functions/v1/webhook-camera",
+                         webhook_token="wh-tok", db_path=":memory:", anon_key="anon-key-abc")
+    pub.publish(make_event())
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["headers"]["apikey"] == "anon-key-abc"
+    assert kwargs["headers"]["Authorization"] == "Bearer wh-tok"
+
 def test_flush_queue_on_reconnect(mocker):
     import httpx
     mock_resp = MagicMock()

@@ -42,3 +42,19 @@ def test_send_heartbeat_silent_on_error(mocker):
                              version="0.1.0", last_config_changed_at="")
     result = sender.send(cameras_online=0, last_inference=None)
     assert result == {}
+
+def test_send_includes_apikey_header_and_establishment_token_in_body(mocker):
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"config_updated": False}
+    mock_resp.raise_for_status = MagicMock()
+    mock_post = mocker.patch("httpx.post", return_value=mock_resp)
+
+    sender = HeartbeatSender(token="est-tok-uuid", supabase_url="https://x.supabase.co",
+                             version="0.1.0", last_config_changed_at="", anon_key="anon-key-abc")
+    sender.send(cameras_online=1, last_inference=None)
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["headers"]["apikey"] == "anon-key-abc"
+    assert kwargs["headers"]["Authorization"] == "Bearer est-tok-uuid"
+    assert kwargs["json"]["establishment_token"] == "est-tok-uuid"

@@ -145,16 +145,17 @@ PC do estabelecimento (Windows)
 O agente:
 - Lê câmeras via RTSP
 - Detecta pessoas com YOLOv8-nano (ONNX Runtime)
-- Envia eventos ao Supabase
-- Descobre câmeras ONVIF na rede
-- Envia heartbeat conforme a configuração
+- Envia eventos ao Supabase (com `apikey` + `Authorization` em todos os requests)
+- Descobre câmeras ONVIF na rede (com fallback por port-scan via tabela ARP)
+- Reporta câmeras descobertas ao painel, incluindo `establishment_token` no corpo da requisição
+- Envia heartbeat conforme a configuração (token também no body para identificação)
 
 **Fluxo de implantação (Windows, usuário leigo):**
 1. No painel: **Agentes** (ou onboarding) → link de instalação / download do instalador (o navegador salva já com `TOKEN_` no nome).
 2. Executar o instalador e avançar nas telas; ao terminar, o agente abre sozinho e passa a subir no boot.
 3. Aprovar câmeras descobertas no AdminPanel.
 
-**Desenvolvimento / Linux:** continue usando variável `ESTABLISHMENT_TOKEN` ou `token.txt` ao lado do código, conforme [`agent/main.py`](agent/main.py) e `.env.example`.
+**Desenvolvimento / Linux:** continue usando variável `ESTABLISHMENT_TOKEN` ou `token.txt` ao lado do código, e defina `SUPABASE_ANON_KEY` (obrigatória) conforme [`agent/main.py`](agent/main.py) e `.env.example`.
 
 **Release no GitHub:** o artefato publicado na tag `agent-v*` é o instalador **`OlhoVivoSetup.exe`**, não um ZIP. Quem baixa só o `.exe` genérico do Release precisa passar o token via parâmetro do instalador (`/TOKEN=...`) ou usar sempre o link do painel (nome do arquivo com `TOKEN_`).
 
@@ -198,6 +199,24 @@ npm install
 cp .env.example .env   # preencher VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY
 npm run dev            # http://localhost:3000
 ```
+
+**Agente (Python):** além de `ESTABLISHMENT_TOKEN`, defina obrigatoriamente:
+
+```bash
+export SUPABASE_ANON_KEY="sua_anon_key_aqui"   # chave anon/public do projeto Supabase
+export ESTABLISHMENT_TOKEN="uuid-do-agente"
+# opcional:
+export SUPABASE_URL="https://SEU_REF.supabase.co"
+```
+
+Ou coloque no `.env` do agente (lido por `_read_internal_env`):
+
+```
+ESTABLISHMENT_TOKEN=uuid-do-agente
+SUPABASE_ANON_KEY=sua_anon_key_aqui
+```
+
+A `SUPABASE_ANON_KEY` é a chave **anon / public** do projeto, visível em **Project Settings → API** no painel do Supabase. Sem ela todos os requests retornam **401 Unauthorized** (EarlyDrop no gateway do Supabase).
 
 ### 2. Banco de dados (Supabase SQL Editor)
 
@@ -304,17 +323,17 @@ src/
     └── auditService.ts
 
 agent/
-├── main.py                   ← orquestrador: token, logs, autostart Windows
+├── main.py                   ← orquestrador: token, logs, autostart Windows, SUPABASE_ANON_KEY
 ├── token_from_name.py        ← extrai TOKEN_* do nome do .exe
-├── config_sync.py            ← busca config no Supabase
-├── camera_discovery.py       ← descoberta ONVIF
+├── config_sync.py            ← busca config no Supabase (apikey + Authorization)
+├── scanner.py                ← descoberta ONVIF + port-scan ARP + report ao painel
 ├── people_counter.py         ← YOLOv8 (ONNX) + LineCrossDetector
-├── event_publisher.py        ← envio de eventos + fila SQLite offline
-├── heartbeat.py              ← pulso de vida
+├── event_publisher.py        ← envio de eventos + fila SQLite offline (apikey header)
+├── heartbeat.py              ← pulso de vida (establishment_token no body)
 ├── models.py                 ← dataclasses compartilhadas
 ├── olhovivo-agent.spec       ← PyInstaller (sem console, onedir)
 ├── olhovivo-setup.iss        ← Inno Setup → OlhoVivoSetup.exe
-└── build.sh                  ← build local Linux (opcional)
+└── tests/                    ← pytest: 44 testes (cobertura de headers e body)
 
 supabase/
 ├── schema.sql
@@ -352,7 +371,9 @@ supabase/
 | Trilha de auditoria | ✅ |
 | Checklist de prontidão operacional | ✅ |
 | **Agente Olho Vivo (YOLOv8 + RTSP)** | ✅ testado com webcam |
-| **Descoberta ONVIF de câmeras** | ✅ |
+| **Descoberta ONVIF + port-scan ARP de câmeras** | ✅ |
+| **Auth Supabase: apikey + Authorization em todos os requests** | ✅ |
+| **Token UUID no body dos POSTs (heartbeat, scanner)** | ✅ |
 | **Build automático instalador Windows (PyInstaller + Inno, GitHub Actions)** | ✅ |
 | Analítico avançado (Fase 2) | 🔜 |
 
