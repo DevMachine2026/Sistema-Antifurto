@@ -11,7 +11,7 @@ Modo desenvolvedor:
   token.txt — legado na pasta do agente
   SUPABASE_URL — sobrescreve a URL padrão (opcional)
   AGENT_VERSION — versão (default: 0.1.0)
-  YOLO_MODEL_PATH — modelo YOLO ONNX (default: yolov8n.onnx ao lado do exe)
+  YOLO_MODEL_PATH — modelo YOLO ONNX (default: resolve yolov8n.onnx no bundle PyInstaller)
 """
 from __future__ import annotations
 
@@ -43,6 +43,22 @@ def _exe_dir() -> str:
     if getattr(sys, "frozen", False):
         return os.path.dirname(os.path.abspath(sys.executable))
     return os.path.dirname(os.path.abspath(__file__))
+
+
+def _frozen_yolo_onnx_path() -> str:
+    """
+    Caminho do yolov8n.onnx no build congelado.
+    PyInstaller 6+ (onedir) coloca datas em _internal/; onefile usa sys._MEIPASS.
+    """
+    exe_d = _exe_dir()
+    meipass = getattr(sys, "_MEIPASS", None)
+    for base in (meipass, exe_d, os.path.join(exe_d, "_internal")):
+        if not base:
+            continue
+        p = os.path.join(base, "yolov8n.onnx")
+        if os.path.isfile(p):
+            return p
+    return os.path.join(exe_d, "yolov8n.onnx")
 
 
 def _writable_data_dir() -> str:
@@ -177,8 +193,7 @@ def main() -> None:
     ensure_autostart_windows()
 
     if getattr(sys, "frozen", False):
-        onnx_default = os.path.join(_exe_dir(), "yolov8n.onnx")
-        os.environ.setdefault("YOLO_MODEL_PATH", onnx_default)
+        os.environ.setdefault("YOLO_MODEL_PATH", _frozen_yolo_onnx_path())
 
     supabase_url = os.getenv("SUPABASE_URL", _DEFAULT_SUPABASE_URL).rstrip("/")
 

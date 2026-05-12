@@ -42,12 +42,13 @@ jobs:
       - name: Verificar modelo ONNX na pasta do agente
         shell: pwsh
         run: |
-          $onnx = Join-Path $PWD "dist/olhovivo-agent/yolov8n.onnx"
-          if (-not (Test-Path $onnx)) {
-            Write-Error "Arquivo ONNX nao encontrado: $onnx"
+          $dist = Join-Path $PWD "dist/olhovivo-agent"
+          $found = Get-ChildItem -LiteralPath $dist -Recurse -Filter "yolov8n.onnx" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $found) {
+            Write-Error "yolov8n.onnx nao encontrado sob $dist (PyInstaller 6+ pode usar _internal/)"
             exit 1
           }
-          Write-Host "OK: $onnx"
+          Write-Host "OK: $($found.FullName)"
 
       - name: Instalar Inno Setup 6
         run: choco install innosetup -y

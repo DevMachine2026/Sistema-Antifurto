@@ -35,7 +35,9 @@ jobs:
       - name: Verificar ONNX
         shell: pwsh
         run: |
-          if (-not (Test-Path "dist/olhovivo-agent/yolov8n.onnx")) { exit 1 }
+          $dist = Join-Path $PWD "dist/olhovivo-agent"
+          $found = Get-ChildItem -LiteralPath $dist -Recurse -Filter "yolov8n.onnx" -File -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $found) { Write-Error "yolov8n.onnx nao encontrado sob $dist"; exit 1 }
 
       - name: Instalar Inno Setup 6
         run: choco install innosetup -y

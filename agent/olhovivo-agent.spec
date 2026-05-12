@@ -63,6 +63,8 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
+    # PyInstaller 6+: sem isto, datas ficam em _internal/ e quebra paths ao lado do .exe
+    contents_directory=".",
 )
 
 coll = COLLECT(
