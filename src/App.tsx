@@ -3,24 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import Shell from './components/layout/Shell';
 import AdminShell from './components/layout/AdminShell';
-import AdminPanel from './pages/AdminPanel';
-import Dashboard from './pages/Dashboard';
-import UploadPage from './pages/Upload';
-import AlertsPage from './pages/Alerts';
-import Settings from './pages/Settings';
-import Guide from './pages/Guide';
-import Simulator from './pages/Simulator';
-import Integrations from './pages/Integrations';
-import AuditTrail from './pages/AuditTrail';
-import Cameras from './pages/Cameras';
-import Readiness from './pages/Readiness';
-import Agents from './pages/Agents';
-import Onboarding from './pages/Onboarding';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -28,6 +15,20 @@ import { supabase } from './lib/supabase';
 import { Session } from '@supabase/supabase-js';
 import { setCurrentEstablishmentId, getCurrentEstablishmentId, clearCurrentEstablishmentId } from './lib/tenant';
 import SelectEstablishment from './pages/SelectEstablishment';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const UploadPage = lazy(() => import('./pages/Upload'));
+const AlertsPage = lazy(() => import('./pages/Alerts'));
+const Guide = lazy(() => import('./pages/Guide'));
+const Simulator = lazy(() => import('./pages/Simulator'));
+const Integrations = lazy(() => import('./pages/Integrations'));
+const Settings = lazy(() => import('./pages/Settings'));
+const AuditTrail = lazy(() => import('./pages/AuditTrail'));
+const Cameras = lazy(() => import('./pages/Cameras'));
+const Readiness = lazy(() => import('./pages/Readiness'));
+const Agents = lazy(() => import('./pages/Agents'));
+const Onboarding = lazy(() => import('./pages/Onboarding'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 
 interface AccessContext {
   role: 'platform_admin' | 'merchant_admin';
@@ -131,6 +132,12 @@ export default function App() {
 
   const currentEstId   = getCurrentEstablishmentId();
   const currentEstName = accessContext?.establishments.find((e) => e.id === currentEstId)?.name;
+
+  const pageFallback = (
+    <div className="min-h-[40vh] flex items-center justify-center text-text-dim">
+      <Loader2 className="animate-spin w-8 h-8" aria-hidden />
+    </div>
+  );
 
   const renderContent = () => {
     switch (activeTab) {
@@ -266,7 +273,7 @@ export default function App() {
           establishmentName={ownEst.name}
           onBackToAdmin={() => setAdminView('platform')}
         >
-          {renderContent()}
+          <Suspense fallback={pageFallback}>{renderContent()}</Suspense>
         </Shell>
       );
     }
@@ -277,7 +284,9 @@ export default function App() {
         ownEstablishmentName={ownEst?.name}
         onSwitchToMonitoring={ownEst ? () => { setCurrentEstablishmentId(ownEst.id); setAdminView('monitoring'); } : undefined}
       >
-        <AdminPanel />
+        <Suspense fallback={pageFallback}>
+          <AdminPanel />
+        </Suspense>
       </AdminShell>
     );
   }
@@ -289,7 +298,7 @@ export default function App() {
       onLogout={handleLogout}
       establishmentName={currentEstName}
     >
-      {renderContent()}
+      <Suspense fallback={pageFallback}>{renderContent()}</Suspense>
     </Shell>
   );
 }

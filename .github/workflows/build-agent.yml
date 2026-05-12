@@ -1,14 +1,12 @@
+# Build manual do agente (sem criar release). Para release automático com tag, use agent-release.yml.
 name: Build Agent
 
 on:
-  push:
-    tags:
-      - "agent-v*"
   workflow_dispatch:
 
 jobs:
   build-windows:
-    name: Build Windows (.exe)
+    name: Build Windows (instalador Inno Setup)
     runs-on: windows-latest
 
     steps:
@@ -18,49 +16,40 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Instalar dependências
         run: |
           python -m pip install --upgrade pip
           pip install -r agent/requirements.txt
-          pip install pyinstaller
+          pip install pyinstaller ultralytics
 
-      - name: Build with PyInstaller
+      - name: Exportar YOLOv8n para ONNX
+        run: |
+          cd agent
+          python -c "from ultralytics import YOLO; YOLO('yolov8n.pt').export(format='onnx', imgsz=640)"
+
+      - name: PyInstaller (sem console; onedir definido no .spec via COLLECT)
         run: |
           $env:PYTHONPATH = $PWD
-          pyinstaller agent/olhovivo-agent.spec --noconfirm
+          pyinstaller agent/olhovivo-agent.spec --noconfirm --noconsole
 
-      - name: Zip artifact
-        run: Compress-Archive -Path dist/olhovivo-agent -DestinationPath olhovivo-agent-windows.zip
+      - name: Verificar ONNX
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist/olhovivo-agent/yolov8n.onnx")) { exit 1 }
+
+      - name: Compilar instalador (Inno Setup)
+        uses: Mudlet/innosetup-action@v2
+        with:
+          path: agent/olhovivo-setup.iss
+
+      - name: Verificar OlhoVivoSetup.exe
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist-installer/OlhoVivoSetup.exe")) { exit 1 }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: olhovivo-agent-windows
-          path: olhovivo-agent-windows.zip
+          path: dist-installer/OlhoVivoSetup.exe
           retention-days: 30
-
-  release:
-    name: Create GitHub Release
-    needs: [build-windows]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download Windows artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: olhovivo-agent-windows
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: "Olho Vivo Agent ${{ github.ref_name }}"
-          body: |
-            ## Como instalar
-
-            Use o link de instalação gerado na plataforma. O download inicia automaticamente.
-          files: |
-            olhovivo-agent-windows.zip

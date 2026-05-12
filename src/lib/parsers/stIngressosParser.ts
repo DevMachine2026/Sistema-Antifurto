@@ -1,11 +1,5 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import { Transaction, PaymentMethod } from '../../types';
 import { extractDate, parseBRL } from './stIngressosParserUtils';
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
 
 export { extractDate, parseBRL } from './stIngressosParserUtils';
 
@@ -17,6 +11,13 @@ export interface ParseResult {
 }
 
 export async function parseSTIngressosPDF(file: File): Promise<ParseResult> {
+  const [pdfjsLib, workerMod] = await Promise.all([
+    import('pdfjs-dist'),
+    import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
+  ]);
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc = workerMod.default;
+
   const errors: string[] = [];
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -25,16 +26,16 @@ export async function parseSTIngressosPDF(file: File): Promise<ParseResult> {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    fullText += content.items.map((item: any) => item.str).join(' ') + '\n';
+    fullText += content.items.map((item) => ('str' in item ? String(item.str) : '')).join(' ') + '\n';
   }
 
   const occurredAt = extractDate(fullText);
 
   const patterns: { method: PaymentMethod; regex: RegExp }[] = [
     { method: 'credit', regex: /Cart[aã]o de Cr[eé]dito\s+\d+\s+([\d.,]+)/i },
-    { method: 'debit',  regex: /Cart[aã]o de D[eé]bito\s+\d+\s+([\d.,]+)/i },
-    { method: 'pix',    regex: /PIX\s+\d+\s+([\d.,]+)/i },
-    { method: 'cash',   regex: /Dinheiro\s+\d+\s+([\d.,]+)/i },
+    { method: 'debit', regex: /Cart[aã]o de D[eé]bito\s+\d+\s+([\d.,]+)/i },
+    { method: 'pix', regex: /PIX\s+\d+\s+([\d.,]+)/i },
+    { method: 'cash', regex: /Dinheiro\s+\d+\s+([\d.,]+)/i },
   ];
 
   const transactions: ParseResult['transactions'] = [];

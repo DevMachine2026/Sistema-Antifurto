@@ -1,0 +1,80 @@
+# Release do agente Windows: tag agent-v* → PyInstaller (sem console, onedir) + Inno Setup → GitHub Release com OlhoVivoSetup.exe
+name: Agent Release
+
+on:
+  push:
+    tags:
+      - "agent-v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build e release (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Dependências e PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r agent/requirements.txt
+          pip install pyinstaller ultralytics
+
+      - name: Exportar YOLOv8n para ONNX
+        run: |
+          cd agent
+          python -c "from ultralytics import YOLO; YOLO('yolov8n.pt').export(format='onnx', imgsz=640)"
+
+      - name: PyInstaller (sem console; onedir definido no .spec via COLLECT)
+        run: |
+          $env:PYTHONPATH = $PWD
+          pyinstaller agent/olhovivo-agent.spec --noconfirm --noconsole
+
+      - name: Verificar modelo ONNX na pasta do agente
+        shell: pwsh
+        run: |
+          $onnx = Join-Path $PWD "dist/olhovivo-agent/yolov8n.onnx"
+          if (-not (Test-Path $onnx)) {
+            Write-Error "Arquivo ONNX nao encontrado: $onnx"
+            exit 1
+          }
+          Write-Host "OK: $onnx"
+
+      - name: Compilar instalador (Inno Setup)
+        uses: Mudlet/innosetup-action@v2
+        with:
+          path: agent/olhovivo-setup.iss
+
+      - name: Verificar OlhoVivoSetup.exe
+        shell: pwsh
+        run: |
+          $exe = Join-Path $PWD "dist-installer/OlhoVivoSetup.exe"
+          if (-not (Test-Path $exe)) {
+            Write-Error "Instalador nao encontrado: $exe"
+            exit 1
+          }
+          Write-Host "OK: $exe"
+
+      - name: Criar release no GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Olho Vivo Agent ${{ github.ref_name }}
+          generate_release_notes: true
+          body: |
+            ## Instalação em um clique (Windows)
+
+            Use o **link de instalação** no painel Olho Vivo (Agentes). O navegador deve salvar o arquivo como `OlhoVivoSetup_TOKEN_<codigo>.exe` — não renomeie.
+
+            O instalador não pede conta de administrador: instala em **%LocalAppData%\Programs\Olho Vivo**.
+
+            Não é necessário ZIP nem `token.txt` manual.
+          files: dist-installer/OlhoVivoSetup.exe

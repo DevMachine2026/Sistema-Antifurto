@@ -128,25 +128,37 @@ As regras rodam no banco (PostgreSQL) via `run_fraud_rules()`, acionada automati
 
 ## Agente Olho Vivo (edge device)
 
-O agente é um **executável único** (`.exe` no Windows, binário no Linux) instalado no PC do estabelecimento. Não requer Python, Docker ou configuração técnica.
+No **Windows**, o estabelecimento usa um **instalador** (`OlhoVivoSetup.exe`) gerado no CI: PyInstaller empacota o agente (modo **sem janela de console**) e o **Inno Setup** instala por usuário em `%LocalAppData%\Programs\Olho Vivo` (sem pedir administrador), incluindo o modelo **YOLOv8 em ONNX**. Não é necessário Python, Docker, ZIP nem arquivo `token.txt` manual para o usuário final.
+
+**Token (invisível para o dono do negócio):** o painel dispara o download com um nome de arquivo do tipo `OlhoVivoSetup_TOKEN_<seu_token>.exe`. O instalador e o executável final incorporam esse padrão; o agente grava o token em `%LOCALAPPDATA%\OlhoVivoAgent\.olhovivo.env`, registra logs em `agente.log` na mesma pasta e, ao rodar como `.exe` empacotado, configura **inicialização com o Windows** (`HKCU\...\Run`, valor `OlhoVivoAgent`).
 
 ```
-PC do estabelecimento
-└── olhovivo-agent.exe
-    ├── Lê câmeras via RTSP
-    ├── Detecta pessoas com YOLOv8-nano
-    ├── Envia eventos para o Supabase
-    ├── Descobre câmeras ONVIF na rede
-    └── Envia heartbeat a cada minuto
+PC do estabelecimento (Windows)
+└── %LocalAppData%\Programs\Olho Vivo\
+    └── OlhoVivo_TOKEN_<id>.exe  (+ DLLs e yolov8n.onnx)
+    %LOCALAPPDATA%\OlhoVivoAgent\
+    ├── .olhovivo.env            ← token (gerado automaticamente)
+    ├── agente.log
+    └── queue.db                 ← fila offline
 ```
 
-**Fluxo de implantação:**
-1. Baixar o zip do Release (gerado automaticamente pelo GitHub Actions)
-2. Criar `token.txt` com o token do AdminPanel → Agentes
-3. Executar `olhovivo-agent.exe`
-4. Aprovar câmeras descobertas no AdminPanel
+O agente:
+- Lê câmeras via RTSP
+- Detecta pessoas com YOLOv8-nano (ONNX Runtime)
+- Envia eventos ao Supabase
+- Descobre câmeras ONVIF na rede
+- Envia heartbeat conforme a configuração
 
-Mais detalhes: [`MANUAL_IMPLANTACAO_RESTAURANTE.md`](MANUAL_IMPLANTACAO_RESTAURANTE.md)
+**Fluxo de implantação (Windows, usuário leigo):**
+1. No painel: **Agentes** (ou onboarding) → link de instalação / download do instalador (o navegador salva já com `TOKEN_` no nome).
+2. Executar o instalador e avançar nas telas; ao terminar, o agente abre sozinho e passa a subir no boot.
+3. Aprovar câmeras descobertas no AdminPanel.
+
+**Desenvolvimento / Linux:** continue usando variável `ESTABLISHMENT_TOKEN` ou `token.txt` ao lado do código, conforme [`agent/main.py`](agent/main.py) e `.env.example`.
+
+**Release no GitHub:** o artefato publicado na tag `agent-v*` é o instalador **`OlhoVivoSetup.exe`**, não um ZIP. Quem baixa só o `.exe` genérico do Release precisa passar o token via parâmetro do instalador (`/TOKEN=...`) ou usar sempre o link do painel (nome do arquivo com `TOKEN_`).
+
+Mais detalhes: [`MANUAL_IMPLANTACAO_RESTAURANTE.md`](MANUAL_IMPLANTACAO_RESTAURANTE.md).
 
 ---
 
@@ -161,8 +173,8 @@ Mais detalhes: [`MANUAL_IMPLANTACAO_RESTAURANTE.md`](MANUAL_IMPLANTACAO_RESTAURA
 | Animações | motion/react |
 | Ícones | Lucide React |
 | Parsers | pdfjs-dist + papaparse |
-| Agente (IA) | Python 3.11 + YOLOv8-nano + OpenCV + HTTPX |
-| Distribuição do agente | PyInstaller + GitHub Actions |
+| Agente (IA) | Python 3.11 + YOLOv8-nano (ONNX) + OpenCV + HTTPX |
+| Distribuição do agente (Windows) | PyInstaller (sem console, pasta `onedir`) + Inno Setup + GitHub Actions → `OlhoVivoSetup.exe` |
 
 ---
 
@@ -238,14 +250,14 @@ WHERE user_id = (SELECT id FROM auth.users WHERE email = 'seu@email.com');
 
 ---
 
-## Gerar nova versão do agente (.exe)
+## Gerar nova versão do agente (instalador Windows)
 
 ```bash
 git tag agent-v0.2.0
 git push origin agent-v0.2.0
 ```
 
-O GitHub Actions compila automaticamente para Windows e Linux e publica o Release com os zips.
+Ao criar uma tag **`agent-v*`** o workflow **Agent Release** (`.github/workflows/agent-release.yml`) roda no Windows: gera o ONNX (Ultralytics), empacota com **PyInstaller** (`agent/olhovivo-agent.spec`, sem console + layout `onedir` via `COLLECT`), compila **`agent/olhovivo-setup.iss`** com a action **Mudlet/innosetup-action@v2** e publica no **GitHub Release** o arquivo **`OlhoVivoSetup.exe`** (nome fixo para o link `.../latest/download/OlhoVivoSetup.exe`). Para build manual sem release, use **Build Agent** (`.github/workflows/build-agent.yml`, só `workflow_dispatch`).
 
 ---
 
@@ -282,15 +294,17 @@ src/
     └── auditService.ts
 
 agent/
-├── main.py                   ← orquestrador do agente
+├── main.py                   ← orquestrador: token, logs, autostart Windows
+├── token_from_name.py        ← extrai TOKEN_* do nome do .exe
 ├── config_sync.py            ← busca config no Supabase
 ├── camera_discovery.py       ← descoberta ONVIF
-├── people_counter.py         ← YOLOv8 + LineCrossDetector
+├── people_counter.py         ← YOLOv8 (ONNX) + LineCrossDetector
 ├── event_publisher.py        ← envio de eventos + fila SQLite offline
 ├── heartbeat.py              ← pulso de vida
 ├── models.py                 ← dataclasses compartilhadas
-├── olhovivo-agent.spec       ← spec PyInstaller
-└── build.sh                  ← build local Linux
+├── olhovivo-agent.spec       ← PyInstaller (sem console, onedir)
+├── olhovivo-setup.iss        ← Inno Setup → OlhoVivoSetup.exe
+└── build.sh                  ← build local Linux (opcional)
 
 supabase/
 ├── schema.sql
@@ -327,7 +341,7 @@ supabase/
 | Checklist de prontidão operacional | ✅ |
 | **Agente Olho Vivo (YOLOv8 + RTSP)** | ✅ testado com webcam |
 | **Descoberta ONVIF de câmeras** | ✅ |
-| **Build automático .exe (GitHub Actions)** | ✅ |
+| **Build automático instalador Windows (PyInstaller + Inno, GitHub Actions)** | ✅ |
 | Analítico avançado (Fase 2) | 🔜 |
 
 ---
@@ -336,8 +350,9 @@ supabase/
 
 | Arquivo | Conteúdo |
 |---|---|
-| [`MANUAL_IMPLANTACAO_RESTAURANTE.md`](MANUAL_IMPLANTACAO_RESTAURANTE.md) | Guia passo a passo para implantar no restaurante |
-| [`CHECKLIST_PRODUCAO.md`](CHECKLIST_PRODUCAO.md) | Checklist de go-live |
+| [`.github/workflows/agent-release.yml`](.github/workflows/agent-release.yml) | Release automático na tag `agent-v*` (Windows → `OlhoVivoSetup.exe` no GitHub Release) |
+| [`.github/workflows/build-agent.yml`](.github/workflows/build-agent.yml) | Build manual (`workflow_dispatch`) só gera artifact, sem release |
+| [`MANUAL_IMPLANTACAO_RESTAURANTE.md`](MANUAL_IMPLANTACAO_RESTAURANTE.md) | Guia de implantação no restaurante (Windows, instalador, sem ZIP/token manual) |
 | [`RUNBOOK_INCIDENTES.md`](RUNBOOK_INCIDENTES.md) | Runbook de incidentes |
 | [`CONTEXTO_PROJETO_CONTINUIDADE.md`](CONTEXTO_PROJETO_CONTINUIDADE.md) | Handoff técnico completo |
 | [`src/GUIDE.md`](src/GUIDE.md) | Guia operacional exibido dentro do app |

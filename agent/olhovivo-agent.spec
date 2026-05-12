@@ -1,4 +1,10 @@
+import os
+
 from PyInstaller.utils.hooks import collect_all
+
+# SPECPATH é definido pelo PyInstaller ao carregar este arquivo
+_spec_dir = os.path.dirname(os.path.abspath(SPECPATH))
+_repo_root = os.path.abspath(os.path.join(_spec_dir, ".."))
 
 block_cipher = None
 
@@ -22,14 +28,15 @@ all_hiddenimports += [
     "agent.heartbeat",
     "agent.people_counter",
     "agent.models",
+    "agent.token_from_name",
 ]
 
-# inclui o modelo ONNX no binário
-all_datas += [("yolov8n.onnx", ".")]
+_onnx = os.path.join(_spec_dir, "yolov8n.onnx")
+all_datas += [(_onnx, ".")]
 
 a = Analysis(
-    ["main.py"],
-    pathex=[".."],
+    [os.path.join(_spec_dir, "main.py")],
+    pathex=[_repo_root],
     binaries=all_binaries,
     datas=all_datas,
     hiddenimports=all_hiddenimports,
@@ -55,7 +62,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=False,
 )
 
 coll = COLLECT(

@@ -5,7 +5,8 @@ import { Upload, FileText, CheckCircle2, Loader2, Download, AlertTriangle } from
 import { dataService } from '../services/dataService';
 import { Transaction, ImportBatch, TransactionSource } from '../types';
 import { cn } from '../lib/utils';
-import { parseSTIngressosPDF, ParseResult } from '../lib/parsers/stIngressosParser';
+import { parseSTIngressosPDF } from '../lib/parsers/stIngressosParser';
+import type { ParseResult } from '../lib/parsers/stIngressosParser';
 import { parsePagBankCSV, PAGBANK_CSV_TEMPLATE } from '../lib/parsers/pagbankParser';
 
 function downloadTemplate() {

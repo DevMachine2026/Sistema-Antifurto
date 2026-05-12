@@ -20,6 +20,8 @@ import { cn } from '../lib/utils';
 const BOT_USERNAME = 'sistemantifraude_bot';
 const INSTALL_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-install`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const GITHUB_INSTALLER =
+  'https://github.com/DevMachine2026/Sistema-Antifurto/releases/latest/download/OlhoVivoSetup.exe';
 
 type StepStatus = 'pending' | 'active' | 'done';
 
@@ -34,6 +36,17 @@ interface State {
 }
 
 async function downloadInstaller(token: string, platform: 'windows' | 'linux') {
+  if (platform === 'windows') {
+    const a = document.createElement('a');
+    a.href = GITHUB_INSTALLER;
+    a.download = `OlhoVivoSetup_TOKEN_${token}.exe`;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return;
+  }
+
   const { data: { session } } = await supabase.auth.getSession();
   const bearerToken = session?.access_token ?? ANON_KEY;
 
@@ -42,7 +55,7 @@ async function downloadInstaller(token: string, platform: 'windows' | 'linux') {
   });
   if (!res.ok) throw new Error(await res.text());
   const blob = await res.blob();
-  const filename = platform === 'windows' ? 'instalar-olhovivo.ps1' : 'instalar-olhovivo.sh';
+  const filename = 'instalar-olhovivo.sh';
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -281,9 +294,9 @@ export default function Onboarding() {
             <div className="rounded-lg px-4 py-3 space-y-2" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.12)' }}>
               <p className="text-[10px] font-black uppercase tracking-widest text-primary">Instruções para o cliente</p>
               {(platform === 'windows' ? [
-                'Baixe e envie o arquivo .ps1 por WhatsApp ou e-mail',
-                'Cliente: botão direito no arquivo → "Executar com PowerShell"',
-                'Cliente: clica Sim no aviso do Windows',
+                'Baixe e envie o instalador (.exe) por WhatsApp ou e-mail',
+                'Cliente: duplo clique no ficheiro e avança no assistente (Next)',
+                'Não precisa de ZIP, token em ficheiro nem janela de terminal',
                 'Aguardar "Agente Online" ficar verde aqui',
               ] : [
                 'Baixe e envie o arquivo .sh por e-mail',

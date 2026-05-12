@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, AlertTriangle, Download } from 'lucide-react';
 
-const GITHUB_ZIP =
-  'https://github.com/DevMachine2026/Sistema-Antifurto/releases/latest/download/olhovivo-agent-windows.zip';
+const GITHUB_INSTALLER =
+  'https://github.com/DevMachine2026/Sistema-Antifurto/releases/latest/download/OlhoVivoSetup.exe';
 
 export default function Install({ token }: { token: string }) {
   const [done, setDone] = useState(false);
@@ -12,25 +12,13 @@ export default function Install({ token }: { token: string }) {
     if (!token) { setError('Token inválido.'); return; }
 
     try {
-      // Download 1: zip do GitHub via link direto — sem fetch, sem CORS
-      const zipLink = document.createElement('a');
-      zipLink.href = GITHUB_ZIP;
-      document.body.appendChild(zipLink);
-      zipLink.click();
-      document.body.removeChild(zipLink);
-
-      // Download 2: token.txt gerado direto no browser via Blob
-      setTimeout(() => {
-        const blob = new Blob([token], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const tokenLink = document.createElement('a');
-        tokenLink.href = url;
-        tokenLink.download = 'token.txt';
-        document.body.appendChild(tokenLink);
-        tokenLink.click();
-        document.body.removeChild(tokenLink);
-        URL.revokeObjectURL(url);
-      }, 800);
+      const link = document.createElement('a');
+      link.href = GITHUB_INSTALLER;
+      link.download = `OlhoVivoSetup_TOKEN_${token}.exe`;
+      link.rel = 'noopener';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
       setDone(true);
     } catch (e) {
@@ -54,14 +42,14 @@ export default function Install({ token }: { token: string }) {
             >
               <Download size={20} style={{ color: 'var(--color-primary)' }} />
             </div>
-            <p className="text-text font-bold text-lg">Iniciando downloads…</p>
+            <p className="text-text font-bold text-lg">A iniciar o download…</p>
           </>
         )}
 
         {done && (
           <>
             <CheckCircle2 size={40} className="mx-auto" style={{ color: 'var(--color-success)' }} />
-            <p className="text-text font-bold text-lg">2 arquivos baixados!</p>
+            <p className="text-text font-bold text-lg">Instalador descarregado</p>
             <div
               className="rounded-xl px-4 py-4 space-y-3 text-left"
               style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}
@@ -73,10 +61,10 @@ export default function Install({ token }: { token: string }) {
                 O que fazer agora
               </p>
               {[
-                'Abra a pasta Downloads',
-                'Extraia o olhovivo-agent-windows.zip',
-                'Copie o token.txt para dentro da pasta olhovivo-agent',
-                'Dê duplo clique em olhovivo-agent.exe',
+                'Abra a pasta de transferências (Downloads)',
+                'Faça duplo clique no ficheiro do instalador',
+                'Avance nas telas do assistente (Next / Seguinte)',
+                'O Olho Vivo inicia sozinho e fica registado para abrir no arranque do Windows',
               ].map((s, i) => (
                 <div key={s} className="flex items-start gap-2">
                   <span

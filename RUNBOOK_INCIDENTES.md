@@ -26,9 +26,11 @@
 ### Agente aparece Offline no AdminPanel
 
 1. Verificar se o PC do restaurante está ligado e com internet
-2. Verificar se o processo `olhovivo-agent` está rodando
-3. Verificar token em `token.txt` — copiar novamente do AdminPanel se necessário
-4. Verificar logs do agente: erros de conexão com Supabase?
+2. Verificar se o processo do agente está rodando (no Windows empacotado pode aparecer como `OlhoVivo_TOKEN_*.exe` ou similar)
+3. **Token / autenticação do agente**
+   - **Windows (instalador):** o token vem do nome do instalador (`OlhoVivoSetup_TOKEN_...exe`) e fica em `%LOCALAPPDATA%\OlhoVivoAgent\.olhovivo.env`. Se o cliente renomeou o instalador ou usou só `OlhoVivoSetup.exe` do Release sem `TOKEN_`, peça novo download pelo link do painel (ou reinstalar com `/TOKEN=` em cenário técnico).
+   - **Dev / Linux:** conferir `ESTABLISHMENT_TOKEN` ou `token.txt` na pasta do agente; copiar de novo do AdminPanel → Agentes se necessário.
+4. Verificar `agente.log` em `%LOCALAPPDATA%\OlhoVivoAgent\` (Windows empacotado) — erros de conexão com Supabase?
 5. Confirmar JWT desativado em `agent-config`, `agent-heartbeat`, `agent-cameras-found` (Supabase → Edge Functions → Settings)
 
 ### Câmeras não contam pessoas

@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 import { PaymentMethod } from '../../types';
-import { ParseResult } from './stIngressosParser';
+import type { ParseResult } from './stIngressosParser';
 
 export function detectPaymentMethod(value: string): PaymentMethod {
   const v = value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
