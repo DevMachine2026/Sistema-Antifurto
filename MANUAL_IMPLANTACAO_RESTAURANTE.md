@@ -61,6 +61,60 @@ Até aqui, o dono do restaurante **não vê nem digita** o token: ele vem embuti
 
 ---
 
+---
+
+## Aba Câmeras — como funciona
+
+A aba **Câmeras** (menu lateral) é onde o dono do estabelecimento gerencia todas as câmeras cadastradas na plataforma. Ela é diferente da aba **Agentes**: enquanto o agente *descobre* câmeras automaticamente na rede, a aba Câmeras permite *cadastrar manualmente* e visualizar o stream ao vivo.
+
+### O que aparece na tela
+
+Cada câmera cadastrada mostra um cartão com:
+
+| Campo | O que é |
+|---|---|
+| **Preview ao vivo** | Thumbnail do stream em tempo real (clique para tela cheia) |
+| **Status** | 🟢 Online / 🔴 Offline / 🟡 Configurando |
+| **Marca** | Intelbras, Hikvision, Dahua ou Genérica |
+| **Tipo** | Contagem de pessoas ou Câmera do caixa |
+| **IP** | Endereço e porta da câmera na rede local |
+| **Último evento** | Data/hora do último evento recebido |
+
+### Adicionar câmera manualmente (wizard em 5 etapas)
+
+Clique em **+ Adicionar câmera** para abrir o assistente:
+
+**Etapa 1 — Marca**
+Escolha a marca da câmera. Isso define as instruções de configuração corretas para o firmware.
+
+**Etapa 2 — IP**
+Digite o IP da câmera (ex: `192.168.1.100`) e a porta (padrão: `554` para RTSP, `80` para HTTP).
+Ou use a **varredura de rede automática** — o painel detecta câmeras na mesma sub-rede e lista os IPs encontrados.
+
+**Etapa 3 — Nome e tipo**
+- Dê um nome para identificar a câmera (ex: "Entrada principal")
+- Escolha o tipo: **Contagem de pessoas** (conta entradas e saídas) ou **Câmera do caixa** (detecta espécie — regra R05)
+
+**Etapa 4 — Configurar**
+O painel mostra o passo a passo específico para a marca escolhida: como acessar o firmware da câmera, onde colar a **URL de webhook** e o **token de autenticação** para que a câmera envie eventos ao sistema.
+
+**Etapa 5 — Testar**
+O painel tenta conectar na câmera e exibe se o stream está funcionando.
+
+### Câmeras via Agente Olho Vivo (automático)
+
+Quando o agente está instalado no PC do estabelecimento, ele faz a **descoberta automática** das câmeras na rede local (ONVIF + varredura de portas). As câmeras encontradas aparecem na aba **Agentes** para aprovação — após aprovadas, ficam disponíveis automaticamente para contagem, sem precisar usar o wizard acima.
+
+### Tela cheia
+
+Clique em qualquer preview de câmera para abrir em tela cheia (funciona no celular também).
+
+### Remover câmera
+
+Cada cartão tem o botão **Remover câmera** (vermelho). A remoção é imediata — o stream para de ser monitorado.
+
+---
+
 ## Onde ficam logs e dados locais
 
 Em máquinas Windows com instalação padrão, o agente grava arquivos de trabalho em:
