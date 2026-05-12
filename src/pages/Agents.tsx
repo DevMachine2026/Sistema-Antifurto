@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Cpu, Plus, X, Loader2, CheckCircle2, XCircle,
-  Wifi, WifiOff, ChevronDown, ChevronRight, Download, Copy, Check,
+  Wifi, WifiOff, ChevronDown, ChevronRight, Download, Copy, Check, Link2,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
+import { downloadAgentInstaller } from '../lib/downloadAgentInstaller';
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,7 @@ interface CameraConfig {
 
 interface AgentConfig {
   id: string;
+  token: string;
   name: string;
   cameras: CameraConfig[];
   heartbeat_interval: number;
@@ -137,10 +139,10 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
               O que o cliente faz
             </p>
             {[
-              'Recebe o link pelo WhatsApp',
-              'Abre o link no navegador — download começa sozinho',
-              'Extrai o arquivo zip',
-              'Dá duplo clique em olhovivo-agent.exe',
+              'Recebe o link pelo WhatsApp ou usa Baixar instalador aqui',
+              'Abre o instalador (.exe) e avança nas telas',
+              'Não precisa de ZIP nem token em arquivo',
+              'O agente fica online e sobe com o Windows',
             ].map((s, i) => (
               <div key={s} className="flex items-start gap-2">
                 <span className="text-[10px] font-black rounded px-1.5 py-0.5 shrink-0 mt-0.5" style={{ background: 'rgba(79,124,255,0.2)', color: 'var(--color-primary)' }}>{i + 1}</span>
@@ -173,6 +175,7 @@ function AgentCard({
   const [expanded, setExpanded] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [showInstall, setShowInstall] = useState(false);
+  const [downloadingInstaller, setDownloadingInstaller] = useState(false);
 
   async function handleApprove(c: CameraCandidate) {
     setApprovingId(c.id);
@@ -184,6 +187,17 @@ function AgentCard({
     setApprovingId(c.id);
     await onIgnore(c);
     setApprovingId(null);
+  }
+
+  async function handleDownloadInstaller() {
+    setDownloadingInstaller(true);
+    try {
+      await downloadAgentInstaller(agent.token);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Não foi possível baixar o instalador.');
+    } finally {
+      setDownloadingInstaller(false);
+    }
   }
 
   return (
@@ -278,20 +292,37 @@ function AgentCard({
         </div>
       )}
 
-      {/* ── Install button ── */}
-      <div className="px-4 pb-4">
+      {/* ── Download / install ── */}
+      <div className="px-4 pb-4 flex flex-col gap-2">
+        <button
+          type="button"
+          onClick={() => void handleDownloadInstaller()}
+          disabled={downloadingInstaller}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all w-full justify-center disabled:opacity-60"
+          style={{
+            background: 'var(--color-primary)',
+            color: '#fff',
+          }}
+        >
+          {downloadingInstaller ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Download size={14} />
+          )}
+          {downloadingInstaller ? 'Preparando download…' : 'Baixar instalador'}
+        </button>
         <button
           type="button"
           onClick={() => setShowInstall(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all w-full justify-center"
           style={{
-            background: online ? 'var(--color-surface-alt)' : 'var(--color-primary)',
-            color: online ? 'var(--color-text-dim)' : '#fff',
-            border: online ? '1px solid var(--color-border)' : 'none',
+            background: 'var(--color-surface-alt)',
+            color: 'var(--color-text-dim)',
+            border: '1px solid var(--color-border)',
           }}
         >
-          <Download size={14} />
-          {online ? 'Instalar em outro PC' : 'Instalar agente'}
+          <Link2 size={14} />
+          Link de instalação
         </button>
       </div>
 

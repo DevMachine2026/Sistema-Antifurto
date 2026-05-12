@@ -16,12 +16,11 @@ import {
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
 import { cn } from '../lib/utils';
+import { downloadAgentInstaller } from '../lib/downloadAgentInstaller';
 
 const BOT_USERNAME = 'sistemantifraude_bot';
 const INSTALL_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-install`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-const GITHUB_INSTALLER =
-  'https://github.com/DevMachine2026/Sistema-Antifurto/releases/latest/download/OlhoVivoSetup.exe';
 
 type StepStatus = 'pending' | 'active' | 'done';
 
@@ -37,13 +36,7 @@ interface State {
 
 async function downloadInstaller(token: string, platform: 'windows' | 'linux') {
   if (platform === 'windows') {
-    const a = document.createElement('a');
-    a.href = GITHUB_INSTALLER;
-    a.download = `OlhoVivoSetup_TOKEN_${token}.exe`;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    await downloadAgentInstaller(token);
     return;
   }
 
@@ -275,8 +268,13 @@ export default function Onboarding() {
               <button
                 onClick={async () => {
                   setDownloading(true);
-                  try { await downloadInstaller(state.agentToken!, platform); }
-                  finally { setDownloading(false); }
+                  try {
+                    await downloadInstaller(state.agentToken!, platform);
+                  } catch (e) {
+                    alert(e instanceof Error ? e.message : 'Erro ao baixar.');
+                  } finally {
+                    setDownloading(false);
+                  }
                 }}
                 disabled={downloading}
                 className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-[14px] font-bold text-white disabled:opacity-60"

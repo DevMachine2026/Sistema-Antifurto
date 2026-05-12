@@ -226,9 +226,19 @@ npx supabase functions deploy webhook-st-ingressos  --project-ref SEU_REF
 npx supabase functions deploy agent-config          --project-ref SEU_REF
 npx supabase functions deploy agent-heartbeat       --project-ref SEU_REF
 npx supabase functions deploy agent-cameras-found   --project-ref SEU_REF
+npx supabase functions deploy agent-install         --project-ref SEU_REF
+npx supabase functions deploy download-agent       --project-ref SEU_REF
 npx supabase functions deploy send-telegram         --project-ref SEU_REF
 npx supabase functions deploy send-whatsapp         --project-ref SEU_REF
 ```
+
+Secret para o proxy do instalador Windows (URL completa do `.exe` no GitHub Releases, sem query string):
+
+```bash
+supabase secrets set GITHUB_AGENT_INSTALLER_URL="https://github.com/SEU_ORG/SEU_REPO/releases/latest/download/OlhoVivoSetup.exe" --project-ref SEU_REF
+```
+
+Ativar **Verify JWT** na função `download-agent` (somente sessões do painel; o handler confere o agente com RLS usando o JWT do usuário).
 
 Desativar verificação de JWT nas funções do agente (usam token próprio, não JWT):
 - `agent-config` → Settings → desativar "Verify JWT"
@@ -257,7 +267,7 @@ git tag agent-v0.2.0
 git push origin agent-v0.2.0
 ```
 
-Ao criar uma tag **`agent-v*`** o workflow **Agent Release** (`.github/workflows/agent-release.yml`) roda no Windows: gera o ONNX (Ultralytics), empacota com **PyInstaller** (`agent/olhovivo-agent.spec`, sem console + layout `onedir` via `COLLECT`), compila **`agent/olhovivo-setup.iss`** com a action **Mudlet/innosetup-action@v2** e publica no **GitHub Release** o arquivo **`OlhoVivoSetup.exe`** (nome fixo para o link `.../latest/download/OlhoVivoSetup.exe`). Para build manual sem release, use **Build Agent** (`.github/workflows/build-agent.yml`, só `workflow_dispatch`).
+Ao criar uma tag **`agent-v*`** o workflow **Agent Release** (`.github/workflows/agent-release.yml`) roda no Windows: gera o ONNX (Ultralytics), empacota com **PyInstaller** (`agent/olhovivo-agent.spec`, sem console + layout `onedir` via `COLLECT`), compila **`agent/olhovivo-setup.iss`** com **Inno Setup** (`choco install innosetup` + `ISCC.exe` no runner Windows) e publica no **GitHub Release** o arquivo **`OlhoVivoSetup.exe`** (nome fixo para o link `.../latest/download/OlhoVivoSetup.exe`). Para build manual sem release, use **Build Agent** (`.github/workflows/build-agent.yml`, só `workflow_dispatch`).
 
 ---
 
@@ -316,6 +326,8 @@ supabase/
     ├── agent-config/
     ├── agent-heartbeat/
     ├── agent-cameras-found/
+    ├── agent-install/
+    ├── download-agent/
     ├── send-telegram/
     └── send-whatsapp/
 ```

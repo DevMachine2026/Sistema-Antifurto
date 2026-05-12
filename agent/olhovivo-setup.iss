@@ -30,8 +30,9 @@ RestartApplications=no
 VersionInfoVersion={#MyAppVersion}
 UninstallDisplayName={#MyAppName}
 
+; Idioma padrão em inglês: o Inno do Chocolatey no CI costuma não incluir BrazilianPortuguese.isl
 [Languages]
-Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
+Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "..\dist\olhovivo-agent\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
