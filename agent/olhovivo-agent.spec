@@ -2,8 +2,8 @@ import os
 
 from PyInstaller.utils.hooks import collect_all
 
-# SPECPATH é definido pelo PyInstaller ao carregar este arquivo
-_spec_dir = os.path.dirname(os.path.abspath(SPECPATH))
+# SPECPATH = pasta onde está o .spec (agent/), não o caminho do arquivo .spec
+_spec_dir = os.path.abspath(SPECPATH)
 _repo_root = os.path.abspath(os.path.join(_spec_dir, ".."))
 
 block_cipher = None
