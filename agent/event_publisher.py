@@ -20,9 +20,10 @@ CREATE TABLE IF NOT EXISTS pending_events (
 class EventPublisher:
     MAX_QUEUE = 10_000
 
-    def __init__(self, webhook_url: str, webhook_token: str, db_path: str = "queue.db"):
+    def __init__(self, webhook_url: str, webhook_token: str, db_path: str = "queue.db", anon_key: str = ""):
         self._url = webhook_url
         self._headers = {
+            "apikey": anon_key,
             "Authorization": f"Bearer {webhook_token}",
             "Content-Type": "application/json",
         }

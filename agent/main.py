@@ -21,7 +21,7 @@ import sys
 import time
 import threading
 from agent.config_sync import ConfigSync
-from agent.camera_discovery import discover_cameras, report_discovered
+from agent.scanner import discover_cameras, report_discovered
 from agent.event_publisher import EventPublisher
 from agent.heartbeat import HeartbeatSender
 from agent.people_counter import PeopleCounter
@@ -36,6 +36,12 @@ _DEFAULT_SUPABASE_URL = "https://uoxcwvjtsebwmbsmyszj.supabase.co"
 _INTERNAL_ENV_NAME = ".olhovivo.env"
 _LOG_FILE_NAME = "agente.log"
 _RUN_VALUE_NAME = "OlhoVivoAgent"
+_SCAN_DONE_FILE = ".scan_done"
+_MIN_SCAN_INTERVAL = 300.0  # seconds between scans triggered by request_scan
+
+# Shared scanner state
+_last_scan_time: float = 0.0
+_scan_lock = threading.Lock()
 
 
 def _exe_dir() -> str:
@@ -157,6 +163,45 @@ def ensure_autostart_windows() -> None:
         logger.warning("autostart registry failed: %s", exc)
 
 
+def _scan_done_path() -> str:
+    return os.path.join(_writable_data_dir(), _SCAN_DONE_FILE)
+
+
+def _is_first_boot() -> bool:
+    return not os.path.exists(_scan_done_path())
+
+
+def _mark_scan_done() -> None:
+    try:
+        with open(_scan_done_path(), "w", encoding="utf-8") as f:
+            f.write("")
+    except OSError as exc:
+        logger.debug("could not write scan-done marker: %s", exc)
+
+
+def _launch_scan(configured_ips: set[str], token: str, supabase_url: str, anon_key: str = "") -> None:
+    """
+    Dispara o scanner de câmeras em uma thread daemon.
+    Aplica debounce de _MIN_SCAN_INTERVAL para evitar scans repetidos.
+    """
+    global _last_scan_time
+    with _scan_lock:
+        now = time.time()
+        if now - _last_scan_time < _MIN_SCAN_INTERVAL:
+            logger.debug("scan skipped: last ran %.0fs ago", now - _last_scan_time)
+            return
+        _last_scan_time = now
+
+    def _run() -> None:
+        candidates = discover_cameras(timeout=5.0)
+        new = [c for c in candidates if c["ip"] not in configured_ips]
+        if new:
+            report_discovered(new, token=token, supabase_url=supabase_url, anon_key=anon_key)
+        _mark_scan_done()
+
+    threading.Thread(target=_run, daemon=True, name="camera-scanner").start()
+
+
 def load_token() -> str:
     token = os.getenv("ESTABLISHMENT_TOKEN")
     if token and token.strip():
@@ -196,24 +241,26 @@ def main() -> None:
         os.environ.setdefault("YOLO_MODEL_PATH", _frozen_yolo_onnx_path())
 
     supabase_url = os.getenv("SUPABASE_URL", _DEFAULT_SUPABASE_URL).rstrip("/")
+    anon_key = os.getenv("SUPABASE_ANON_KEY", "")
 
     token = load_token()
     logger.info("agent starting v%s", VERSION)
 
+    if not anon_key:
+        logger.warning("SUPABASE_ANON_KEY não definida — requisições ao Supabase podem falhar com 401")
+
     # 1. Busca configuração inicial
-    sync = ConfigSync(token=token, supabase_url=supabase_url)
+    sync = ConfigSync(token=token, supabase_url=supabase_url, anon_key=anon_key)
     config: AgentConfig = sync.fetch()
     logger.info("config loaded: agent=%s cameras=%d", config.name, len(config.cameras))
 
-    # 2. ONVIF discovery em background
-    def run_onvif():
-        candidates = discover_cameras(timeout=5.0)
-        configured_ips = {c.ip for c in config.cameras}
-        new = [c for c in candidates if c["ip"] not in configured_ips]
-        if new:
-            report_discovered(new, token=token, supabase_url=supabase_url)
-
-    threading.Thread(target=run_onvif, daemon=True, name="onvif-discovery").start()
+    # 2. Etapa 4: disparo automático no primeiro boot
+    if _is_first_boot():
+        logger.info("first boot — launching camera scan")
+        _launch_scan({c.ip for c in config.cameras}, token, supabase_url, anon_key)
+    elif config.request_scan:
+        logger.info("request_scan set in config — launching camera scan")
+        _launch_scan({c.ip for c in config.cameras}, token, supabase_url, anon_key)
 
     # 3. Publisher de eventos
     queue_path = os.path.join(_writable_data_dir(), "queue.db")
@@ -221,6 +268,7 @@ def main() -> None:
         webhook_url=f"{supabase_url}/functions/v1/webhook-camera",
         webhook_token=config.webhook_token,
         db_path=queue_path,
+        anon_key=anon_key,
     )
 
     # 4. Heartbeat sender
@@ -229,6 +277,7 @@ def main() -> None:
         supabase_url=supabase_url,
         version=VERSION,
         last_config_changed_at=config.config_changed_at,
+        anon_key=anon_key,
     )
 
     # 5. Inicia contadores por câmera
@@ -273,6 +322,7 @@ def main() -> None:
                         webhook_url=f"{supabase_url}/functions/v1/webhook-camera",
                         webhook_token=config.webhook_token,
                         db_path=queue_path,
+                        anon_key=anon_key,
                     )
                     heartbeat_interval = config.heartbeat_interval
                     heartbeat.update_config_changed_at(config.config_changed_at)
@@ -281,8 +331,19 @@ def main() -> None:
                         counter.start()
                         counters.append(counter)
                     logger.info("config reloaded: cameras=%d", len(counters))
+
+                    # Etapa 4: command remoto via request_scan no agent_config
+                    if config.request_scan:
+                        logger.info("request_scan flagged after reload — launching camera scan")
+                        _launch_scan({c.ip for c in config.cameras}, token, supabase_url, anon_key)
+
                 except Exception as exc:
                     logger.error("re-sync failed: %s", exc)
+
+            # Etapa 4: request_scan pode vir direto na resposta do heartbeat
+            elif result.get("request_scan"):
+                logger.info("request_scan received via heartbeat — launching camera scan")
+                _launch_scan({c.ip for c in config.cameras}, token, supabase_url, anon_key)
 
     except KeyboardInterrupt:
         logger.info("agent stopping")

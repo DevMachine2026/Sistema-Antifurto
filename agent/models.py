@@ -58,6 +58,7 @@ class AgentConfig:
     webhook_token: str
     supabase_url: str
     config_changed_at: str  # ISO timestamp — enviado no heartbeat como last_config_changed_at
+    request_scan: bool = False  # sinaliza que o backend quer um novo scan de câmeras
 
     @property
     def counting_cameras(self) -> list[Camera]:
@@ -80,6 +81,7 @@ class AgentConfig:
             webhook_token=d["webhook_token"],
             supabase_url=d.get("supabase_url", ""),
             config_changed_at=d.get("config_changed_at", ""),
+            request_scan=bool(d.get("request_scan", False)),
         )
 
 @dataclass

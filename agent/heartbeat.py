@@ -11,8 +11,9 @@ class HeartbeatSender:
     VERSION = "0.1.0"
 
     def __init__(self, token: str, supabase_url: str, version: str = VERSION,
-                 last_config_changed_at: str = ""):
+                 last_config_changed_at: str = "", anon_key: str = ""):
         self._token = token
+        self._anon_key = anon_key
         self._url = f"{supabase_url.rstrip('/')}/functions/v1/agent-heartbeat"
         self._version = version
         self._last_config_changed_at: str = last_config_changed_at
@@ -28,11 +29,15 @@ class HeartbeatSender:
             last_config_changed_at=self._last_config_changed_at,
         )
         payload = payload_obj.to_dict()
+        payload["establishment_token"] = self._token
         try:
             resp = httpx.post(
                 self._url,
                 json=payload,
-                headers={"Authorization": f"Bearer {self._token}"},
+                headers={
+                    "apikey": self._anon_key,
+                    "Authorization": f"Bearer {self._token}",
+                },
                 timeout=10,
             )
             resp.raise_for_status()
