@@ -49,10 +49,12 @@ jobs:
           }
           Write-Host "OK: $onnx"
 
-      - name: Compilar instalador (Inno Setup)
-        uses: Mudlet/innosetup-action@v2
-        with:
-          path: agent/olhovivo-setup.iss
+      - name: Instalar Inno Setup 6
+        run: choco install innosetup -y
+
+      - name: Compilar instalador (ISCC)
+        shell: cmd
+        run: "\"C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe\" /Q agent\\olhovivo-setup.iss"
 
       - name: Verificar OlhoVivoSetup.exe
         shell: pwsh
