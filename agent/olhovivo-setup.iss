@@ -110,7 +110,8 @@ end;
 
 procedure WriteOlhoVivoEnv(const Token: string);
 var
-  EnvDir, EnvPath, AnonKey, KeyFile: string;
+  EnvDir, EnvPath, KeyFile: string;
+  AnonKey: AnsiString;
 begin
   EnvDir := ExpandConstant('{localappdata}\OlhoVivoAgent');
   ForceDirectories(EnvDir);
@@ -120,11 +121,10 @@ begin
   KeyFile := ExpandConstant('{tmp}\supabase_anon_key.txt');
   if FileExists(KeyFile) then
     LoadStringFromFile(KeyFile, AnonKey);
-  AnonKey := Trim(AnonKey);
 
   SaveStringToFile(EnvPath, 'ESTABLISHMENT_TOKEN=' + Token + #13#10, False);
   if AnonKey <> '' then
-    SaveStringToFile(EnvPath, 'SUPABASE_ANON_KEY=' + AnonKey + #13#10, True);
+    SaveStringToFile(EnvPath, 'SUPABASE_ANON_KEY=' + String(AnonKey) + #13#10, True);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
