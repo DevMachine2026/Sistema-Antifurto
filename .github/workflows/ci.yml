@@ -48,5 +48,5 @@ jobs:
           pip install pytest pytest-mock
 
       - name: Run agent tests
-        run: pytest agent/tests/ -v
+        run: PYTHONPATH=. pytest agent/tests/ -v
 
