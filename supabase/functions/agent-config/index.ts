@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
 };
 
 function json(data: unknown, status = 200) {
@@ -20,9 +20,22 @@ function getBearerToken(req: Request): string | null {
   return match?.[1]?.trim() || null;
 }
 
+// Rate limiter: 20 req/min por IP (por instância do isolado)
+const _rl = new Map<string, { n: number; resetAt: number }>();
+function rateLimit(req: Request): boolean {
+  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
+  const now = Date.now();
+  const entry = _rl.get(ip);
+  if (!entry || now > entry.resetAt) { _rl.set(ip, { n: 1, resetAt: now + 60_000 }); return true; }
+  if (entry.n >= 20) return false;
+  entry.n++;
+  return true;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
+  if (!rateLimit(req)) return json({ error: 'rate_limit_exceeded' }, 429);
 
   const token = getBearerToken(req);
   if (!token) return json({ error: 'missing_bearer_token' }, 401);

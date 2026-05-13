@@ -2,9 +2,17 @@
 ; O token é obtido do nome do arquivo do instalador (ex.: OlhoVivoSetup_TOKEN_abc123.exe)
 ; ou, para testes/CI: OlhoVivoSetup.exe /TOKEN=abc123
 ;
+; A chave pública do Supabase é embutida em tempo de compilação via define:
+;   ISCC.exe /DSUPABASE_ANON_KEY=eyJ... agent\olhovivo-setup.iss
+; Ela é gravada em %LOCALAPPDATA%\OlhoVivoAgent\.olhovivo.env junto com o token.
+;
 ; Caminhos [Files] / OutputDir são relativos a este arquivo (pasta agent/).
 ; Após PyInstaller: ..\dist\olhovivo-agent\ contém o .exe, DLLs e yolov8n.onnx.
 ; Compilar (exemplo local): ISCC.exe agent\olhovivo-setup.iss
+
+#ifndef SUPABASE_ANON_KEY
+  #define SUPABASE_ANON_KEY ""
+#endif
 
 #define MyAppName "Olho Vivo Agente"
 #define MyAppPublisher "Dev Machine"
@@ -103,6 +111,18 @@ begin
   end;
 end;
 
+procedure WriteOlhoVivoEnv(const Token: string);
+var
+  EnvDir, EnvPath, Content: string;
+begin
+  EnvDir := ExpandConstant('{localappdata}\OlhoVivoAgent');
+  ForceDirectories(EnvDir);
+  EnvPath := EnvDir + '\.olhovivo.env';
+  Content := 'ESTABLISHMENT_TOKEN=' + Token + #13#10 +
+             'SUPABASE_ANON_KEY={#SUPABASE_ANON_KEY}' + #13#10;
+  SaveStringToFile(EnvPath, Content, False);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   T: string;
@@ -113,6 +133,7 @@ begin
     Exit;
 
   T := GetRawToken;
+  WriteOlhoVivoEnv(T);
   RenameAgentExe(T);
 
   ExePath := ExpandConstant('{app}\OlhoVivo_TOKEN_' + T + '.exe');

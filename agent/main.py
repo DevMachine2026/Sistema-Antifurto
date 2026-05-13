@@ -109,10 +109,14 @@ def _read_internal_env() -> dict[str, str]:
 
 
 def _persist_token_to_internal_env(token: str) -> None:
+    """Escreve/atualiza ESTABLISHMENT_TOKEN preservando outras chaves existentes."""
     path = _internal_env_path()
+    existing = _read_internal_env()
+    existing["ESTABLISHMENT_TOKEN"] = token
     try:
         with open(path, "w", encoding="utf-8") as f:
-            f.write(f"ESTABLISHMENT_TOKEN={token}\n")
+            for k, v in existing.items():
+                f.write(f"{k}={v}\n")
     except OSError as exc:
         logger.warning("could not persist token to %s: %s", path, exc)
 
@@ -241,7 +245,8 @@ def main() -> None:
         os.environ.setdefault("YOLO_MODEL_PATH", _frozen_yolo_onnx_path())
 
     supabase_url = os.getenv("SUPABASE_URL", _DEFAULT_SUPABASE_URL).rstrip("/")
-    anon_key = os.getenv("SUPABASE_ANON_KEY", "")
+    _internal = _read_internal_env()
+    anon_key = os.getenv("SUPABASE_ANON_KEY") or _internal.get("SUPABASE_ANON_KEY", "")
 
     token = load_token()
     logger.info("agent starting v%s", VERSION)

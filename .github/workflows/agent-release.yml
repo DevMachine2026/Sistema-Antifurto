@@ -54,8 +54,13 @@ jobs:
         run: choco install innosetup -y
 
       - name: Compilar instalador (ISCC)
-        shell: cmd
-        run: "\"C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe\" /Q agent\\olhovivo-setup.iss"
+        shell: pwsh
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          & $iscc /Q "/DSUPABASE_ANON_KEY=$env:SUPABASE_ANON_KEY" agent\olhovivo-setup.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verificar OlhoVivoSetup.exe
         shell: pwsh
