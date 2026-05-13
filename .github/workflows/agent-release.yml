@@ -53,14 +53,16 @@ jobs:
       - name: Instalar Inno Setup 6
         run: choco install innosetup -y
 
-      - name: Compilar instalador (ISCC)
+      - name: Gerar supabase_anon_key.txt para o instalador
         shell: pwsh
         env:
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: |
-          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
-          & $iscc /Q "/DSUPABASE_ANON_KEY=$env:SUPABASE_ANON_KEY" agent\olhovivo-setup.iss
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Set-Content -Path "agent\supabase_anon_key.txt" -Value $env:SUPABASE_ANON_KEY -NoNewline -Encoding UTF8
+
+      - name: Compilar instalador (ISCC)
+        shell: cmd
+        run: '"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /Q agent\olhovivo-setup.iss'
 
       - name: Verificar OlhoVivoSetup.exe
         shell: pwsh

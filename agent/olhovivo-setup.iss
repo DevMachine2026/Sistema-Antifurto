@@ -2,17 +2,13 @@
 ; O token é obtido do nome do arquivo do instalador (ex.: OlhoVivoSetup_TOKEN_abc123.exe)
 ; ou, para testes/CI: OlhoVivoSetup.exe /TOKEN=abc123
 ;
-; A chave pública do Supabase é embutida em tempo de compilação via define:
-;   ISCC.exe /DSUPABASE_ANON_KEY=eyJ... agent\olhovivo-setup.iss
-; Ela é gravada em %LOCALAPPDATA%\OlhoVivoAgent\.olhovivo.env junto com o token.
+; A SUPABASE_ANON_KEY é lida de supabase_anon_key.txt (gerado pelo CI antes do ISCC).
+; O arquivo é empacotado no instalador e lido em tempo de instalação.
+; Para builds locais sem o arquivo, a chave fica em branco (agente loga aviso).
 ;
 ; Caminhos [Files] / OutputDir são relativos a este arquivo (pasta agent/).
 ; Após PyInstaller: ..\dist\olhovivo-agent\ contém o .exe, DLLs e yolov8n.onnx.
 ; Compilar (exemplo local): ISCC.exe agent\olhovivo-setup.iss
-
-#ifndef SUPABASE_ANON_KEY
-  #define SUPABASE_ANON_KEY ""
-#endif
 
 #define MyAppName "Olho Vivo Agente"
 #define MyAppPublisher "Dev Machine"
@@ -44,6 +40,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
 Source: "..\dist\olhovivo-agent\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "supabase_anon_key.txt"; DestDir: "{tmp}"; Flags: ignoreversion deleteafterinstall skipifsourcedoesntexist
 
 [Code]
 function GetRawToken: string;
@@ -113,14 +110,21 @@ end;
 
 procedure WriteOlhoVivoEnv(const Token: string);
 var
-  EnvDir, EnvPath, Content: string;
+  EnvDir, EnvPath, AnonKey, KeyFile: string;
 begin
   EnvDir := ExpandConstant('{localappdata}\OlhoVivoAgent');
   ForceDirectories(EnvDir);
   EnvPath := EnvDir + '\.olhovivo.env';
-  Content := 'ESTABLISHMENT_TOKEN=' + Token + #13#10 +
-             'SUPABASE_ANON_KEY={#SUPABASE_ANON_KEY}' + #13#10;
-  SaveStringToFile(EnvPath, Content, False);
+
+  AnonKey := '';
+  KeyFile := ExpandConstant('{tmp}\supabase_anon_key.txt');
+  if FileExists(KeyFile) then
+    LoadStringFromFile(KeyFile, AnonKey);
+  AnonKey := Trim(AnonKey);
+
+  SaveStringToFile(EnvPath, 'ESTABLISHMENT_TOKEN=' + Token + #13#10, False);
+  if AnonKey <> '' then
+    SaveStringToFile(EnvPath, 'SUPABASE_ANON_KEY=' + AnonKey + #13#10, True);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
