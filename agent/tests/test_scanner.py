@@ -115,6 +115,8 @@ def test_discover_port_scan_detects_open_port(monkeypatch):
         patch("agent.scanner._arp_hosts", return_value=["10.0.0.5"]),
         patch("agent.scanner._tcp_open", side_effect=lambda ip, p, **kw: p == 554),
         patch("agent.scanner._guess_manufacturer", return_value=None),
+        patch("agent.scanner._detect_dvr", return_value=(None, None)),
+        patch("agent.scanner._try_default_creds", return_value=None),
     ):
         from agent.scanner import discover_port_scan
         results = discover_port_scan(timeout_per_host=0.1)
@@ -234,3 +236,115 @@ def test_report_discovered_logs_warning_on_error(monkeypatch, caplog):
             supabase_url="https://example.supabase.co",
         )
     assert "failed to report" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# _rtsp_probe
+# ---------------------------------------------------------------------------
+
+def test_rtsp_probe_returns_true_on_200(monkeypatch):
+    mock_sock = MagicMock()
+    mock_sock.__enter__ = lambda s: s
+    mock_sock.__exit__ = MagicMock(return_value=False)
+    mock_sock.recv.return_value = b"RTSP/1.0 200 OK\r\nCSeq: 1\r\n\r\n"
+    mock_sock.connect = MagicMock()
+
+    import socket as _socket
+    monkeypatch.setattr(_socket, "socket", lambda *a, **kw: mock_sock)
+    from agent.scanner import _rtsp_probe
+    assert _rtsp_probe("10.0.0.1", 554, "admin", "admin") is True
+
+
+def test_rtsp_probe_returns_false_on_error(monkeypatch):
+    import socket as _socket
+    monkeypatch.setattr(_socket, "socket", MagicMock(side_effect=OSError("refused")))
+    from agent.scanner import _rtsp_probe
+    assert _rtsp_probe("10.0.0.1", 554, "admin", "admin") is False
+
+
+# ---------------------------------------------------------------------------
+# _try_default_creds
+# ---------------------------------------------------------------------------
+
+def test_try_default_creds_returns_first_working(monkeypatch):
+    calls = []
+    def fake_probe(ip, port, user, pwd, **kw):
+        calls.append((user, pwd))
+        return user == "admin" and pwd == "12345"
+
+    with patch("agent.scanner._rtsp_probe", side_effect=fake_probe):
+        from agent.scanner import _try_default_creds
+        result = _try_default_creds("10.0.0.1", 554)
+
+    assert result == ("admin", "12345")
+    assert ("admin", "admin") in calls
+
+
+def test_try_default_creds_returns_none_when_all_fail(monkeypatch):
+    with patch("agent.scanner._rtsp_probe", return_value=False):
+        from agent.scanner import _try_default_creds
+        assert _try_default_creds("10.0.0.1", 554) is None
+
+
+# ---------------------------------------------------------------------------
+# _detect_dvr
+# ---------------------------------------------------------------------------
+
+def test_detect_dvr_identifies_intelbras(monkeypatch):
+    mock_resp = MagicMock()
+    mock_resp.headers = {"server": ""}
+    mock_resp.text = "<title>Intelbras MHDX 3008</title>"
+
+    with patch("agent.scanner.httpx.get", return_value=mock_resp):
+        from agent.scanner import _detect_dvr
+        mfr, ch = _detect_dvr("10.0.0.1", 80)
+
+    assert mfr == "intelbras"
+    assert ch == 8
+
+
+def test_detect_dvr_returns_none_on_connection_error(monkeypatch):
+    with patch("agent.scanner.httpx.get", side_effect=Exception("timeout")):
+        from agent.scanner import _detect_dvr
+        mfr, ch = _detect_dvr("10.0.0.1", 80)
+    assert mfr is None
+    assert ch is None
+
+
+# ---------------------------------------------------------------------------
+# discover_port_scan com DVR enrichment
+# ---------------------------------------------------------------------------
+
+def test_port_scan_enriches_dvr_candidate(monkeypatch):
+    with (
+        patch("agent.scanner._arp_hosts", return_value=["10.0.0.10"]),
+        patch("agent.scanner._tcp_open", side_effect=lambda ip, p, **kw: p == 80),
+        patch("agent.scanner._detect_dvr", return_value=("intelbras", 8)),
+        patch("agent.scanner._try_default_creds", return_value=("admin", "admin")),
+        patch("agent.scanner._guess_manufacturer", return_value="Intelbras"),
+    ):
+        from agent.scanner import discover_port_scan
+        results = discover_port_scan(timeout_per_host=0.1)
+
+    assert len(results) == 1
+    r = results[0]
+    assert r["device_type"] == "dvr"
+    assert r["channel_count"] == 8
+    assert r["username"] == "admin"
+    assert r["password"] == "admin"
+    assert r["credentials_ok"] is True
+
+
+def test_port_scan_marks_camera_when_no_dvr(monkeypatch):
+    with (
+        patch("agent.scanner._arp_hosts", return_value=["10.0.0.20"]),
+        patch("agent.scanner._tcp_open", side_effect=lambda ip, p, **kw: p == 554),
+        patch("agent.scanner._detect_dvr", return_value=(None, None)),
+        patch("agent.scanner._try_default_creds", return_value=None),
+        patch("agent.scanner._guess_manufacturer", return_value=None),
+    ):
+        from agent.scanner import discover_port_scan
+        results = discover_port_scan(timeout_per_host=0.1)
+
+    assert results[0]["device_type"] == "camera"
+    assert results[0]["credentials_ok"] is False
