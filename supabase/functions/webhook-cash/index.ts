@@ -6,10 +6,23 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, content-type',
 };
 
+// 30 req/min por IP — detecção de espécie é esporádica; 30 suporta rajadas ocasionais
+const _rl = new Map<string, { n: number; resetAt: number }>();
+function rateLimit(req: Request): boolean {
+  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
+  const now = Date.now();
+  const entry = _rl.get(ip);
+  if (!entry || now > entry.resetAt) { _rl.set(ip, { n: 1, resetAt: now + 60_000 }); return true; }
+  if (entry.n >= 30) return false;
+  entry.n++;
+  return true;
+}
+
 Deno.serve(async (req) => {
   const ctx = createLogContext(req, 'webhook-cash');
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed', request_id: ctx.request_id }, 405);
+  if (!rateLimit(req)) return json({ error: 'rate_limit_exceeded', request_id: ctx.request_id }, 429);
 
   try {
     const supabase = createClient(

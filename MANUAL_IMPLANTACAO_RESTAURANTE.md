@@ -105,6 +105,16 @@ O painel tenta conectar na câmera e exibe se o stream está funcionando.
 
 Quando o agente está instalado no PC do estabelecimento, ele faz a **descoberta automática** das câmeras na rede local (ONVIF + varredura de portas). As câmeras encontradas aparecem na aba **Agentes** para aprovação — após aprovadas, ficam disponíveis automaticamente para contagem, sem precisar usar o wizard acima.
 
+### DVRs (gravadores digitais)
+
+O agente também detecta **DVRs** automaticamente. Quando um DVR é encontrado, ele aparece na aba **Agentes** com a indicação "DVR" e o número de canais detectados. Para aprovar:
+
+1. Clique em **Configurar DVR** no cartão do dispositivo.
+2. Confirme (ou corrija) o **usuário**, a **senha** e a **quantidade de canais**.
+3. Clique em **Aprovar** — o sistema cria uma câmera por canal automaticamente.
+
+As credenciais do DVR são preenchidas automaticamente quando o agente conseguiu testá-las durante a varredura. Se aparecerem em branco, preencha manualmente.
+
 ### Tela cheia
 
 Clique em qualquer preview de câmera para abrir em tela cheia (funciona no celular também).
@@ -150,6 +160,8 @@ Isso remove a pasta do aplicativo em `AppData\Local\Programs\Olho Vivo`. A pasta
 | Agente não fica Online | Internet, firewall do Windows ou antivírus bloqueando saída para a internet; verifique `agente.log` na pasta acima. |
 | `agente.log` mostra `401 Unauthorized` | A `SUPABASE_ANON_KEY` não está configurada no agente. Em ambiente dev: defina a variável de ambiente (veja README). No instalador Windows gerado pelo painel, isso já vem embutido. |
 | Câmeras não aparecem | Rede: PC e câmeras na mesma LAN; credenciais RTSP configuradas no painel após aprovação. |
+| DVR aparece mas sem canais | O agente não conseguiu detectar os canais automaticamente. Clique em **Configurar DVR**, preencha usuário, senha e número de canais manualmente e aprove. |
+| DVR aprovado mas câmeras não contam | O DVR foi cadastrado, mas o agente precisa de câmeras com fluxo RTSP ativo. Confirme que os canais estão ativos no firmware do DVR. |
 
 ---
 
@@ -174,6 +186,23 @@ Alternativamente, use o arquivo `token.txt` para o token e coloque `SUPABASE_ANO
 - `README.md` — visão geral; release automático na tag `agent-v*` via `.github/workflows/agent-release.yml`.
 - `agent/main.py` — ordem de leitura do token, logs e autostart.
 - `agent/olhovivo-setup.iss` — script do instalador Inno Setup.
+
+---
+
+---
+
+## Para o administrador da plataforma (platform_admin)
+
+### Registrar o bot Telegram (uma vez por deploy)
+
+Após fazer o deploy da função `telegram-connect` no Supabase, é preciso registrá-la como webhook do bot `@sistemantifraude_bot` na API do Telegram. Isso é feito **uma única vez** (ou após cada redeploy da função):
+
+1. Acesse o painel com uma conta `platform_admin`.
+2. No **Painel Administrativo**, role até a seção **Bot Telegram**.
+3. Clique em **Registrar Webhook**.
+4. Aguarde a confirmação "Webhook registrado com sucesso".
+
+A partir daí, quando qualquer comerciante acessar **Configurações → Conectar Telegram** e clicar no link gerado, o chat_id dele será registrado automaticamente.
 
 ---
 

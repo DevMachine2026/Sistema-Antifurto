@@ -302,7 +302,15 @@
     "actives_one": "active",
     "actives_other": "active",
     "inactives_one": "inactive",
-    "inactives_other": "inactive"
+    "inactives_other": "inactive",
+    "telegram": {
+      "sectionTitle": "Telegram Bot",
+      "sectionDesc": "Registers the @sistemantifraude_bot webhook with the Telegram API. Run once after the initial deploy or redeploy of the telegram-connect function.",
+      "registerWebhook": "Register Webhook",
+      "registering": "Registering...",
+      "success": "Webhook registered successfully",
+      "error": "Error registering webhook"
+    }
   },
   "auditTrail": {
     "title": "Audit Trail",

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Building2, Users, CheckCircle2, XCircle, Clock, RefreshCw } from 'lucide-react';
+import { Building2, Users, CheckCircle2, XCircle, Clock, RefreshCw, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
@@ -22,6 +22,7 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [telegramStatus, setTelegramStatus] = useState<'idle' | 'loading' | 'ok' | 'error'>('idle');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,6 +69,21 @@ export default function AdminPanel() {
       );
     }
     setTogglingId(null);
+  }
+
+  async function registerTelegramWebhook() {
+    setTelegramStatus('loading');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/telegram-connect?setup=1`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+      });
+      const body = await res.json();
+      setTelegramStatus(body?.ok === true || body?.result === true ? 'ok' : 'error');
+    } catch {
+      setTelegramStatus('error');
+    }
   }
 
   const total    = merchants.length;
@@ -192,6 +208,35 @@ export default function AdminPanel() {
             </p>
           </div>
         )}
+      </div>
+
+      {/* ── Telegram Webhook Setup ── */}
+      <div className="bg-surface border border-border rounded-lg p-6 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Send size={14} className="text-primary" />
+          <span className="text-[12px] font-black uppercase tracking-widest text-text">{t('admin.telegram.sectionTitle')}</span>
+        </div>
+        <p className="text-text-dim text-xs leading-relaxed">{t('admin.telegram.sectionDesc')}</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={registerTelegramWebhook}
+            disabled={telegramStatus === 'loading'}
+            className="flex items-center gap-2 px-4 py-2 rounded text-[11px] font-black uppercase tracking-widest border transition-all bg-primary/10 border-primary/20 text-primary hover:bg-primary/20 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Send size={12} />
+            {telegramStatus === 'loading' ? t('admin.telegram.registering') : t('admin.telegram.registerWebhook')}
+          </button>
+          {telegramStatus === 'ok' && (
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-success">
+              <CheckCircle2 size={12} /> {t('admin.telegram.success')}
+            </span>
+          )}
+          {telegramStatus === 'error' && (
+            <span className="flex items-center gap-1.5 text-[11px] font-semibold text-danger">
+              <XCircle size={12} /> {t('admin.telegram.error')}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

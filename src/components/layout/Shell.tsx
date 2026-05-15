@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  LayoutDashboard, Upload, AlertTriangle, BarChart3, Settings,
+  LayoutDashboard, Upload, AlertTriangle, Settings,
   Menu, X, BookOpen, FlaskConical, Plug, ClipboardList,
   ShieldCheck, LogOut, ChevronLeft, Camera, ListChecks, Cpu, Rocket,
 } from 'lucide-react';
@@ -31,7 +31,6 @@ const NAV_ITEMS = [
   { id: 'integrations', labelKey: 'nav.integrations', icon: Plug },
   { id: 'audit',        labelKey: 'nav.auditTrail',   icon: ClipboardList },
   { id: 'guide',        labelKey: 'nav.guide',        icon: BookOpen },
-  { id: 'analytics',   labelKey: 'nav.analytics',    icon: BarChart3 },
   { id: 'settings',     labelKey: 'nav.settings',     icon: Settings },
 ];
 

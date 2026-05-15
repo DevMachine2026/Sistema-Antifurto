@@ -38,7 +38,9 @@ O Olho Vivo monitora o estabelecimento de forma contínua: conta quantas pessoas
 - Monitoramento Online/Offline (threshold de 10 minutos de heartbeat)
 - Versão do software e tempo de última inferência
 - **Descoberta automática de câmeras via ONVIF** na rede local
-- Fluxo de aprovação de câmeras descobertas (approve / ignore)
+- **Suporte a DVRs**: detecção automática de tipo, número de canais e credenciais
+- Fluxo de aprovação de câmeras e DVRs descobertos (approve / ignore)
+- Modal de configuração de DVR: usuário, senha e quantidade de canais
 - Reconfiguração remota sem reiniciar o agente (`config_changed_at`)
 - Adição manual de câmeras com URL RTSP
 
@@ -104,6 +106,7 @@ Checklist de saúde do sistema antes de abrir o estabelecimento:
 - Lista todos os estabelecimentos cadastrados na plataforma
 - KPIs: total, ativos, inativos
 - Ativar / desativar estabelecimento com um clique
+- **Registrar webhook do bot Telegram** com um clique (chama `telegram-connect?setup=1` automaticamente)
 - Acesso restrito — não enxerga dados operacionais dos comerciantes
 
 ### Internacionalização
@@ -233,7 +236,9 @@ supabase/migration_remove_telegram_bot_token.sql
 supabase/migration_rls_audit_hardening.sql
 supabase/migration_rbac_multitenant.sql
 supabase/migration_signup_merchant_provision.sql
-supabase/migration_agent.sql          ← agentes e heartbeat
+supabase/migration_agent.sql          ← agentes, heartbeat e câmeras
+supabase/migration_multi_camera.sql   ← R01 com múltiplas câmeras de contagem
+supabase/migration_dvr.sql            ← suporte a DVRs e credenciais auto-detectadas
 ```
 
 ### 3. Edge Functions
@@ -249,6 +254,14 @@ npx supabase functions deploy agent-install         --project-ref SEU_REF
 npx supabase functions deploy download-agent       --project-ref SEU_REF
 npx supabase functions deploy send-telegram         --project-ref SEU_REF
 npx supabase functions deploy send-whatsapp         --project-ref SEU_REF
+npx supabase functions deploy telegram-connect      --project-ref SEU_REF
+```
+
+Após o deploy de `telegram-connect`, registre o webhook do bot no Telegram. A forma mais simples é usar o botão **Bot Telegram → Registrar Webhook** no Painel Administrativo (`platform_admin`). Alternativamente via curl:
+
+```bash
+curl "https://SEU_REF.supabase.co/functions/v1/telegram-connect?setup=1" \
+  -H "Authorization: Bearer SEU_JWT"
 ```
 
 Secret para o proxy do instalador Windows (URL completa do `.exe` no GitHub Releases, sem query string):
@@ -306,7 +319,9 @@ src/
 │   ├── AuditTrail.tsx        ← trilha de auditoria
 │   ├── Simulator.tsx         ← demo e testes
 │   ├── Guide.tsx             ← guia operacional in-app
-│   ├── AdminPanel.tsx        ← painel platform_admin
+│   ├── AdminPanel.tsx        ← painel platform_admin (gestão de clientes + setup Telegram)
+│   ├── Onboarding.tsx        ← fluxo de onboarding guiado
+│   ├── Install.tsx           ← download do agente Windows
 │   ├── Login.tsx
 │   ├── Register.tsx
 │   └── SelectEstablishment.tsx
@@ -348,7 +363,8 @@ supabase/
     ├── agent-install/
     ├── download-agent/
     ├── send-telegram/
-    └── send-whatsapp/
+    ├── send-whatsapp/
+    └── telegram-connect/
 ```
 
 ---
@@ -363,8 +379,10 @@ supabase/
 | Autenticação + RBAC (merchant / platform_admin) | ✅ |
 | Painel administrativo da plataforma | ✅ |
 | Edge Functions (webhooks + notificações + agente) | ✅ |
+| Rate limiting em todos os webhooks de ingestão | ✅ |
 | Notificações Telegram | ✅ testado |
-| Notificações WhatsApp | ⚠️ requer API externa (`WHATSAPP_*`) |
+| Setup do webhook Telegram (1 clique no AdminPanel) | ✅ |
+| Notificações WhatsApp | 🔜 requer API externa (`WHATSAPP_*`) |
 | Importação PDF (ST Ingressos) | ✅ |
 | Importação CSV (PagBank) | ✅ |
 | Simulador de demo | ✅ |
@@ -372,6 +390,7 @@ supabase/
 | Checklist de prontidão operacional | ✅ |
 | **Agente Olho Vivo (YOLOv8 + RTSP)** | ✅ testado com webcam |
 | **Descoberta ONVIF + port-scan ARP de câmeras** | ✅ |
+| **Suporte a DVRs (detecção automática + configuração de canais)** | ✅ |
 | **Auth Supabase: apikey + Authorization em todos os requests** | ✅ |
 | **Token UUID no body dos POSTs (heartbeat, scanner)** | ✅ |
 | **Build automático instalador Windows (PyInstaller + Inno, GitHub Actions)** | ✅ |

@@ -7,6 +7,18 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, content-type',
 };
 
+// 120 req/min por IP — câmeras enviam ~1 evento/min cada; 120 suporta até ~120 câmeras por gateway
+const _rl = new Map<string, { n: number; resetAt: number }>();
+function rateLimit(req: Request): boolean {
+  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
+  const now = Date.now();
+  const entry = _rl.get(ip);
+  if (!entry || now > entry.resetAt) { _rl.set(ip, { n: 1, resetAt: now + 60_000 }); return true; }
+  if (entry.n >= 120) return false;
+  entry.n++;
+  return true;
+}
+
 Deno.serve(async (req) => {
   const ctx = createLogContext(req, 'webhook-camera');
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -14,6 +26,8 @@ Deno.serve(async (req) => {
     logInfo(ctx, 'request_rejected', { reason: 'method_not_allowed' });
     return json({ error: 'method_not_allowed', request_id: ctx.request_id }, 405);
   }
+
+  if (!rateLimit(req)) return json({ error: 'rate_limit_exceeded', request_id: ctx.request_id }, 429);
 
   try {
     const supabase = createClient(

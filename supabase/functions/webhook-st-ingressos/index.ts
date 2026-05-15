@@ -6,6 +6,18 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, content-type',
 };
 
+// 60 req/min por IP — importações em batch; 60 permite envio de lotes razoáveis
+const _rl = new Map<string, { n: number; resetAt: number }>();
+function rateLimit(req: Request): boolean {
+  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
+  const now = Date.now();
+  const entry = _rl.get(ip);
+  if (!entry || now > entry.resetAt) { _rl.set(ip, { n: 1, resetAt: now + 60_000 }); return true; }
+  if (entry.n >= 60) return false;
+  entry.n++;
+  return true;
+}
+
 // Mapeamento de métodos de pagamento ST Ingressos → sistema
 const METHOD_MAP: Record<string, string> = {
   'cartao_credito': 'credit',  'credito': 'credit',   'credit': 'credit',
@@ -23,6 +35,7 @@ Deno.serve(async (req) => {
   const ctx = createLogContext(req, 'webhook-st-ingressos');
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed', request_id: ctx.request_id }, 405);
+  if (!rateLimit(req)) return json({ error: 'rate_limit_exceeded', request_id: ctx.request_id }, 429);
 
   try {
     const supabase = createClient(
