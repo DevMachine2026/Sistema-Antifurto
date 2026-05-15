@@ -1,17 +1,21 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, AlertTriangle, Download } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Download, FolderOpen } from 'lucide-react';
 
 const INSTALL_FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-install`;
 
 export default function Install({ token }: { token: string }) {
   const [done, setDone] = useState(false);
   const [error, setError] = useState('');
+  const [filename, setFilename] = useState('');
 
   useEffect(() => {
     if (!token || !/^[a-zA-Z0-9-]+$/.test(token)) {
       setError('Link de instalação inválido.');
       return;
     }
+
+    const name = `OlhoVivoSetup_TOKEN_${token}.exe`;
+    setFilename(name);
 
     fetch(`${INSTALL_FN}?token=${encodeURIComponent(token)}`, {
       headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? '' },
@@ -23,7 +27,7 @@ export default function Install({ token }: { token: string }) {
       .then((blob) => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `OlhoVivoSetup_TOKEN_${token}.exe`;
+        a.download = name;
         a.rel = 'noopener';
         document.body.appendChild(a);
         a.click();
@@ -45,46 +49,51 @@ export default function Install({ token }: { token: string }) {
         {!done && !error && (
           <>
             <div
-              className="w-10 h-10 rounded-full mx-auto flex items-center justify-center"
+              className="w-10 h-10 rounded-full mx-auto flex items-center justify-center animate-pulse"
               style={{ background: 'rgba(79,124,255,0.1)' }}
             >
               <Download size={20} style={{ color: 'var(--color-primary)' }} />
             </div>
             <p className="text-text font-bold text-lg">A preparar o download…</p>
-            <p className="text-text-dim text-sm">Pode demorar alguns segundos.</p>
+            <p className="text-text-dim text-sm">Aguarde alguns segundos.</p>
           </>
         )}
 
         {done && (
           <>
             <CheckCircle2 size={40} className="mx-auto" style={{ color: 'var(--color-success)' }} />
-            <p className="text-text font-bold text-lg">Instalador descarregado</p>
+            <p className="text-text font-bold text-lg">Download concluído!</p>
+
+            {/* Instrução principal — barra de downloads do browser */}
             <div
-              className="rounded-xl px-4 py-4 space-y-3 text-left"
-              style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}
+              className="rounded-xl px-4 py-4 text-left space-y-1"
+              style={{ background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.2)' }}
             >
-              <p
-                className="text-[11px] font-black uppercase tracking-widest"
-                style={{ color: 'var(--color-primary)' }}
-              >
-                O que fazer agora
+              <p className="text-sm font-bold text-text">
+                Clique em <span style={{ color: 'var(--color-success)' }}>"Abrir"</span> na barra de downloads do seu navegador
               </p>
-              {[
-                'Abra a pasta de transferências (Downloads)',
-                'Faça duplo clique no ficheiro do instalador',
-                'Avance nas telas do assistente (Next / Seguinte)',
-                'O Olho Vivo inicia sozinho e fica registado para abrir no arranque do Windows',
-              ].map((s, i) => (
-                <div key={s} className="flex items-start gap-2">
-                  <span
-                    className="text-[10px] font-black rounded px-1.5 py-0.5 shrink-0 mt-0.5"
-                    style={{ background: 'rgba(79,124,255,0.2)', color: 'var(--color-primary)' }}
-                  >
-                    {i + 1}
-                  </span>
-                  <p className="text-[12px] text-text-dim">{s}</p>
-                </div>
-              ))}
+              <p className="text-xs text-text-dim">
+                Aparece no canto inferior (Chrome/Edge) ou na parte superior da tela.
+              </p>
+            </div>
+
+            {/* Fallback — não encontrou na barra */}
+            <div
+              className="rounded-xl px-4 py-4 text-left space-y-2"
+              style={{ background: 'rgba(79,124,255,0.05)', border: '1px solid var(--color-border)' }}
+            >
+              <div className="flex items-center gap-2">
+                <FolderOpen size={14} style={{ color: 'var(--color-primary)' }} />
+                <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: 'var(--color-primary)' }}>
+                  Não apareceu? Abra a pasta Downloads
+                </p>
+              </div>
+              <p className="text-[11px] text-text-dim break-all font-mono">
+                {filename}
+              </p>
+              <p className="text-[11px] text-text-dim">
+                Dê <strong>duplo clique</strong> nesse arquivo → avance as telas → pronto.
+              </p>
             </div>
           </>
         )}
