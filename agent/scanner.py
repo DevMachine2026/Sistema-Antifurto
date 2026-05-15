@@ -123,7 +123,6 @@ def _detect_dvr(ip: str, port: int, timeout: float = 2.0) -> tuple[str | None, i
     Faz probe HTTP no dispositivo. Retorna (manufacturer, channel_count_hint) ou (None, None).
     channel_count_hint é uma estimativa pelo modelo (ex: MHDX 3008 → 8).
     """
-    import re as _re
     for p in ([port] if port in (80, 8000) else []) + [80, 8000]:
         try:
             url = f"http://{ip}:{p}/"
@@ -133,7 +132,7 @@ def _detect_dvr(ip: str, port: int, timeout: float = 2.0) -> tuple[str | None, i
             for mfr, keywords in _DVR_SIGNATURES.items():
                 if any(kw in content for kw in keywords):
                     ch = None
-                    m = _re.search(r"(?:mhdx|nvd|ds-7|dhi-)\s*\d*0(\d+)", content)
+                    m = re.search(r"(?:mhdx|nvd|ds-7|dhi-)\s*\d*0(\d+)", content)
                     if m:
                         try:
                             ch = int(m.group(1))
@@ -141,7 +140,8 @@ def _detect_dvr(ip: str, port: int, timeout: float = 2.0) -> tuple[str | None, i
                             ch = None
                     logger.info("DVR detected: ip=%s manufacturer=%s channels=%s", ip, mfr, ch)
                     return mfr, ch
-        except Exception:
+        except Exception as exc:
+            logger.debug("DVR probe failed ip=%s port=%d: %s", ip, p, exc)
             continue
     return None, None
 
