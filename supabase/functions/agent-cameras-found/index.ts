@@ -62,7 +62,19 @@ Deno.serve(async (req) => {
       return json({ error: 'invalid_json' }, 400);
     }
 
-    const cameras: Array<{ ip: string; mac?: string; name?: string }> = body.cameras ?? [];
+    const cameras: Array<{
+      ip: string;
+      mac?: string;
+      name?: string;
+      port?: number;
+      service_url?: string;
+      manufacturer?: string;
+      device_type?: string;
+      channel_count?: number;
+      username?: string;
+      password?: string;
+      credentials_ok?: boolean;
+    }> = body.cameras ?? [];
     if (!Array.isArray(cameras) || cameras.length === 0) {
       return json({ ok: true, inserted: 0 });
     }
@@ -79,11 +91,19 @@ Deno.serve(async (req) => {
     if (newCameras.length > 0) {
       await supabase.from('agent_camera_candidates').insert(
         newCameras.map((c) => ({
-          agent_id: agent.id,
-          ip:       c.ip,
-          mac:      c.mac ?? null,
-          name:     c.name ?? null,
-          approved: null,
+          agent_id:       agent.id,
+          ip:             c.ip,
+          mac:            c.mac           ?? null,
+          name:           c.name          ?? null,
+          port:           c.port          ?? null,
+          service_url:    c.service_url   ?? null,
+          manufacturer:   c.manufacturer  ?? null,
+          device_type:    c.device_type   ?? 'camera',
+          channel_count:  c.channel_count ?? null,
+          username:       c.username      ?? null,
+          password:       c.password      ?? null,
+          credentials_ok: c.credentials_ok ?? null,
+          approved:       null,
         })),
       );
     }
