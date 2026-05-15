@@ -74,6 +74,78 @@ def _tcp_open(ip: str, port: int, timeout: float = 0.5) -> bool:
         return False
 
 
+_DEFAULT_CREDS = [
+    ("admin", "admin"),
+    ("admin", "12345"),
+    ("admin", ""),
+    ("admin", "123456"),
+    ("admin", "password"),
+]
+
+def _rtsp_probe(ip: str, port: int, username: str, password: str, timeout: float = 2.0) -> bool:
+    """Tenta RTSP DESCRIBE com credenciais. Retorna True se 200 OK."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(timeout)
+            s.connect((ip, port))
+            req = (
+                f"DESCRIBE rtsp://{username}:{password}@{ip}:{port}/ RTSP/1.0\r\n"
+                f"CSeq: 1\r\n"
+                f"Accept: application/sdp\r\n\r\n"
+            ).encode()
+            s.sendall(req)
+            resp = s.recv(512).decode(errors="ignore")
+            return "RTSP/1.0 200" in resp
+    except Exception:
+        return False
+
+
+def _try_default_creds(ip: str, port: int = 554) -> tuple[str, str] | None:
+    """
+    Tenta credenciais padrão via RTSP DESCRIBE.
+    Retorna (username, password) se encontrar, None caso contrário.
+    """
+    for user, pwd in _DEFAULT_CREDS:
+        if _rtsp_probe(ip, port, user, pwd):
+            logger.info("default creds work on %s:%d user=%s", ip, port, user)
+            return user, pwd
+    return None
+
+
+_DVR_SIGNATURES = {
+    "intelbras": ["intelbras", "mhdx", "nvd", "vd"],
+    "hikvision": ["hikvision", "ds-"],
+    "dahua":     ["dahua", "dhi-"],
+}
+
+def _detect_dvr(ip: str, port: int, timeout: float = 2.0) -> tuple[str | None, int | None]:
+    """
+    Faz probe HTTP no dispositivo. Retorna (manufacturer, channel_count_hint) ou (None, None).
+    channel_count_hint é uma estimativa pelo modelo (ex: MHDX 3008 → 8).
+    """
+    import re as _re
+    for p in ([port] if port in (80, 8000) else []) + [80, 8000]:
+        try:
+            url = f"http://{ip}:{p}/"
+            resp = httpx.get(url, timeout=timeout, follow_redirects=False)
+            content = (resp.headers.get("server", "") + " " + resp.text[:2000]).lower()
+
+            for mfr, keywords in _DVR_SIGNATURES.items():
+                if any(kw in content for kw in keywords):
+                    ch = None
+                    m = _re.search(r"(?:mhdx|nvd|ds-7|dhi-)\s*\d*0(\d+)", content)
+                    if m:
+                        try:
+                            ch = int(m.group(1))
+                        except ValueError:
+                            ch = None
+                    logger.info("DVR detected: ip=%s manufacturer=%s channels=%s", ip, mfr, ch)
+                    return mfr, ch
+        except Exception:
+            continue
+    return None, None
+
+
 def _guess_manufacturer(ip: str, port: int, service_url: str) -> Optional[str]:
     """
     Identify vendor via HTTP Server header; fall back to port-based hint.
@@ -186,15 +258,38 @@ def discover_port_scan(timeout_per_host: float = 0.5) -> list[dict]:
             if _tcp_open(ip, p, timeout=timeout_per_host):
                 url = _service_url(ip, p)
                 mfr = _guess_manufacturer(ip, p, url)
+
+                # Detecta se é DVR
+                device_type = "camera"
+                channel_count: int | None = None
+                if p in (80, 8000, 37777) or (mfr or "").lower() in ("dahua", "hikvision", "intelbras"):
+                    dvr_mfr, ch = _detect_dvr(ip, p)
+                    if dvr_mfr:
+                        device_type = "dvr"
+                        mfr = dvr_mfr.capitalize() if dvr_mfr else mfr
+                        channel_count = ch
+
+                # Tenta credenciais padrão via RTSP
+                rtsp_port = 554 if _tcp_open(ip, 554, timeout=timeout_per_host) else p
+                creds = _try_default_creds(ip, rtsp_port)
+
                 with lock:
                     results.append({
-                        "ip": ip,
-                        "port": p,
-                        "service_url": url,
-                        "manufacturer": mfr,
+                        "ip":              ip,
+                        "port":            p,
+                        "service_url":     url,
+                        "manufacturer":    mfr,
+                        "device_type":     device_type,
+                        "channel_count":   channel_count,
+                        "username":        creds[0] if creds else None,
+                        "password":        creds[1] if creds else None,
+                        "credentials_ok":  creds is not None,
                     })
-                logger.info("port-scan found: ip=%s port=%d manufacturer=%s", ip, p, mfr)
-                return  # one entry per host
+                logger.info(
+                    "port-scan found: ip=%s port=%d device=%s manufacturer=%s creds_ok=%s",
+                    ip, p, device_type, mfr, creds is not None,
+                )
+                return
 
     threads = [threading.Thread(target=_scan, args=(h,), daemon=True) for h in hosts]
     for t in threads:
@@ -246,10 +341,15 @@ def report_discovered(
         return
     payload = [
         {
-            "ip": c["ip"],
-            "port": c["port"],
-            "service_url": c.get("service_url"),
-            "manufacturer": c.get("manufacturer"),
+            "ip":             c["ip"],
+            "port":           c.get("port"),
+            "service_url":    c.get("service_url"),
+            "manufacturer":   c.get("manufacturer"),
+            "device_type":    c.get("device_type", "camera"),
+            "channel_count":  c.get("channel_count"),
+            "username":       c.get("username"),
+            "password":       c.get("password"),
+            "credentials_ok": c.get("credentials_ok"),
         }
         for c in candidates
     ]
