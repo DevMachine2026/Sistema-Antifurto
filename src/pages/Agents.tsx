@@ -16,6 +16,8 @@ interface CameraConfig {
   role: 'counting' | 'cash';
   name: string;
   line_y: number;
+  user: string;
+  pass: string;
   rtsp_path: string;
 }
 
@@ -43,10 +45,27 @@ interface CameraCandidate {
   ip: string;
   mac: string | null;
   name: string | null;
+  port: number | null;
+  service_url: string | null;
+  manufacturer: string | null;
+  device_type: 'camera' | 'dvr';
+  channel_count: number | null;
+  username: string | null;
+  password: string | null;
+  credentials_ok: boolean | null;
   approved: boolean | null;
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
+
+function _rtspPath(manufacturer: string | null, channel: number): string {
+  const m = (manufacturer ?? '').toLowerCase();
+  if (m.includes('dahua') || m.includes('intelbras')) return `/cam/realmonitor?channel=${channel}&subtype=0`;
+  if (m.includes('hikvision')) return `/Streaming/Channels/${String(channel).padStart(2, '0')}01`;
+  if (m.includes('axis')) return `/axis-media/media.amp?camera=${channel}`;
+  if (m.includes('reolink')) return `/h264Preview_${String(channel).padStart(2, '0')}_main`;
+  return `/stream${channel > 1 ? channel : ''}`;
+}
 
 function timeAgo(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -156,6 +175,111 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
   );
 }
 
+// ── DvrModal ──────────────────────────────────────────────────────────────────
+
+function DvrModal({
+  candidate,
+  onConfirm,
+  onClose,
+}: {
+  candidate: CameraCandidate;
+  onConfirm: (username: string, password: string, channels: number) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [username, setUsername] = useState(candidate.username ?? 'admin');
+  const [password, setPassword] = useState(candidate.password ?? '');
+  const [channels, setChannels] = useState(candidate.channel_count ?? 4);
+  const [loading, setLoading] = useState(false);
+
+  const credOk = candidate.credentials_ok === true;
+
+  async function handleConfirm() {
+    setLoading(true);
+    try { await onConfirm(username, password, channels); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.6)' }}
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl p-6 space-y-4"
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <p className="font-bold text-text text-base">
+          DVR {candidate.manufacturer ?? ''} — {candidate.ip}
+        </p>
+
+        {credOk && (
+          <div className="rounded-lg px-3 py-2 text-xs" style={{ background: 'rgba(34,197,94,0.1)', color: 'var(--color-success)' }}>
+            Credenciais verificadas automaticamente ({username} / {password || '(sem senha)'})
+          </div>
+        )}
+
+        {!credOk && (
+          <>
+            <div>
+              <label className="text-xs text-text-dim block mb-1">Usuário</label>
+              <input
+                className="w-full rounded-lg px-3 py-2 text-sm text-text"
+                style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-text-dim block mb-1">Senha</label>
+              <input
+                type="password"
+                className="w-full rounded-lg px-3 py-2 text-sm text-text"
+                style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </>
+        )}
+
+        <div>
+          <label className="text-xs text-text-dim block mb-1">Número de canais</label>
+          <select
+            className="w-full rounded-lg px-3 py-2 text-sm text-text"
+            style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)' }}
+            value={channels}
+            onChange={(e) => setChannels(Number(e.target.value))}
+          >
+            {[1, 2, 4, 8, 16, 32].map((n) => (
+              <option key={n} value={n}>{n} {n === 1 ? 'canal' : 'canais'}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <button
+            className="flex-1 rounded-xl py-2 text-sm font-semibold"
+            style={{ background: 'var(--color-border)', color: 'var(--color-text-dim)' }}
+            onClick={onClose}
+          >
+            Cancelar
+          </button>
+          <button
+            className="flex-1 rounded-xl py-2 text-sm font-semibold"
+            style={{ background: 'var(--color-primary)', color: '#fff' }}
+            onClick={handleConfirm}
+            disabled={loading}
+          >
+            {loading ? 'Ativando…' : `Ativar ${channels} canal${channels !== 1 ? 'is' : ''}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── AgentCard ─────────────────────────────────────────────────────────────────
 
 function AgentCard({
@@ -164,18 +288,21 @@ function AgentCard({
   candidates,
   onApprove,
   onIgnore,
+  onApproveDvr,
 }: {
   agent: AgentConfig;
   heartbeat: AgentHeartbeat | undefined;
   candidates: CameraCandidate[];
   onApprove: (candidate: CameraCandidate) => Promise<void>;
   onIgnore: (candidate: CameraCandidate) => Promise<void>;
+  onApproveDvr: (c: CameraCandidate, user: string, pass: string, channels: number) => Promise<void>;
 }) {
   const online = isOnline(heartbeat);
   const [expanded, setExpanded] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [showInstall, setShowInstall] = useState(false);
   const [downloadingInstaller, setDownloadingInstaller] = useState(false);
+  const [dvrModal, setDvrModal] = useState<CameraCandidate | null>(null);
 
   async function handleApprove(c: CameraCandidate) {
     setApprovingId(c.id);
@@ -357,51 +484,58 @@ function AgentCard({
               </div>
               <div className="divide-y" style={{ borderColor: 'var(--color-border)' }}>
                 {candidates.map((c) => (
-                  <div key={c.id} className="flex items-center gap-3 px-3 py-2.5">
+                  <div
+                    key={c.id}
+                    className="flex items-center justify-between gap-2 rounded-xl px-3 py-2"
+                    style={{ background: 'var(--color-bg)' }}
+                  >
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-mono font-medium text-text">{c.ip}</p>
-                      {(c.name || c.mac) && (
-                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-dim)' }}>
-                          {[c.name, c.mac].filter(Boolean).join(' · ')}
-                        </p>
-                      )}
+                      <p className="text-xs font-semibold text-text truncate">{c.ip}</p>
+                      <p className="text-[11px] text-text-dim">
+                        {c.manufacturer ?? 'Dispositivo desconhecido'}
+                        {c.device_type === 'dvr' && c.channel_count ? ` · ${c.channel_count} canais` : ''}
+                        {c.credentials_ok ? ' · 🔑 creds OK' : ''}
+                      </p>
                     </div>
-                    <div className="flex gap-1.5 shrink-0">
+                    {c.device_type === 'dvr' ? (
                       <button
-                        type="button"
-                        disabled={approvingId === c.id}
-                        onClick={() => handleApprove(c)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-50"
-                        style={{
-                          background: 'rgba(16,185,129,0.1)',
-                          border: '1px solid rgba(16,185,129,0.25)',
-                          color: 'var(--color-success)',
-                        }}
+                        className="shrink-0 text-xs font-semibold px-3 py-1 rounded-lg"
+                        style={{ background: 'var(--color-primary)', color: '#fff' }}
+                        onClick={() => setDvrModal(c)}
                       >
-                        {approvingId === c.id ? (
-                          <Loader2 size={10} className="animate-spin" />
-                        ) : (
-                          <CheckCircle2 size={11} />
-                        )}
-                        Aprovar
+                        Configurar DVR
                       </button>
-                      <button
-                        type="button"
-                        disabled={approvingId === c.id}
-                        onClick={() => handleIgnore(c)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-50"
-                        style={{
-                          background: 'rgba(240,82,82,0.07)',
-                          border: '1px solid rgba(240,82,82,0.2)',
-                          color: 'var(--color-danger)',
-                        }}
-                      >
-                        <XCircle size={11} />
-                        Ignorar
-                      </button>
-                    </div>
+                    ) : (
+                      <div className="flex gap-1 shrink-0">
+                        <button
+                          className="text-xs font-semibold px-3 py-1 rounded-lg"
+                          style={{ background: 'rgba(34,197,94,0.15)', color: 'var(--color-success)' }}
+                          onClick={() => onApprove(c)}
+                        >
+                          Aprovar
+                        </button>
+                        <button
+                          className="text-xs px-2 py-1 rounded-lg"
+                          style={{ background: 'var(--color-bg)', color: 'var(--color-text-dim)' }}
+                          onClick={() => onIgnore(c)}
+                        >
+                          Ignorar
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
+
+                {dvrModal && (
+                  <DvrModal
+                    candidate={dvrModal}
+                    onConfirm={async (user, pass, ch) => {
+                      await onApproveDvr(dvrModal, user, pass, ch);
+                      setDvrModal(null);
+                    }}
+                    onClose={() => setDvrModal(null)}
+                  />
+                )}
               </div>
             </div>
           </motion.div>
@@ -561,12 +695,14 @@ export default function Agents() {
     if (!agent) return;
 
     const newCamera: CameraConfig = {
-      id: crypto.randomUUID(),
-      ip: candidate.ip,
-      name: candidate.name ?? candidate.ip,
-      role: 'counting',
-      line_y: 0.5,
-      rtsp_path: '/stream1',
+      id:        crypto.randomUUID(),
+      ip:        candidate.ip,
+      name:      candidate.name ?? candidate.ip,
+      role:      'counting',
+      line_y:    0.5,
+      user:      candidate.username ?? 'admin',
+      pass:      candidate.password ?? '',
+      rtsp_path: _rtspPath(candidate.manufacturer, 1),
     };
 
     const updatedCameras = [...(agent.cameras ?? []), newCamera];
@@ -582,9 +718,44 @@ export default function Agents() {
         .eq('id', candidate.id),
     ]);
 
-    setAgents((prev) =>
-      prev.map((a) => (a.id === agent.id ? { ...a, cameras: updatedCameras } : a))
-    );
+    setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, cameras: updatedCameras } : a)));
+    setCandidates((prev) => prev.filter((c) => c.id !== candidate.id));
+  }
+
+  async function approveDvr(
+    candidate: CameraCandidate,
+    username: string,
+    password: string,
+    channelCount: number,
+  ) {
+    const agent = agents.find((a) => a.id === candidate.agent_id);
+    if (!agent) return;
+
+    const newCameras: CameraConfig[] = Array.from({ length: channelCount }, (_, i) => ({
+      id:        crypto.randomUUID(),
+      ip:        candidate.ip,
+      name:      `${candidate.name ?? candidate.manufacturer ?? 'DVR'} — Canal ${i + 1}`,
+      role:      'counting' as const,
+      line_y:    0.5,
+      user:      username,
+      pass:      password,
+      rtsp_path: _rtspPath(candidate.manufacturer, i + 1),
+    }));
+
+    const updatedCameras = [...(agent.cameras ?? []), ...newCameras];
+
+    await Promise.all([
+      supabase
+        .from('agent_configs')
+        .update({ cameras: updatedCameras, config_changed_at: new Date().toISOString() })
+        .eq('id', agent.id),
+      supabase
+        .from('agent_camera_candidates')
+        .update({ approved: true })
+        .eq('id', candidate.id),
+    ]);
+
+    setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, cameras: updatedCameras } : a)));
     setCandidates((prev) => prev.filter((c) => c.id !== candidate.id));
   }
 
@@ -704,6 +875,7 @@ export default function Agents() {
               candidates={candByAgent[agent.id] ?? []}
               onApprove={approveCandidate}
               onIgnore={ignoreCandidate}
+              onApproveDvr={approveDvr}
             />
           ))}
         </div>
