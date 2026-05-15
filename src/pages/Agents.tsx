@@ -124,7 +124,7 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--color-border)' }}>
           <div className="flex items-center gap-2">
             <Download size={16} style={{ color: 'var(--color-primary)' }} />
-            <p className="text-[15px] font-bold text-text">Instalar agente</p>
+            <p className="text-[15px] font-bold text-text">Instalar em outro computador</p>
           </div>
           <button type="button" onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-surface-alt)' }}>
             <X size={14} style={{ color: 'var(--color-text-dim)' }} />
@@ -133,7 +133,7 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
 
         <div className="px-5 py-6 space-y-4">
           <p className="text-[13px] text-text-dim text-center">
-            Copie o link abaixo e mande para o cliente. Ele abre no navegador e o download começa sozinho.
+            Use este link se o agente vai ser instalado em <strong className="text-text">outro computador</strong> — envie pelo WhatsApp, e-mail ou abra direto nele.
           </p>
 
           <button
@@ -155,13 +155,13 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
 
           <div className="rounded-xl px-4 py-3 space-y-2" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.15)' }}>
             <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--color-primary)' }}>
-              O que o cliente faz
+              No computador de destino
             </p>
             {[
-              'Recebe o link pelo WhatsApp ou usa Baixar instalador aqui',
-              'Abre o instalador (.exe) e avança nas telas',
-              'Não precisa de ZIP nem token em arquivo',
-              'O agente fica online e sobe com o Windows',
+              'Abra o link no navegador daquele computador',
+              'O instalador (.exe) baixa automaticamente',
+              'Dê dois cliques e avance nas telas',
+              'O agente inicia sozinho e sobe com o Windows',
             ].map((s, i) => (
               <div key={s} className="flex items-start gap-2">
                 <span className="text-[10px] font-black rounded px-1.5 py-0.5 shrink-0 mt-0.5" style={{ background: 'rgba(79,124,255,0.2)', color: 'var(--color-primary)' }}>{i + 1}</span>
@@ -426,17 +426,14 @@ function AgentCard({
           onClick={() => void handleDownloadInstaller()}
           disabled={downloadingInstaller}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all w-full justify-center disabled:opacity-60"
-          style={{
-            background: 'var(--color-primary)',
-            color: '#fff',
-          }}
+          style={{ background: 'var(--color-primary)', color: '#fff' }}
         >
           {downloadingInstaller ? (
             <Loader2 size={14} className="animate-spin" />
           ) : (
             <Download size={14} />
           )}
-          {downloadingInstaller ? 'Preparando download…' : 'Baixar instalador'}
+          {downloadingInstaller ? 'Preparando download…' : 'Baixar instalador neste PC'}
         </button>
         <button
           type="button"
@@ -449,7 +446,7 @@ function AgentCard({
           }}
         >
           <Link2 size={14} />
-          Link de instalação
+          Instalar em outro computador
         </button>
       </div>
 
