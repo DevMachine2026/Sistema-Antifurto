@@ -13,9 +13,13 @@ interface Props {
   status: Camera['status'];
   /** height in px. Pass undefined to fill 100% of the parent. */
   height?: number;
+  /** Last evidence frame URL from Supabase Storage — shown when stream is unavailable. */
+  lastEvidenceUrl?: string;
+  /** ISO timestamp of lastEvidenceUrl, for the badge label. */
+  lastEvidenceAt?: string;
 }
 
-export function CameraPlayer({ cameraId, ip, status, height }: Props) {
+export function CameraPlayer({ cameraId, ip, status, height, lastEvidenceUrl, lastEvidenceAt }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef   = useRef<Hls | null>(null);
   const [playerState, setPlayerState] = useState<PlayerState>(
@@ -105,27 +109,47 @@ export function CameraPlayer({ cameraId, ip, status, height }: Props) {
     justifyContent: 'center',
   };
 
-  if (playerState === 'offline') {
+  if (playerState === 'offline' || playerState === 'error') {
+    const label = playerState === 'offline' ? 'Câmera offline' : 'Sem sinal';
+    const evidenceTime = lastEvidenceAt
+      ? new Date(lastEvidenceAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+      : null;
+
+    if (lastEvidenceUrl) {
+      return (
+        <div style={containerStyle}>
+          <img
+            src={lastEvidenceUrl}
+            alt="último frame capturado"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.75 }}
+          />
+          {/* ÚLTIMO FRAME badge */}
+          <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full"
+            style={{ background: 'rgba(107,114,128,0.82)', backdropFilter: 'blur(4px)' }}>
+            <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
+            <span className="text-[10px] font-bold text-white tracking-wide">ÚLTIMO FRAME</span>
+          </div>
+          {/* timestamp bottom-right */}
+          {evidenceTime && (
+            <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded text-[10px] text-white/80 font-mono"
+              style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(2px)' }}>
+              {evidenceTime}
+            </div>
+          )}
+          {/* status bottom-left */}
+          <div className="absolute bottom-2 left-2 px-1.5 py-0.5 rounded text-[10px] font-medium"
+            style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(2px)' }}>
+            {label}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div style={containerStyle}>
         <div className="flex flex-col items-center gap-2">
           <CameraIcon size={28} style={{ color: 'var(--color-text-muted)', opacity: 0.5 }} />
-          <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
-            Câmera offline
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  if (playerState === 'error') {
-    return (
-      <div style={containerStyle}>
-        <div className="flex flex-col items-center gap-2">
-          <CameraIcon size={28} style={{ color: 'var(--color-text-muted)', opacity: 0.4 }} />
-          <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
-            Sem sinal
-          </span>
+          <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
         </div>
       </div>
     );

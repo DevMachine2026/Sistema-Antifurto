@@ -163,6 +163,23 @@ Deno.serve(async (req) => {
       return json({ ok: true, deduplicated: true, event_key: eventKey, people_inside: peopleInside, request_id: ctx.request_id });
     }
 
+    // Salva evidência visual no Storage (best-effort — não bloqueia o evento)
+    let evidenceUrl: string | null = null;
+    const evidenceB64 = typeof body.evidence_image === 'string' ? body.evidence_image : null;
+    if (evidenceB64) {
+      try {
+        const bytes = Uint8Array.from(atob(evidenceB64), (c) => c.charCodeAt(0));
+        const fileName = `${settings.establishment_id}/${normalizedCameraId}/${Date.now()}.jpg`;
+        const { error: uploadError } = await supabase.storage
+          .from('evidence')
+          .upload(fileName, bytes, { contentType: 'image/jpeg', upsert: false });
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage.from('evidence').getPublicUrl(fileName);
+          evidenceUrl = publicUrl;
+        }
+      } catch { /* falha de upload não impede o evento */ }
+    }
+
     const { error } = await supabase.from('people_count_events').insert({
       establishment_id: settings.establishment_id,
       external_event_key: eventKey,
@@ -171,9 +188,35 @@ Deno.serve(async (req) => {
       count_out:    countOut,
       people_inside: peopleInside,
       recorded_at:  recordedAt,
+      ...(evidenceUrl ? { evidence_url: evidenceUrl } : {}),
     });
 
     if (error) throw error;
+
+    // Garante que existe um registro em cameras com este camera_id.
+    // Se a câmera já existe, só atualiza status e last_event_at (preserva nome personalizado).
+    // Isso resolve o mismatch entre camera_id auto-registrado (ONVIF) e o que chega nos eventos.
+    const { data: existingCam } = await supabase
+      .from('cameras')
+      .select('id')
+      .eq('establishment_id', settings.establishment_id)
+      .eq('camera_id', normalizedCameraId)
+      .maybeSingle();
+
+    if (existingCam) {
+      await supabase.from('cameras')
+        .update({ status: 'online', last_event_at: recordedAt })
+        .eq('id', existingCam.id);
+    } else {
+      await supabase.from('cameras').insert({
+        establishment_id: settings.establishment_id,
+        name: `Câmera ${normalizedCameraId}`,
+        camera_id: normalizedCameraId,
+        camera_type: 'people_counting',
+        status: 'online',
+        last_event_at: recordedAt,
+      }).then(() => {}).catch(() => {}); // ignora conflito de corrida
+    }
 
     const { data: newAlerts } = await supabase.rpc('run_fraud_rules', {
       p_establishment_id: settings.establishment_id,

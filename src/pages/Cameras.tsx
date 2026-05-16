@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { Camera, CameraBrand, CameraType } from '../types';
 import { cameraService } from '../services/cameraService';
-import { scanNetwork, detectLocalSubnet, slugify, checkScanCapability, ScanCapability } from '../services/networkScanner';
+import { scanNetwork, detectLocalSubnet, slugify, checkScanCapability, ScanCapability, CameraCandidate, SNAPSHOT_PATHS } from '../services/networkScanner';
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
 import { cn } from '../lib/utils';
@@ -33,6 +33,32 @@ const BACKEND = import.meta.env.VITE_API_URL ?? 'http://localhost:3456';
 const BACKEND_BRAND_LABELS: Record<string, string> = {
   intelbras: 'Intelbras', hikvision: 'Hikvision', dahua: 'Dahua', generic: 'Genérica',
 };
+
+// Tenta carregar snapshot da câmera percorrendo os caminhos conhecidos.
+// Usa <img> em modo opaco — funciona na mesma rede local sem CORS.
+function SnapshotProbe({ ip, port = 80 }: { ip: string; port?: number }) {
+  const [idx, setIdx] = useState(0);
+  const [failed, setFailed] = useState(false);
+
+  if (failed || idx >= SNAPSHOT_PATHS.length) {
+    return (
+      <div className="w-full h-full flex items-center justify-center"
+        style={{ background: 'var(--color-surface)' }}>
+        <CameraIcon size={20} style={{ color: 'var(--color-text-muted)', opacity: 0.5 }} />
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={`http://${ip}:${port}${SNAPSHOT_PATHS[idx]}`}
+      alt=""
+      className="w-full h-full object-cover"
+      onError={() => setIdx((i) => i + 1)}
+      onLoad={() => setFailed(false)}
+    />
+  );
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -69,6 +95,23 @@ function useSettings() {
 function CameraCard({ cam, onDelete }: { cam: Camera; onDelete: () => void }) {
   const { t } = useTranslation();
   const [fullscreen, setFullscreen] = useState(false);
+  const [lastEvidence, setLastEvidence] = useState<{ url: string; at: string } | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from('people_count_events')
+      .select('evidence_url, recorded_at')
+      .eq('camera_id', cam.cameraId)
+      .not('evidence_url', 'is', null)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.evidence_url) {
+          setLastEvidence({ url: data.evidence_url as string, at: data.recorded_at as string });
+        }
+      });
+  }, [cam.cameraId]);
   const brandLabel: Record<CameraBrand, string> = {
     intelbras: 'Intelbras', hikvision: 'Hikvision', dahua: 'Dahua', generic: t('cameras.brandGeneric'),
   };
@@ -90,6 +133,8 @@ function CameraCard({ cam, onDelete }: { cam: Camera; onDelete: () => void }) {
               ip={cam.ip}
               status={cam.status}
               height={undefined}
+              lastEvidenceUrl={lastEvidence?.url}
+              lastEvidenceAt={lastEvidence?.at}
             />
           </div>
           {/* expand hint on hover */}
@@ -187,6 +232,8 @@ function CameraCard({ cam, onDelete }: { cam: Camera; onDelete: () => void }) {
                   ip={cam.ip}
                   status={cam.status}
                   height={undefined}
+                  lastEvidenceUrl={lastEvidence?.url}
+                  lastEvidenceAt={lastEvidence?.at}
                 />
               </div>
             </motion.div>
@@ -339,11 +386,13 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
   const [scanCapability, setScanCapability]   = useState<ScanCapability | null>(null);
   const [scanning, setScanning]               = useState(false);
   const [scanProgress, setScanProgress]       = useState(0);
-  const [rtspDevices, setRtspDevices]         = useState<string[]>([]);
+  const [scanCandidates, setScanCandidates]   = useState<CameraCandidate[]>([]);
   const [subnet, setSubnet]                   = useState('192.168.1');
-  const [discoverySource, setDiscoverySource] = useState<'backend' | 'browser' | null>(null);
+  const [discoverySource, setDiscoverySource] = useState<'backend' | 'browser' | 'agent-wait' | null>(null);
   const [backendDevices, setBackendDevices]   = useState<DiscoveredCamera[]>([]);
-  const scanAbortRef = useRef<AbortController | null>(null);
+  const [agentWaitSeconds, setAgentWaitSeconds] = useState(0);
+  const scanAbortRef  = useRef<AbortController | null>(null);
+  const pollTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     detectLocalSubnet().then((s) => { if (s) setSubnet(s); });
@@ -357,14 +406,56 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
     setCameraId(slugify(v));
   }
 
+  function candidatesFromRows(rows: { ip: string; port: number; service_url?: string; manufacturer?: string; device_type?: string }[]): DiscoveredCamera[] {
+    return rows.map((c) => {
+      const mfr = (c.manufacturer ?? '').toLowerCase();
+      const brand = mfr.includes('dahua') ? 'dahua' : mfr.includes('hikvision') ? 'hikvision' : mfr.includes('intelbras') ? 'intelbras' : 'generic';
+      return {
+        ip: c.ip, port: c.port ?? 80, brand,
+        hasRtsp: c.port === 554 || (c.service_url?.startsWith('rtsp://') ?? false),
+        manufacturer: c.manufacturer ?? undefined,
+        model: c.device_type ?? undefined,
+        onvifProfileToken: undefined, snapshotUrl: undefined,
+      };
+    });
+  }
+
+  async function fetchAgentCandidates(): Promise<DiscoveredCamera[]> {
+    const eid = getCurrentEstablishmentId();
+    const { data: agents } = await supabase.from('agent_configs').select('id').eq('establishment_id', eid);
+    if (!agents?.length) return [];
+    const agentIds = agents.map((a: { id: string }) => a.id);
+    const { data: candidates } = await supabase
+      .from('agent_camera_candidates')
+      .select('ip, port, service_url, manufacturer, device_type, credentials_ok')
+      .in('agent_id', agentIds);
+    return candidates?.length ? candidatesFromRows(candidates as Parameters<typeof candidatesFromRows>[0]) : [];
+  }
+
+  async function hasOnlineAgent(): Promise<boolean> {
+    const eid = getCurrentEstablishmentId();
+    const { data: agents } = await supabase.from('agent_configs').select('id').eq('establishment_id', eid);
+    if (!agents?.length) return false;
+    const agentIds = agents.map((a: { id: string }) => a.id);
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const { data: hb } = await supabase
+      .from('agent_heartbeats')
+      .select('id')
+      .in('agent_id', agentIds)
+      .gte('reported_at', tenMinutesAgo)
+      .limit(1);
+    return (hb?.length ?? 0) > 0;
+  }
+
   async function startScan() {
     setScanning(true);
-    setRtspDevices([]);
+    setScanCandidates([]);
     setBackendDevices([]);
     setScanProgress(0);
     setDiscoverySource(null);
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
 
-    // 1. Tenta agente local rodando na máquina (instalação local)
+    // 1. Agente local na mesma máquina (dev / instalação local)
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 5000);
@@ -377,57 +468,55 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
         setScanning(false);
         return;
       }
-    } catch {
-      // agente local indisponível
-    }
+    } catch { /* agente local indisponível */ }
 
-    // 2. Consulta o Supabase: câmeras descobertas pelo agente Python (agent_camera_candidates)
+    // 2. Câmeras já reportadas pelo agente Python no Supabase
     try {
-      const eid = getCurrentEstablishmentId();
-      const { data: agents } = await supabase
-        .from('agent_configs')
-        .select('id')
-        .eq('establishment_id', eid);
-
-      if (agents && agents.length > 0) {
-        const agentIds = agents.map((a: { id: string }) => a.id);
-        const { data: candidates } = await supabase
-          .from('agent_camera_candidates')
-          .select('ip, port, service_url, manufacturer, device_type, credentials_ok')
-          .in('agent_id', agentIds);
-
-        if (candidates && candidates.length > 0) {
-          const discovered: DiscoveredCamera[] = candidates.map((c: {
-            ip: string; port: number; service_url?: string;
-            manufacturer?: string; device_type?: string;
-          }) => {
-            const mfr = (c.manufacturer ?? '').toLowerCase();
-            const brand =
-              mfr.includes('dahua')      ? 'dahua'      :
-              mfr.includes('hikvision')  ? 'hikvision'  :
-              mfr.includes('intelbras')  ? 'intelbras'  : 'generic';
-            return {
-              ip:                 c.ip,
-              port:               c.port ?? 80,
-              brand,
-              hasRtsp:            c.port === 554 || (c.service_url?.startsWith('rtsp://') ?? false),
-              manufacturer:       c.manufacturer ?? undefined,
-              model:              c.device_type ?? undefined,
-              onvifProfileToken:  undefined,
-              snapshotUrl:        undefined,
-            };
-          });
-          setBackendDevices(discovered);
-          setDiscoverySource('backend');
-          setScanning(false);
-          return;
-        }
+      const existing = await fetchAgentCandidates();
+      if (existing.length > 0) {
+        setBackendDevices(existing);
+        setDiscoverySource('backend');
+        setScanning(false);
+        return;
       }
-    } catch (err) {
-      console.warn('agent_camera_candidates query failed:', err);
-    }
+    } catch (err) { console.warn('agent_camera_candidates query failed:', err); }
 
-    // 3. Fallback: scan de browser (limitado por restrições de segurança do navegador)
+    // 3. Agente online mas sem câmeras ainda — aguardar até 45s com polling
+    try {
+      const online = await hasOnlineAgent();
+      if (online) {
+        setDiscoverySource('agent-wait');
+        setAgentWaitSeconds(45);
+        let elapsed = 0;
+        const poll = setInterval(async () => {
+          elapsed += 3;
+          setAgentWaitSeconds((s) => Math.max(0, s - 3));
+          try {
+            const found = await fetchAgentCandidates();
+            if (found.length > 0) {
+              clearInterval(poll);
+              pollTimerRef.current = null;
+              setBackendDevices(found);
+              setDiscoverySource('backend');
+              setScanning(false);
+              return;
+            }
+          } catch { /* continua polling */ }
+          if (elapsed >= 45) {
+            clearInterval(poll);
+            pollTimerRef.current = null;
+            // Agente online mas não encontrou câmeras — avisa e para
+            setDiscoverySource('backend');
+            setBackendDevices([]);
+            setScanning(false);
+          }
+        }, 3000);
+        pollTimerRef.current = poll;
+        return; // função termina; o interval cuida do resto
+      }
+    } catch { /* se a verificação falhar, vai ao browser scan */ }
+
+    // 4. Último recurso: scan de browser (só funciona na mesma rede local)
     setDiscoverySource('browser');
     const cap = await checkScanCapability(subnet);
     setScanCapability(cap);
@@ -435,19 +524,11 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
 
     const abort = new AbortController();
     scanAbortRef.current = abort;
-
     const found = await scanNetwork(subnet, (partial, scanned, total) => {
-      const cameras = partial
-        .filter((c) => c.hasRtsp || c.openPorts.includes(8000) || c.openPorts.includes(37777))
-        .map((c) => c.ip);
-      setRtspDevices(cameras);
+      setScanCandidates(partial.filter((c) => c.hasRtsp || c.openPorts.includes(8000) || c.openPorts.includes(37777)));
       setScanProgress(Math.round((scanned / total) * 100));
     }, abort.signal);
-
-    const cameras = found
-      .filter((c) => c.hasRtsp || c.openPorts.includes(8000) || c.openPorts.includes(37777))
-      .map((c) => c.ip);
-    setRtspDevices(cameras);
+    setScanCandidates(found.filter((c) => c.hasRtsp || c.openPorts.includes(8000) || c.openPorts.includes(37777)));
     setScanning(false);
   }
 
@@ -461,6 +542,13 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
     if (cam.manufacturer || cam.model) {
       handleNameChange([cam.manufacturer, cam.model].filter(Boolean).join(' '));
     }
+  }
+
+  function selectScanCandidate(cam: CameraCandidate) {
+    setIp(cam.ip);
+    setPort(String(cam.httpPort || 80));
+    setBrand(cam.likelyBrand as CameraBrand);
+    handleNameChange(`Câmera ${BACKEND_BRAND_LABELS[cam.likelyBrand] ?? 'Genérica'}`);
   }
 
   async function saveCamera() {
@@ -590,7 +678,35 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
 
               {scanning ? (
                 <div className="space-y-2">
-                  {discoverySource === 'browser' ? (
+                  {discoverySource === 'agent-wait' ? (
+                    <div className="rounded-xl p-3 space-y-2.5"
+                      style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.2)' }}>
+                      <div className="flex items-center gap-2">
+                        <Loader2 size={14} className="animate-spin shrink-0" style={{ color: 'var(--color-primary)' }} />
+                        <span className="text-[12px] font-medium" style={{ color: 'var(--color-primary)' }}>
+                          Agente online — buscando câmeras na rede…
+                        </span>
+                      </div>
+                      <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: 'var(--color-surface-2)' }}>
+                        <motion.div className="h-full rounded-full" style={{ background: 'var(--color-primary)' }}
+                          animate={{ width: `${Math.round(((45 - agentWaitSeconds) / 45) * 100)}%` }}
+                          transition={{ duration: 0.5 }} />
+                      </div>
+                      <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                        O agente Windows está escaneando a rede local. Aguardando resultado… ({agentWaitSeconds}s)
+                      </p>
+                      <button
+                        onClick={() => {
+                          if (pollTimerRef.current) { clearInterval(pollTimerRef.current); pollTimerRef.current = null; }
+                          setScanning(false);
+                          setDiscoverySource(null);
+                        }}
+                        className="text-[11px] underline underline-offset-2"
+                        style={{ color: 'var(--color-text-muted)' }}>
+                        Prefiro digitar o IP manualmente
+                      </button>
+                    </div>
+                  ) : discoverySource === 'browser' ? (
                     <>
                       <div className="flex justify-between text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
                         <span>{t('cameras.scanningNet')}</span><span>{scanProgress}%</span>
@@ -617,74 +733,102 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
                 </button>
               )}
 
-              {/* Resultados do backend */}
+              {/* Resultados do agente / Supabase */}
               {!scanning && discoverySource === 'backend' && backendDevices.length > 0 && (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <p className="text-[11px] font-semibold" style={{ color: 'var(--color-success)' }}>
-                    {t('cameras.wizard.cameraFound', { count: backendDevices.length })}
+                    {backendDevices.length === 1
+                      ? '1 câmera encontrada na rede'
+                      : `${backendDevices.length} câmeras encontradas — clique na sua`}
                   </p>
-                  {backendDevices.map((cam) => (
-                    <button key={cam.ip} onClick={() => selectBackendCamera(cam)}
-                      className={cn('w-full text-left rounded-xl overflow-hidden transition-all',
-                        ip === cam.ip ? 'ring-1 ring-primary' : '')}
-                      style={{
-                        background: ip === cam.ip ? 'rgba(79,124,255,0.1)' : 'var(--color-surface-2)',
-                        border: `1px solid ${ip === cam.ip ? 'rgba(79,124,255,0.4)' : 'var(--color-border-strong)'}`,
-                      }}>
-                      <div className="flex gap-3 p-2.5 items-center">
-                        <div className="relative w-16 h-10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center"
-                          style={{ background: 'var(--color-surface)' }}>
-                          {cam.snapshotUrl && (
-                            <img src={cam.snapshotUrl} alt=""
-                              className="absolute inset-0 w-full h-full object-cover"
-                              onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                          )}
-                          <CameraIcon size={16} style={{ color: 'var(--color-text-muted)' }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-mono text-[13px] text-text font-medium">{cam.ip}</p>
-                          <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-dim)' }}>
-                            {BACKEND_BRAND_LABELS[cam.brand?.toLowerCase()] ?? cam.brand ?? 'Câmera'}
-                          </p>
-                        </div>
-                        <div className="flex flex-col gap-1 shrink-0">
-                          {cam.onvifProfileToken && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold"
-                              style={{ background: 'rgba(79,124,255,0.15)', color: 'var(--color-primary)' }}>
-                              ONVIF
-                            </span>
-                          )}
-                          {cam.hasRtsp && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold"
-                              style={{ background: 'rgba(16,185,129,0.15)', color: 'var(--color-success)' }}>
-                              RTSP
-                            </span>
+                  {backendDevices.map((cam) => {
+                    const brandLabel = BACKEND_BRAND_LABELS[cam.brand?.toLowerCase()] ?? cam.brand ?? 'Câmera';
+                    const isDvr = cam.model?.toLowerCase().includes('dvr') || cam.model?.toLowerCase().includes('nvr');
+                    const deviceLabel = isDvr
+                      ? `DVR ${brandLabel}${cam.model ? ` — ${cam.model}` : ''}`
+                      : `Câmera ${brandLabel}${cam.manufacturer && cam.manufacturer !== brandLabel ? ` (${cam.manufacturer})` : ''}`;
+                    const selected = ip === cam.ip;
+                    return (
+                      <button key={cam.ip} onClick={() => selectBackendCamera(cam)}
+                        className={cn('w-full text-left rounded-xl overflow-hidden transition-all',
+                          selected ? 'ring-2 ring-primary' : '')}
+                        style={{
+                          background: selected ? 'rgba(79,124,255,0.08)' : 'var(--color-surface-2)',
+                          border: `1px solid ${selected ? 'rgba(79,124,255,0.5)' : 'var(--color-border-strong)'}`,
+                        }}>
+                        <div className="flex gap-0 items-stretch">
+                          {/* thumbnail */}
+                          <div className="w-20 shrink-0 rounded-l-xl overflow-hidden"
+                            style={{ background: '#000', minHeight: 56 }}>
+                            <SnapshotProbe ip={cam.ip} port={cam.port} />
+                          </div>
+                          {/* info */}
+                          <div className="flex-1 min-w-0 px-3 py-2.5 flex flex-col justify-center gap-0.5">
+                            <p className="text-[13px] font-semibold text-text leading-tight">{deviceLabel}</p>
+                            <p className="text-[11px] font-mono" style={{ color: 'var(--color-text-muted)' }}>{cam.ip}</p>
+                          </div>
+                          {/* selected check */}
+                          {selected && (
+                            <div className="shrink-0 pr-3 flex items-center">
+                              <div className="w-5 h-5 rounded-full flex items-center justify-center"
+                                style={{ background: 'var(--color-primary)' }}>
+                                <Check size={11} className="text-white" />
+                              </div>
+                            </div>
                           )}
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
               {/* Resultados do scan do browser */}
-              {!scanning && discoverySource === 'browser' && rtspDevices.length > 0 && (
-                <div className="space-y-1.5">
+              {!scanning && discoverySource === 'browser' && scanCandidates.length > 0 && (
+                <div className="space-y-2">
                   <p className="text-[11px] font-semibold" style={{ color: 'var(--color-success)' }}>
-                    {t('cameras.wizard.cameraFound', { count: rtspDevices.length })}
+                    {scanCandidates.length === 1
+                      ? '1 câmera encontrada — clique para selecionar'
+                      : `${scanCandidates.length} câmeras encontradas — clique na sua`}
                   </p>
-                  {rtspDevices.map((rip) => (
-                    <button key={rip} onClick={() => setIp(rip)}
-                      className={cn('w-full text-left px-3 py-2 rounded-lg text-[13px] font-mono transition-all',
-                        ip === rip ? 'ring-1 ring-primary' : '')}
-                      style={{
-                        background: ip === rip ? 'rgba(79,124,255,0.15)' : 'var(--color-surface-2)',
-                        border: '1px solid var(--color-border-strong)',
-                        color: 'var(--color-text)',
-                      }}>
-                      {ip === rip ? `✓ ${rip}` : rip}
-                    </button>
-                  ))}
+                  {scanCandidates.map((cam) => {
+                    const brandLabel = BACKEND_BRAND_LABELS[cam.likelyBrand] ?? 'Câmera';
+                    const rtspLabel = cam.hasRtsp ? 'Vídeo ativo' : 'Dispositivo de câmera';
+                    const selected = ip === cam.ip;
+                    return (
+                      <button key={cam.ip} onClick={() => selectScanCandidate(cam)}
+                        className={cn('w-full text-left rounded-xl overflow-hidden transition-all',
+                          selected ? 'ring-2 ring-primary' : '')}
+                        style={{
+                          background: selected ? 'rgba(79,124,255,0.08)' : 'var(--color-surface-2)',
+                          border: `1px solid ${selected ? 'rgba(79,124,255,0.5)' : 'var(--color-border-strong)'}`,
+                        }}>
+                        <div className="flex gap-0 items-stretch">
+                          {/* thumbnail */}
+                          <div className="w-20 shrink-0 rounded-l-xl overflow-hidden"
+                            style={{ background: '#000', minHeight: 56 }}>
+                            <SnapshotProbe ip={cam.ip} port={cam.httpPort} />
+                          </div>
+                          {/* info */}
+                          <div className="flex-1 min-w-0 px-3 py-2.5 flex flex-col justify-center gap-0.5">
+                            <p className="text-[13px] font-semibold text-text leading-tight">
+                              {brandLabel !== 'Genérica' ? `Câmera ${brandLabel}` : rtspLabel}
+                            </p>
+                            <p className="text-[11px] font-mono" style={{ color: 'var(--color-text-muted)' }}>{cam.ip}</p>
+                          </div>
+                          {/* selected check */}
+                          {selected && (
+                            <div className="shrink-0 pr-3 flex items-center">
+                              <div className="w-5 h-5 rounded-full flex items-center justify-center"
+                                style={{ background: 'var(--color-primary)' }}>
+                                <Check size={11} className="text-white" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
@@ -693,7 +837,7 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
                   {t('cameras.noCandidates')}
                 </p>
               )}
-              {!scanning && discoverySource === 'browser' && scanCapability !== null && rtspDevices.length === 0 && scanCapability !== 'blocked' && (
+              {!scanning && discoverySource === 'browser' && scanCapability !== null && scanCandidates.length === 0 && scanCapability !== 'blocked' && (
                 <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
                   {t('cameras.noCandidates')}
                 </p>
@@ -935,7 +1079,23 @@ export default function Cameras() {
     finally { setLoading(false); }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void load();
+
+    // Câmeras auto-registradas pelo agente aparecem em tempo real
+    const eid = getCurrentEstablishmentId();
+    const channel = supabase
+      .channel('cameras-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'cameras', filter: `establishment_id=eq.${eid}` },
+        () => { void load(); },
+      )
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleDelete(id: string) {
     if (!confirm(t('cameras.deleteConfirm'))) return;
@@ -953,9 +1113,9 @@ export default function Cameras() {
           <p className="text-[13px] mt-0.5" style={{ color: 'var(--color-text-dim)' }}>{t('cameras.subtitle')}</p>
         </div>
         <button onClick={() => setShowWizard(true)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white"
-          style={{ background: 'var(--color-primary)' }}>
-          <Plus size={15} /> {t('cameras.addCamera')}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-medium"
+          style={{ border: '1px solid var(--color-border-strong)', color: 'var(--color-text-dim)', background: 'var(--color-surface-alt)' }}>
+          <Plus size={15} /> Adicionar manualmente
         </button>
       </div>
 
@@ -965,21 +1125,31 @@ export default function Cameras() {
         </div>
       ) : cameras.length === 0 ? (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-          className="text-center py-16 space-y-4 rounded-xl"
+          className="text-center py-16 space-y-5 rounded-2xl"
           style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}>
-          <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center"
-            style={{ background: 'rgba(79,124,255,0.1)', border: '1px solid rgba(79,124,255,0.2)' }}>
-            <CameraIcon size={24} style={{ color: 'var(--color-primary)' }} />
+          <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center"
+            style={{ background: 'rgba(79,124,255,0.08)', border: '1px solid rgba(79,124,255,0.15)' }}>
+            <CameraIcon size={26} style={{ color: 'var(--color-primary)', opacity: 0.8 }} />
           </div>
-          <div>
-            <p className="text-[16px] font-bold text-text">{t('cameras.empty.title')}</p>
-            <p className="text-[13px] mt-1 max-w-xs mx-auto" style={{ color: 'var(--color-text-dim)' }}>{t('cameras.empty.desc')}</p>
+          <div className="space-y-1.5 px-6">
+            <p className="text-[16px] font-bold text-text">Nenhuma câmera ainda</p>
+            <p className="text-[13px] max-w-sm mx-auto leading-relaxed" style={{ color: 'var(--color-text-dim)' }}>
+              Com o agente instalado no PC do estabelecimento, as câmeras da rede aparecem aqui
+              <span className="font-semibold"> automaticamente</span> — sem configuração.
+            </p>
           </div>
-          <button onClick={() => setShowWizard(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold text-white"
-            style={{ background: 'var(--color-primary)' }}>
-            {t('cameras.empty.cta')}
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px]"
+              style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.2)', color: 'var(--color-success)' }}>
+              <Loader2 size={12} className="animate-spin" />
+              Aguardando descoberta pelo agente…
+            </div>
+            <button onClick={() => setShowWizard(true)}
+              className="text-[12px] underline underline-offset-2"
+              style={{ color: 'var(--color-text-muted)' }}>
+              Prefiro adicionar o IP manualmente
+            </button>
+          </div>
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

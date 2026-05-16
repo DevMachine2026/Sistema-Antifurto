@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
     const { data: agent, error: agentError } = await supabase
       .from('agent_configs')
-      .select('id')
+      .select('id, establishment_id')
       .eq('token', token)
       .eq('active', true)
       .single();
@@ -103,9 +103,45 @@ Deno.serve(async (req) => {
           username:       c.username      ?? null,
           password:       c.password      ?? null,
           credentials_ok: c.credentials_ok ?? null,
-          approved:       null,
+          approved:       true,
         })),
       );
+    }
+
+    // Auto-registra câmeras para TODAS reportadas (novas e já conhecidas).
+    // ignoreDuplicates=true protege nomes que o merchant já personalizou.
+    if (agent.establishment_id && cameras.length > 0) {
+      const brandKeywords: Record<string, string> = {
+        intelbras: 'intelbras', hikvision: 'hikvision', dahua: 'dahua',
+      };
+      const cameraRows = cameras.map((c) => {
+        const mfr = (c.manufacturer ?? '').toLowerCase();
+        const brand = Object.entries(brandKeywords).find(([k]) => mfr.includes(k))?.[1] ?? 'generic';
+        const brandLabel = brand === 'intelbras' ? 'Intelbras'
+          : brand === 'hikvision' ? 'Hikvision'
+          : brand === 'dahua' ? 'Dahua' : '';
+        let name: string;
+        if (c.device_type === 'dvr') {
+          name = `DVR ${brandLabel || 'Genérico'}${c.channel_count ? ` — ${c.channel_count} canais` : ''}`;
+        } else {
+          name = brandLabel ? `Câmera ${brandLabel}` : `Câmera ${c.ip}`;
+        }
+        return {
+          establishment_id: agent.establishment_id,
+          name,
+          camera_id:  `auto-${c.ip.replace(/\./g, '-')}`,
+          ip:         c.ip,
+          port:       c.port ?? 80,
+          brand,
+          camera_type: 'people_counting',
+          status:     'online',
+        };
+      });
+
+      await supabase.from('cameras').upsert(cameraRows, {
+        onConflict: 'establishment_id,camera_id',
+        ignoreDuplicates: true,
+      });
     }
 
     return json({ ok: true, inserted: newCameras.length });

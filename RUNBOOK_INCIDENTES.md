@@ -23,23 +23,27 @@
 
 ## Diagnóstico por Componente
 
-### Agente aparece Offline no AdminPanel
+### Agente aparece Offline
+
+O merchant verifica o status em **Menu → Agentes**. O platform_admin vê todos os agentes no **Painel Administrativo → lista de estabelecimentos**.
 
 1. Verificar se o PC do restaurante está ligado e com internet
 2. Verificar se o processo do agente está rodando (no Windows empacotado pode aparecer como `OlhoVivo_TOKEN_*.exe` ou similar)
 3. **Token / autenticação do agente**
    - **Windows (instalador):** o token vem do nome do instalador (`OlhoVivoSetup_TOKEN_...exe`) e fica em `%LOCALAPPDATA%\OlhoVivoAgent\.olhovivo.env`. Se o cliente renomeou o instalador ou usou só `OlhoVivoSetup.exe` do Release sem `TOKEN_`, peça novo download pelo link do painel (ou reinstalar com `/TOKEN=` em cenário técnico).
-   - **Dev / Linux:** conferir `ESTABLISHMENT_TOKEN` ou `token.txt` na pasta do agente; copiar de novo do AdminPanel → Agentes se necessário.
+   - **Dev / Linux:** conferir `ESTABLISHMENT_TOKEN` ou `token.txt` na pasta do agente; copiar de novo da aba **Agentes** no painel se necessário.
 4. Verificar `agente.log` em `%LOCALAPPDATA%\OlhoVivoAgent\` (Windows empacotado) — erros de conexão com Supabase?
 5. Confirmar JWT desativado em `agent-config`, `agent-heartbeat`, `agent-cameras-found` (Supabase → Edge Functions → Settings)
 
 ### Câmeras não contam pessoas
 
 1. Agente está Online? (se não, ver seção acima)
-2. Câmera aprovada no AdminPanel → Agentes?
+2. Câmera aparece na aba **Câmeras** do painel?
+   - Se não: aguardar 2–3 min após agente Online (ONVIF scan automático)
+   - Se ainda não: câmera pode não ter ONVIF — usar **Câmeras → Adicionar manualmente** com o IP do app do fabricante
 3. Câmera acessível via RTSP? Testar: `ffprobe rtsp://admin:SENHA@IP:554/stream1`
 4. Verificar logs do agente: `cap.read() failed` indica câmera desconectada
-5. Câmera na mesma rede que o PC? Reiniciar câmera e aguardar re-descoberta
+5. Câmera na mesma rede que o PC? Reiniciar câmera e aguardar re-descoberta automática
 
 ### Alerta R01/R02 não dispara
 
@@ -51,9 +55,9 @@
 
 ### Telegram não recebe notificações
 
-1. `TELEGRAM_BOT_TOKEN` presente em Supabase Secrets?
-2. `telegram_chat_id` configurado corretamente em Configurações → Salvar?
-3. Testar via Configurações → "Testar notificação"
+1. `TELEGRAM_BOT_TOKEN` presente em Supabase Secrets? (configurado uma vez por deploy via Painel Admin)
+2. Merchant passou pelo fluxo **Configurações → Conectar Telegram** e clicou em **Iniciar** no bot `@sistemantifraude_bot`? (sem esse passo, o `telegram_chat_id` não é registrado)
+3. Testar envio via **Configurações → Testar notificação**
 4. Verificar logs da `send-telegram` no Supabase
 
 ### Banco / RLS

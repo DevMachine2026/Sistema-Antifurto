@@ -55,7 +55,7 @@ Você **não** precisa instalar Python, Docker, abrir terminal ou mexer em arqui
 ### Passo 3 — Confirmar no painel
 
 1. Aguarde até 1 minuto e verifique se o agente aparece como **Online** no painel → Agentes.
-2. Quando câmeras forem descobertas automaticamente, **aprove** as que serão usadas para contagem.
+2. Abra a aba **Câmeras** — as câmeras detectadas na rede local aparecem automaticamente, sem nenhuma configuração adicional.
 
 > O token de autenticação vem embutido no nome do arquivo — o instalador cuida de tudo. O dono do negócio não vê nem digita nenhum código.
 
@@ -72,11 +72,13 @@ Você **não** precisa instalar Python, Docker, abrir terminal ou mexer em arqui
 
 ### Como as câmeras chegam ao sistema
 
-**Via agente (automático, recomendado):**
-O agente descobre câmeras IP na rede local via ONVIF e varredura de portas. Elas aparecem na aba **Agentes** para aprovação com um clique.
+**Via agente (automático — funciona para a maioria das câmeras IP):**
+Assim que o agente fica online, ele escaneia a rede local via ONVIF e registra as câmeras encontradas diretamente na aba **Câmeras** do painel — sem aprovação, sem configuração. O gerente abre o painel e as câmeras já estão lá.
 
-**Via wizard manual:**
-Acesse **Câmeras → + Adicionar câmera** e siga as 5 etapas: marca → IP/porta → nome e tipo → configuração do firmware → teste de stream.
+> Câmeras com suporte a ONVIF: Intelbras, Hikvision, Dahua e a maioria das câmeras IP profissionais.
+
+**Via entrada manual (câmeras sem ONVIF):**
+Se a câmera não aparecer automaticamente, acesse **Câmeras → Adicionar manualmente** e informe o IP da câmera. O IP pode ser encontrado no app do fabricante (IntelbrasCAM, iDMSS, DMSS, Hik-Connect).
 
 ### DVRs
 
@@ -170,7 +172,7 @@ Acesse **Menu → Configurações** para:
 
 | Configuração | O que ajustar |
 |---|---|
-| **Telegram** | Cole o Chat ID e clique em Testar para receber alertas |
+| **Telegram** | Clique em **Conectar Telegram** — o sistema abre o bot `@sistemantifraude_bot` automaticamente; basta clicar em **Iniciar** dentro do Telegram |
 | **WhatsApp** | Informe o número (com DDI+DDD) e teste |
 | **Regra R01** | Quantas pessoas no salão ativam o alerta + janela de tempo sem vendas |
 | **Regra R02** | A partir de qual diferença financeira o alerta dispara |
@@ -227,7 +229,7 @@ A pasta de logs (`OlhoVivoAgent`) pode permanecer — apague manualmente se quis
 | Instalador recusa por falta de `TOKEN_` no nome | Baixe de novo pelo **link do painel** (não use o `.exe` genérico do GitHub) |
 | Agente não aparece Online | Verifique internet, firewall do Windows e antivírus. Consulte `agente.log` |
 | `agente.log` mostra `401 Unauthorized` | Problema com a chave de autenticação — entre em contato com o suporte |
-| Câmeras não aparecem na aba Agentes | PC e câmeras precisam estar na mesma rede local (LAN) |
+| Câmeras não aparecem na aba Câmeras | PC e câmeras precisam estar na mesma rede local (LAN). Aguarde 2 a 3 minutos após o agente ficar Online. Se não aparecer, a câmera pode não ter ONVIF — use **Adicionar manualmente** |
 | Feed de evidências vazio | Confirme que o agente está atualizado e que o bucket `evidence` existe no Supabase |
 | Fotos não carregam no lightbox | O bucket `evidence` no Supabase precisa estar configurado como **público** |
 | DVR aparece sem canais | Clique em **Configurar DVR**, preencha manualmente usuário, senha e quantidade de canais |

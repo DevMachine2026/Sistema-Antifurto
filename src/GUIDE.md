@@ -1,112 +1,246 @@
-# Guia de Operacao - Sistema Antifraude
+# Guia de Operação — Sistema Antifraude
 
-Este guia cobre dois perfis: **instalacao e integracao** (para o tecnico ou responsavel pela implantacao) e **operacao diaria** (para o gerente ou responsavel pelo turno).
+Este guia tem dois blocos. Comece pelo que se aplica a você:
 
----
-
-## 1) O que o sistema faz
-
-O sistema cruza quatro fontes para detectar inconsistencias financeiras e operacionais:
-
-- ocupacao real do salao (cameras de contagem)
-- deteccao de pagamento em dinheiro no caixa (camera dedicada)
-- valor recebido em pagamentos eletronicos (maquineta PagBank)
-- valor de vendas registradas (ST Ingressos ou sistema de bilheteria)
-
-Quando identifica um desvio, gera alerta com contexto para decisao rapida e dispara notificacao via Telegram e/ou WhatsApp.
+- **Parte 1 — Para o gerente e a equipe de turno:** como usar o sistema no dia a dia, entender os alertas e agir com rapidez.
+- **Parte 2 — Para o técnico de implantação:** como configurar câmeras, integrações e validar a instalação.
 
 ---
 
-## 2) Configuracao inicial (implantacao)
+# Parte 1 — Operação diária
 
-### 2.1 Cadastro do estabelecimento
+## O que o sistema faz
 
-1. Acessar o sistema e clicar em **"Cadastrar meu comercio"** na tela de login
-2. Preencher: nome do responsavel, nome do comercio, email e senha
+O sistema monitora quatro fontes ao mesmo tempo e gera um alerta quando os números não batem:
+
+- **Pessoas no salão** — câmeras contam entradas e saídas em tempo real
+- **Dinheiro manuseado no caixa** — câmera detecta manuseio de cédulas
+- **Pagamentos eletrônicos** — dados da maquineta PagBank
+- **Vendas registradas** — ST Ingressos ou sistema de bilheteria
+
+Quando detecta uma inconsistência, o sistema envia aviso pelo Telegram e/ou WhatsApp e registra o alerta para análise.
+
+---
+
+## O que cada aba do menu faz
+
+| Aba | Para que serve |
+|---|---|
+| **Dashboard** | Visão geral em tempo real: pessoas no salão, vendas, últimos alertas |
+| **Alertas de Fraude** | Lista de alertas; é aqui que você analisa e registra o que foi feito |
+| **POS × Vídeo** | Cruza cada transação com a imagem da câmera do caixa no momento exato |
+| **Importar Dados** | Envio manual de arquivos da bilheteria (PDF) e da maquineta (CSV) |
+| **Integrações** | Status de cada fonte de dados e código de autenticação para instalação |
+| **Câmeras** | Câmeras detectadas pelo agente aparecem aqui automaticamente. Se necessário, adicione manualmente pelo IP |
+| **Agentes** | Instala o software de monitoramento nos computadores locais |
+| **Simulador Demo** | Testa o fluxo de alerta sem precisar de dados reais |
+| **Trilha Auditoria** | Histórico completo de todas as ações registradas no sistema |
+| **Configurações** | Número de WhatsApp e conta do Telegram para receber alertas |
+| **Prontidão** | Checklist automático antes de iniciar a operação |
+
+---
+
+## Rotina de turno
+
+### Abertura (2 a 5 minutos)
+
+1. Abrir o **Dashboard** — confirmar que os dados atualizaram nos últimos minutos
+2. Abrir **Integrações** — cada fonte deve exibir **Ativo** com horário recente
+3. Abrir **Prontidão** — todos os itens da lista devem estar marcados como ok
+
+Se qualquer integração estiver parada, acione o suporte **antes** do pico de movimento.
+
+### Durante o turno
+
+1. Abrir **Alertas de Fraude** a cada 20 a 30 minutos
+2. Para cada alerta, classificar:
+   - **Procedente** — problema real confirmado
+   - **Operacional** — falha de processo ou lançamento incorreto
+   - **Falso positivo** — dado incompleto ou atrasado
+3. Registrar a decisão no campo de resolução do alerta
+
+### Fechamento
+
+1. Garantir que todos os alertas críticos tenham decisão registrada
+2. Abrir **Trilha Auditoria** e confirmar registro das ações principais
+3. Em **Importar Dados**, enviar os arquivos pendentes (PDF da bilheteria, CSV da maquineta)
+4. Entregar resumo ao responsável: alertas gerados, causa identificada, ação tomada
+
+---
+
+## Como ler cada tipo de alerta
+
+### R01 — Salão cheio sem vendas
+
+O sistema detectou muitas pessoas no ambiente mas nenhuma venda registrada no período.
+
+**Verifique:**
+1. A equipe está lançando as vendas corretamente no sistema?
+2. A integração com a bilheteria está atualizando?
+3. Houve fila ou interrupção temporária no caixa?
+
+**Ação:** confirmar com o gerente de pista e o caixa; corrigir o lançamento imediatamente.
+
+---
+
+### R02 — Diferença entre recebido e vendido
+
+O valor de pagamentos recebidos não bate com o valor de vendas registradas.
+
+**Verifique:**
+1. O período do relatório foi filtrado corretamente?
+2. Houve estorno ou cancelamento não refletido no sistema?
+3. Algum arquivo de importação está pendente?
+
+**Ação:** conciliar por faixa de horário e operador; se a diferença persistir, abrir investigação formal.
+
+---
+
+### R05 — Dinheiro sem venda correspondente
+
+A câmera do caixa detectou manuseio de cédulas sem lançamento correspondente no sistema.
+
+**Verifique:**
+1. Existe venda em espécie registrada no mesmo intervalo?
+2. Houve recebimento manual sem registro?
+
+**Ação:** prioridade máxima — confirmar o caixa físico e identificar o operador envolvido imediatamente.
+
+---
+
+## Prazo de resposta por nível
+
+| Nível | Critério | Primeira análise | Decisão final |
+|---|---|---|---|
+| **Alta** | Indício de desvio financeiro direto | até 15 min | até 30 min |
+| **Média** | Risco operacional sem evidência direta | até 60 min | no turno |
+| **Baixa** | Ruído pontual sem impacto financeiro | no fechamento | no fechamento |
+
+---
+
+## Como registrar a resolução de um alerta
+
+Ao resolver, preencha no sistema:
+
+- **Causa:** o que gerou o alerta
+- **Verificação:** como foi conferido
+- **Ação:** o que foi corrigido
+- **Responsável:** quem executou
+
+Esse registro forma a trilha de auditoria para revisão semanal e auditorias externas.
+
+---
+
+## Notificações
+
+- **Telegram:** aviso automático e imediato para o grupo ou usuário configurado
+- **WhatsApp:** notificação no navegador; ao clicar, abre a mensagem pronta para envio
+
+Se o aviso não chegar:
+1. Acessar **Configurações** e usar o botão de teste de envio
+2. Verificar permissão de notificação no navegador
+3. Confirmar que o número e a conta do Telegram estão salvos corretamente
+
+---
+
+## Indicadores para revisão semanal
+
+Acompanhe estes quatro números toda semana:
+
+- Quantidade de alertas por turno
+- Tempo médio de resposta por alerta
+- Percentual de alertas procedentes
+- Reincidência por tipo (R01 / R02 / R05)
+
+---
+
+# Parte 2 — Implantação técnica
+
+Esta seção é para o **técnico responsável pela instalação**. O gerente de turno não precisa deste conteúdo para operar o sistema no dia a dia.
+
+---
+
+## Cadastro inicial
+
+1. Na tela de login, clicar em **"Cadastrar meu comércio"**
+2. Preencher: nome do responsável, nome do comércio, e-mail e senha
 3. Fazer login com as credenciais criadas
 
-### 2.2 Token e URLs dos webhooks
+---
 
-1. Acessar a aba **Integracoes** no menu lateral
-2. Copiar o **token de autenticacao** gerado automaticamente para o estabelecimento
-3. Copiar as URLs dos webhooks exibidas na tela:
-   - URL cameras de contagem
-   - URL deteccao de dinheiro (caixa)
-   - URL ST Ingressos
+## Código de autenticação e endereços de integração
 
-Esses tres itens sao tudo que o tecnico das cameras e a equipe da bilheteria precisam para configurar.
+1. Acessar a aba **Integrações** no menu lateral
+2. Copiar o **código de autenticação** gerado automaticamente para o estabelecimento
+3. Copiar os três endereços de integração exibidos na tela:
+   - Câmeras de contagem
+   - Detecção de dinheiro (caixa)
+   - ST Ingressos (bilheteria)
+
+Esses três itens são tudo que o técnico das câmeras e a equipe da bilheteria precisam para configurar.
 
 ---
 
-## 3) Integracao das cameras
+## Câmeras de contagem de pessoas (Regra R01)
 
-### 3.1 Cameras de contagem de pessoas (Regra R01)
+Função: contar quantas pessoas entram e saem do salão em tempo real.
 
-Funcao: contar quantas pessoas entram e saem do salao em tempo real.
+### Fluxo automático (recomendado)
 
-**Cenario A — Cameras Intelbras com suporte ISAPI (recomendado)**
+Com o agente instalado e online, **nenhuma configuração de câmera é necessária**. O agente:
 
-Configurar na interface da camera (ou NVR Intelbras):
-- Ativar evento: **People Counting**
-- Destino do evento: URL do webhook de camera
-- Header de autenticacao: `Authorization: Bearer SEU_TOKEN`
-- Intervalo de envio: a cada 5 ou 10 minutos
+1. Escaneia a rede local via ONVIF ao iniciar
+2. Registra as câmeras encontradas diretamente no painel (aba **Câmeras**)
+3. Inicia a contagem de pessoas automaticamente
 
-A camera envia automaticamente no formato correto. Nenhum script adicional e necessario.
+O gerente abre o painel → câmeras já aparecem → operação imediata.
 
-**Cenario B — Cameras genericas (Hikvision, Dahua, IP generica)**
+### Câmeras sem ONVIF
 
-Necessario um intermediario (Raspberry Pi ou servidor local) com script que:
-1. Le a contagem da camera via RTSP ou API propria
-2. Envia POST para a URL do webhook no formato:
+Se a câmera não aparecer automaticamente na aba Câmeras após 2–3 minutos:
 
-```json
-{
-  "camera_id": "cam-area-01",
-  "count_in": 60,
-  "count_out": 5,
-  "people_inside": 55,
-  "recorded_at": "2026-04-29T21:00:00Z"
-}
-```
+1. Abrir o app do fabricante no celular (IntelbrasCAM, iDMSS, DMSS, Hik-Connect)
+2. Anotar o IP exibido no app
+3. Acessar **Câmeras → Adicionar manualmente** → informar o IP
 
-**IDs de camera recomendados:**
-- `cam-area-01` — ambiente principal (pista, salao)
-- `cam-area-02` — segundo ambiente (area VIP, varanda)
-- `cam-caixa` — bilheteria/caixa (usada para deteccao de dinheiro)
+### Câmeras Intelbras com People Counting nativo (webhook)
 
-### 3.2 Camera de deteccao de dinheiro no caixa (Regra R05)
+Quando a câmera suporta envio direto de People Counting via webhook (sem agente):
 
-Funcao: identificar quando alguem manipula cedulas no caixa sem que haja lancamento correspondente no sistema.
+- Ativar evento: **People Counting** na interface da câmera/NVR
+- Destino do evento: endereço de integração de câmeras (aba Integrações)
+- Cabeçalho de autenticação: `Authorization: Bearer SEU_TOKEN`
+- Intervalo de envio: 5 ou 10 minutos
 
-**Equipamento necessario:**
-- 1 camera apontada para a area de caixa/bilheteria
-- Raspberry Pi 4 com modelo de visao computacional (fornecido ou configurado pela Dev Machine)
-
-O Raspberry Pi processa as imagens localmente e envia o evento de deteccao automaticamente:
-
-```json
-{
-  "camera_id": "cam-caixa",
-  "detected_at": "2026-04-29T21:15:00Z",
-  "confidence": 0.92
-}
-```
-
-Deteccoes com confianca abaixo de 70% sao descartadas automaticamente para evitar falsos positivos.
+**Identificadores de câmera recomendados (modo webhook):**
+- `cam-area-01` — ambiente principal (pista, salão)
+- `cam-area-02` — segundo ambiente (área VIP, varanda)
+- `cam-caixa` — caixa/bilheteria
 
 ---
 
-## 4) Integracao com ST Ingressos (bilheteria)
+## Câmera de detecção de dinheiro no caixa (Regra R05)
 
-### Opcao A — Webhook automatico (recomendado)
+Função: identificar quando alguém manuseia cédulas no caixa sem lançamento correspondente.
 
-Solicitar para a equipe tecnica da ST Ingressos a configuracao de um **webhook de saida** para transacoes:
+**Equipamento necessário:**
+- 1 câmera apontada para a área do caixa ou bilheteria
+- Raspberry Pi 4 com modelo de visão computacional (fornecido ou configurado pela Dev Machine)
 
-- **URL:** copiar da aba Integracoes no sistema
-- **Metodo:** POST
-- **Header:** `Authorization: Bearer SEU_TOKEN`
-- **Formato do payload:**
+O Raspberry Pi processa as imagens localmente e envia o evento automaticamente. Detecções com nível de certeza abaixo de 70% são descartadas para evitar falsos positivos.
+
+---
+
+## Integração com ST Ingressos
+
+**Opção A — Envio automático (recomendado)**
+
+Solicitar à equipe técnica da ST Ingressos a configuração de envio automático de transações:
+
+- **Endereço:** copiar da aba Integrações
+- **Método:** POST
+- **Autenticação:** `Authorization: Bearer SEU_TOKEN`
+- **Formato esperado:**
 
 ```json
 {
@@ -118,162 +252,41 @@ Solicitar para a equipe tecnica da ST Ingressos a configuracao de um **webhook d
 }
 ```
 
-Metodos de pagamento aceitos: `pix`, `credito`, `debito`, `dinheiro`, `especie`
+Formas de pagamento aceitas: `pix`, `credito`, `debito`, `dinheiro`, `especie`
 
-### Opcao B — Import manual de PDF
+**Opção B — Importação manual de PDF**
 
-Ao final do turno (ou quando necessario):
-1. Exportar relatorio PDF no sistema da ST Ingressos
+1. Exportar relatório PDF no sistema da ST Ingressos
 2. Acessar **Importar Dados** no menu lateral
-3. Selecionar o arquivo PDF e aguardar o processamento
-
-O sistema extrai as transacoes automaticamente do PDF.
+3. Selecionar o arquivo e aguardar o processamento
 
 ---
 
-## 5) Integracao com PagBank (maquineta)
+## Integração com PagBank
 
-Import manual via CSV:
-1. Abrir o app PagBank e exportar o relatorio de transacoes do periodo
+1. Exportar o relatório de transações do período no app PagBank (formato CSV)
 2. Acessar **Importar Dados** no menu lateral
-3. Selecionar o arquivo CSV exportado
+3. Selecionar o arquivo exportado
 
 ---
 
-## 6) Validacao da instalacao
+## Validação da instalação
 
-Apos configurar todas as integracoes:
+1. Acessar **Integrações** — cada fonte deve exibir **Ativo** com data recente
+2. Acessar a aba **Simulador Demo** e executar uma simulação de alerta R01
+3. Verificar se o alerta aparece em **Alertas de Fraude**
+4. Confirmar o recebimento da notificação no Telegram e/ou WhatsApp
 
-1. Acessar aba **Integracoes** — cada fonte deve exibir status **"Ativo"** com data do ultimo evento
-2. Usar o botao **"Simular Alerta"** no cabecalho para testar o fluxo de deteccao R01
-3. Verificar se o alerta aparece na aba **Alertas**
-4. Confirmar recebimento da notificacao no Telegram e/ou WhatsApp
-
-Se alguma integracao nao aparecer como ativa, verificar:
-- Token correto no cabecalho `Authorization: Bearer`
-- URL correta apontando para o estabelecimento certo
-- Camera ou script enviando dados no formato esperado
+**Se uma integração não aparecer como ativa, verificar:**
+- O código de autenticação está correto (`Authorization: Bearer SEU_TOKEN`)
+- O endereço de integração aponta para o estabelecimento correto
+- A câmera ou script está enviando dados no formato esperado
 
 ---
 
-## 7) Configuracao de notificacoes
+## Configuração das notificações
 
-Na aba **Configuracoes**:
+Em **Configurações**:
 
-- **WhatsApp:** inserir numero com DDI e DDD (ex: `5585991993833`)
-- **Telegram:** inserir Chat ID do usuario ou grupo que deve receber os alertas
-
-Para obter o Chat ID do Telegram:
-1. Enviar uma mensagem para `@userinfobot` no Telegram
-2. O bot responde com seu ID numerico
-
----
-
-## 8) Rotina de operacao por etapa
-
-### Abertura do turno (2 a 5 minutos)
-
-1. Acessar o **Dashboard** e validar se os dados atualizaram nos ultimos minutos
-2. Abrir **Integracoes** e confirmar status ativo de cada fonte
-3. Revisar **Configuracoes**: numero WhatsApp, Chat ID Telegram e thresholds
-
-Se qualquer integracao estiver parada, acionar suporte antes do pico de movimento.
-
-### Durante o turno
-
-1. Revisar **Alertas** em ciclos (a cada 20 a 30 minutos)
-2. Para cada alerta, decidir entre:
-   - **procedente** — houve problema real
-   - **operacional** — erro de lancamento ou processo
-   - **falso positivo** — dados incompletos ou atrasados
-3. Registrar a acao no campo de resolucao do alerta
-
-### Fechamento do turno
-
-1. Garantir que todos os alertas criticos tenham status definido
-2. Revisar **Trilha de Auditoria** e confirmar registro das acoes principais
-3. Importar arquivos pendentes do periodo (PDF ST Ingressos, CSV PagBank)
-4. Entregar resumo de turno para o responsavel (3 linhas: alertas, causa, acao)
-
----
-
-## 9) Leitura objetiva de cada alerta
-
-### R01 - Salao cheio sem vendas
-
-**Significa:** ocupacao alta sem vendas no intervalo configurado.
-
-Checagem rapida:
-1. Equipe esta lancando no sistema corretamente?
-2. Integracao de vendas esta atualizando?
-3. Houve fila ou queda temporaria no caixa?
-
-**Acao:** validar com gerente de pista e caixa; corrigir processo de lancamento imediatamente.
-
-### R02 - Diferenca entre recebido e vendido
-
-**Significa:** valor de pagamentos nao bate com valor de vendas registradas.
-
-Checagem rapida:
-1. Fechamento parcial foi feito com filtros errados?
-2. Houve estorno ou cancelamento nao refletido?
-3. Houve atraso de importacao no periodo?
-
-**Acao:** conciliar por faixa de horario e operador; se permanecer diferenca, abrir investigacao formal.
-
-### R05 - Dinheiro sem venda correspondente
-
-**Significa:** camera detectou manipulacao de cedulas sem lancamento relacionado.
-
-Checagem rapida:
-1. Existe venda em especie registrada no mesmo intervalo?
-2. Houve recebimento manual sem registro?
-3. Camera gerou duplicidade de evento?
-
-**Acao:** tratar como prioridade alta; confirmar caixa fisico e operador envolvido imediatamente.
-
----
-
-## 10) Prioridade e prazo de resposta
-
-| Nivel | Criterio | Primeira analise | Decisao |
-|-------|----------|-----------------|---------|
-| **Alta** | Indicio de desvio financeiro direto | ate 15 min | ate 30 min |
-| **Media** | Risco operacional sem evidencia direta | ate 60 min | no turno |
-| **Baixa** | Ruido pontual sem impacto financeiro | no fechamento | no fechamento |
-
----
-
-## 11) Notificacoes
-
-- **Telegram:** aviso automatico e imediato para o grupo ou usuario configurado
-- **WhatsApp:** push no navegador que abre mensagem pronta ao clicar
-
-Se o aviso nao chegar:
-1. Testar envio direto em **Configuracoes**
-2. Validar conexao e permissao de notificacao no navegador
-3. Confirmar Chat ID e numero configurados corretamente
-
----
-
-## 12) Padrao de resolucao de alerta
-
-Ao resolver um alerta, registrar:
-
-- **Causa:** o que gerou o alerta
-- **Verificacao:** como foi conferido
-- **Acao:** o que foi ajustado
-- **Responsavel:** quem executou
-
-Isso deixa a trilha de auditoria util para revisao semanal e para eventuais auditorias externas.
-
----
-
-## 13) Indicadores minimos para acompanhamento semanal
-
-- Quantidade de alertas por turno
-- Tempo medio de resposta por alerta
-- Percentual de alertas procedentes
-- Reincidencia por tipo (R01 / R02 / R05)
-
-Com esses quatro numeros, a operacao melhora semana a semana.
+- **WhatsApp:** inserir número com código do país e DDD — exemplo: `5585991993833`
+- **Telegram:** clicar em **Conectar Telegram**; o sistema abrirá o bot `@sistemantifraude_bot` — basta clicar em **Iniciar** dentro do Telegram
