@@ -1,209 +1,272 @@
-# Manual de implantação — Agente Olho Vivo (restaurante)
+# Manual do Olho Vivo — Guia do Estabelecimento
 
-Guia para **dono de estabelecimento** ou **quem instala o PC** no local. O foco é **Windows**: instalação em poucos cliques, **sem** extrair ZIP, **sem** criar `token.txt` e **sem** abrir terminal.
-
----
-
-## O que é o agente
-
-O **Olho Vivo Agente** é um programa que roda num **computador Windows** no restaurante (ou bar, evento, etc.). Ele:
-
-- lê as câmeras pela rede (RTSP);
-- conta pessoas com inteligência artificial (YOLOv8);
-- envia os números de forma segura para a plataforma Olho Vivo;
-- ajuda a descobrir câmeras na rede (ONVIF).
-
-Você **não** precisa instalar Python nem Docker.
+Guia para o **dono ou gestor** do estabelecimento e para **quem faz a implantação** no local.
+Escrito em linguagem direta, organizado do mais simples ao mais avançado.
 
 ---
 
-## Antes de começar
+## 1. O que o sistema faz
 
-| Item | Detalhe |
-|------|---------|
-| **Sistema** | Windows 10 ou 11 (64 bits); o instalador padrão **não** exige conta de administrador |
-| **Rede** | PC na mesma rede das câmeras; internet estável para falar com a plataforma |
-| **Conta** | Alguém com acesso ao painel Olho Vivo já deve ter **criado o agente** e gerado o link de instalação (área **Agentes** ou fluxo de **onboarding**) |
+O **Olho Vivo** monitora seu bar, restaurante ou casa de eventos de três formas simultâneas:
+
+| O que monitora | Como faz | Para que serve |
+|---|---|---|
+| **Pessoas no salão** | Câmera IP + IA (YOLOv8) | Saber quantas pessoas estão no local a cada momento |
+| **Caixa** | Câmera do caixa | Detectar quando dinheiro passa pelo caixa |
+| **Vendas e pagamentos** | Importação de PDF/CSV ou webhook | Cruzar com os dados de câmera |
+
+Quando os dados não batem — salão cheio mas sem vendas, dinheiro no caixa sem lançamento, gap entre maquineta e bilheteria — o sistema dispara um alerta no seu Telegram em segundos.
 
 ---
 
-## Instalação no Windows (recomendado)
+## 2. O agente local (PC do estabelecimento)
+
+O **Agente Olho Vivo** é um programa instalado num **computador Windows** no local. Ele:
+
+- lê as câmeras pela rede local (sem precisar de internet para isso);
+- conta pessoas com inteligência artificial no momento de cada entrada e saída;
+- **captura uma foto no exato instante da detecção** e envia para a nuvem;
+- monitora a câmera do caixa e mantém um histórico dos últimos 60 segundos de frames;
+- descobre câmeras automaticamente na rede (ONVIF + varredura de portas).
+
+Você **não** precisa instalar Python, Docker, abrir terminal ou mexer em arquivos de configuração.
+
+---
+
+## 3. Instalação do agente (Windows)
 
 ### Passo 1 — Baixar pelo painel
 
-1. Abra o link de instalação que o administrador enviou **ou** entre no painel → **Agentes** → use a opção de instalar / copiar link.
-2. O navegador vai baixar um arquivo com nome parecido com:
+1. Acesse o painel → **Agentes** → clique no botão de instalação do agente desejado.
+2. O navegador baixa um arquivo com nome parecido com:
 
-   `OlhoVivoSetup_TOKEN_xxxxxxxx.exe`
+   ```
+   OlhoVivoSetup_TOKEN_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.exe
+   ```
 
-   O trecho depois de `TOKEN_` é o código do **seu** agente. **Não renomeie** o arquivo e **não** precisa abrir esse código: o instalador usa o nome sozinho.
+   O trecho depois de `TOKEN_` é o código único do seu agente. **Não renomeie o arquivo.**
 
-### Passo 2 — Rodar o instalador
+### Passo 2 — Instalar
 
-1. Abra a pasta **Downloads** (ou onde o arquivo foi salvo).
-2. Dê **dois cliques** no instalador.
-3. Avance nas telas (**Avançar** / **Next**) até concluir. (Em instalações padrão **não** é necessário ser administrador.)
+1. Dê dois cliques no instalador baixado.
+2. Clique em **Avançar / Next** até concluir. Administrador **não é necessário** na instalação padrão.
+3. Ao terminar, o agente inicia sozinho e fica configurado para **abrir automaticamente quando o Windows ligar**.
 
-O programa será instalado na pasta do seu usuário, em geral:
+### Passo 3 — Confirmar no painel
 
-`%LocalAppData%\Programs\Olho Vivo\`
+1. Aguarde até 1 minuto e verifique se o agente aparece como **Online** no painel → Agentes.
+2. Quando câmeras forem descobertas automaticamente, **aprove** as que serão usadas para contagem.
 
-(Exemplo: `C:\Users\SeuNome\AppData\Local\Programs\Olho Vivo\`.)
-
-Ao terminar, o agente **inicia sozinho** e fica configurado para **abrir de novo quando o Windows ligar**.
-
-### Passo 3 — No painel (quem administra)
-
-1. Confira se o agente aparece como **Online** (pode levar um minuto após a primeira execução).
-2. Quando aparecerem câmeras descobertas, **aprove** as que forem usar para contagem, no painel.
-
-Até aqui, o dono do restaurante **não vê nem digita** o token: ele vem embutido no nome do instalador e é guardado automaticamente pelo sistema.
+> O token de autenticação vem embutido no nome do arquivo — o instalador cuida de tudo. O dono do negócio não vê nem digita nenhum código.
 
 ---
 
+## 4. Câmeras — tipos e como cadastrar
+
+### Dois tipos de câmera
+
+| Tipo | Onde fica | Para que serve |
+|---|---|---|
+| **Câmera de contagem** | Entrada/saída do local | Conta quantas pessoas entram e saem |
+| **Câmera do caixa** | Apontada para o caixa/maquineta | Detecta quando dinheiro passa pelo caixa |
+
+### Como as câmeras chegam ao sistema
+
+**Via agente (automático, recomendado):**
+O agente descobre câmeras IP na rede local via ONVIF e varredura de portas. Elas aparecem na aba **Agentes** para aprovação com um clique.
+
+**Via wizard manual:**
+Acesse **Câmeras → + Adicionar câmera** e siga as 5 etapas: marca → IP/porta → nome e tipo → configuração do firmware → teste de stream.
+
+### DVRs
+
+O agente detecta DVRs automaticamente. Quando um DVR aparece na aba Agentes:
+
+1. Clique em **Configurar DVR**.
+2. Confirme (ou preencha) usuário, senha e número de canais.
+3. Clique em **Aprovar** — o sistema cria uma câmera por canal.
+
 ---
 
-## Aba Câmeras — como funciona
+## 5. Importar dados de vendas
 
-A aba **Câmeras** (menu lateral) é onde o dono do estabelecimento gerencia todas as câmeras cadastradas na plataforma. Ela é diferente da aba **Agentes**: enquanto o agente *descobre* câmeras automaticamente na rede, a aba Câmeras permite *cadastrar manualmente* e visualizar o stream ao vivo.
+O sistema cruza dados de câmera com dados financeiros. Para isso, importe:
 
-### O que aparece na tela
+| Fonte | Formato | Onde importar |
+|---|---|---|
+| **ST Ingressos** | PDF do relatório | Menu → Importar Dados → ST Ingressos |
+| **PagBank** | CSV de transações | Menu → Importar Dados → PagBank |
 
-Cada câmera cadastrada mostra um cartão com:
+Antes de confirmar, o sistema mostra um preview com total de linhas e possíveis erros. O histórico de todas as importações fica disponível na mesma tela.
 
-| Campo | O que é |
+---
+
+## 6. O que você vê no painel — do mais simples ao mais detalhado
+
+### 6.1 Dashboard — visão geral
+
+A primeira tela que você abre. Mostra em tempo real:
+
+- Total de pessoas no salão agora
+- Total de vendas ST Ingressos e PagBank
+- Gap financeiro (diferença entre as duas fontes)
+- Alertas ativos (vermelho = não resolvidos)
+- Gráfico de Vendas × Pessoas por hora
+- **Feed de Evidências Visuais**: faixa com fotos tiradas no momento de cada entrada/saída detectada
+
+**Como usar o Feed de Evidências:**
+Role a faixa horizontalmente para ver os eventos mais recentes. Clique em qualquer foto para abrir em tela cheia com todos os detalhes: hora exata, câmera, direção (entrada ou saída), contagem acumulada e quantas pessoas estavam no local naquele momento.
+
+### 6.2 Alertas — o que o sistema detectou
+
+Quando uma regra antifraude dispara, o alerta aparece aqui. Você pode:
+
+- Ver todos os alertas ativos e resolvidos
+- Filtrar por severidade
+- Resolver um alerta com seu nome registrado (auditoria)
+- Acionar a equipe via WhatsApp direto pelo alerta
+
+**Tipos de alerta:**
+
+| Alerta | O que aconteceu |
 |---|---|
-| **Preview ao vivo** | Thumbnail do stream em tempo real (clique para tela cheia) |
-| **Status** | 🟢 Online / 🔴 Offline / 🟡 Configurando |
-| **Marca** | Intelbras, Hikvision, Dahua ou Genérica |
-| **Tipo** | Contagem de pessoas ou Câmera do caixa |
-| **IP** | Endereço e porta da câmera na rede local |
-| **Último evento** | Data/hora do último evento recebido |
+| Salão cheio, caixa vazio | Muitas pessoas no salão sem nenhuma venda nos últimos minutos |
+| Gap financeiro | Diferença grande entre o total do PagBank e o do ST Ingressos |
+| Cash Ghost | Dinheiro passou pelo caixa mas não tem lançamento na bilheteria |
 
-### Adicionar câmera manualmente (wizard em 5 etapas)
+### 6.3 POS × Vídeo — investigação profunda do caixa
 
-Clique em **+ Adicionar câmera** para abrir o assistente:
+**Esta é a tela mais poderosa do sistema.**
 
-**Etapa 1 — Marca**
-Escolha a marca da câmera. Isso define as instruções de configuração corretas para o firmware.
+Ela mostra uma **linha do tempo** que cruza cada transação financeira com o evento da câmera do caixa mais próximo (dentro de ±10 minutos). Cada linha mostra:
 
-**Etapa 2 — IP**
-Digite o IP da câmera (ex: `192.168.1.100`) e a porta (padrão: `554` para RTSP, `80` para HTTP).
-Ou use a **varredura de rede automática** — o painel detecta câmeras na mesma sub-rede e lista os IPs encontrados.
+- Foto tirada pela câmera no momento do evento (clique para ampliar)
+- Horário da transação e da detecção pela câmera
+- Valor e método de pagamento
+- Operador (se disponível)
+- Quanto tempo separou a transação do evento de câmera (delta)
+- Status com código de cores:
 
-**Etapa 3 — Nome e tipo**
-- Dê um nome para identificar a câmera (ex: "Entrada principal")
-- Escolha o tipo: **Contagem de pessoas** (conta entradas e saídas) ou **Câmera do caixa** (detecta espécie — regra R05)
+| Cor / Status | Significado | O que fazer |
+|---|---|---|
+| ✅ Verde — Sincronizado | Transação + câmera dentro da janela de 10 min | Normal, tudo certo |
+| ⚠️ Amarelo — Sem evidência | Pagamento em dinheiro sem câmera correspondente | Investigar se a câmera está funcionando |
+| 🚨 Vermelho — Caixa sem venda | Câmera detectou dinheiro mas **nenhuma venda foi lançada** | Ação imediata — possível fraude |
+| — Cinza — Cartão/PIX | Pagamento sem dinheiro (câmera não esperada) | Normal |
 
-**Etapa 4 — Configurar**
-O painel mostra o passo a passo específico para a marca escolhida: como acessar o firmware da câmera, onde colar a **URL de webhook** e o **token de autenticação** para que a câmera envie eventos ao sistema.
+Quando existem eventos vermelhos ("Caixa sem venda"), um **banner de alerta** é exibido automaticamente no topo da tela com a contagem de ocorrências.
 
-**Etapa 5 — Testar**
-O painel tenta conectar na câmera e exibe se o stream está funcionando.
+**Filtros disponíveis:**
+- Por período: Hoje / Ontem / 7 dias / 30 dias
+- Por status: Todos / Caixa sem venda / Sem evidência / Sincronizados / Cartão/PIX
 
-### Câmeras via Agente Olho Vivo (automático)
-
-Quando o agente está instalado no PC do estabelecimento, ele faz a **descoberta automática** das câmeras na rede local (ONVIF + varredura de portas). As câmeras encontradas aparecem na aba **Agentes** para aprovação — após aprovadas, ficam disponíveis automaticamente para contagem, sem precisar usar o wizard acima.
-
-### DVRs (gravadores digitais)
-
-O agente também detecta **DVRs** automaticamente. Quando um DVR é encontrado, ele aparece na aba **Agentes** com a indicação "DVR" e o número de canais detectados. Para aprovar:
-
-1. Clique em **Configurar DVR** no cartão do dispositivo.
-2. Confirme (ou corrija) o **usuário**, a **senha** e a **quantidade de canais**.
-3. Clique em **Aprovar** — o sistema cria uma câmera por canal automaticamente.
-
-As credenciais do DVR são preenchidas automaticamente quando o agente conseguiu testá-las durante a varredura. Se aparecerem em branco, preencha manualmente.
-
-### Tela cheia
-
-Clique em qualquer preview de câmera para abrir em tela cheia (funciona no celular também).
-
-### Remover câmera
-
-Cada cartão tem o botão **Remover câmera** (vermelho). A remoção é imediata — o stream para de ser monitorado.
+**Para investigar um evento:** clique em qualquer linha para abrir o lightbox com a foto completa, hora exata da transação, hora da detecção pela câmera e o delta entre os dois eventos.
 
 ---
 
-## Onde ficam logs e dados locais
+## 7. Configurações essenciais
 
-Em máquinas Windows com instalação padrão, o agente grava arquivos de trabalho em:
+Acesse **Menu → Configurações** para:
 
-`%LOCALAPPDATA%\OlhoVivoAgent\`
+| Configuração | O que ajustar |
+|---|---|
+| **Telegram** | Cole o Chat ID e clique em Testar para receber alertas |
+| **WhatsApp** | Informe o número (com DDI+DDD) e teste |
+| **Regra R01** | Quantas pessoas no salão ativam o alerta + janela de tempo sem vendas |
+| **Regra R02** | A partir de qual diferença financeira o alerta dispara |
+| **Horário de monitoramento** | Defina o horário de funcionamento (ex: 18h às 04h) |
 
-(Em português do Windows: em geral `C:\Users\SEU_USUARIO\AppData\Local\OlhoVivoAgent\`.)
+---
 
-| Arquivo / pasta | Função |
-|-----------------|--------|
-| `agente.log` | Registro do que o agente está fazendo (útil para suporte) |
-| `.olhovivo.env` | Configuração interna com o token (não é preciso editar) |
-| `queue.db` | Fila temporária se a internet cair um pouco |
+## 8. Prontidão — verificar antes de abrir
+
+Antes de cada evento ou dia de operação, acesse **Menu → Prontidão**. O sistema verifica automaticamente:
+
+- [ ] Token de webhook configurado
+- [ ] Notificações ativas (Telegram ou WhatsApp)
+- [ ] Câmeras enviando eventos
+- [ ] Câmera do caixa ativa
+- [ ] Dados de vendas chegando
+- [ ] Stream de câmera funcionando
+
+Se algum item estiver vermelho, resolva antes de abrir as portas.
+
+---
+
+## 9. Arquivos locais do agente (Windows)
+
+O agente grava seus arquivos em:
+
+```
+C:\Users\SEU_NOME\AppData\Local\OlhoVivoAgent\
+```
+
+| Arquivo | Para que serve |
+|---|---|
+| `agente.log` | Registro de tudo que o agente fez — útil para suporte |
+| `.olhovivo.env` | Configuração interna com o token (não edite) |
+| `queue.db` | Fila de eventos para quando a internet cair |
 
 **Não apague** esses arquivos sem orientação do suporte.
 
 ---
 
-## Desinstalar
+## 10. Desinstalar o agente
 
-1. **Configurações do Windows** → **Aplicativos** → **Aplicativos instalados**.
-2. Procure **Olho Vivo Agente** (ou nome parecido) e desinstale.
+1. **Configurações do Windows → Aplicativos → Aplicativos instalados**
+2. Procure **Olho Vivo Agente** e desinstale.
 
-Isso remove a pasta do aplicativo em `AppData\Local\Programs\Olho Vivo`. A pasta `AppData\Local\OlhoVivoAgent` (logs e fila) pode permanecer; você pode apagá-la manualmente se quiser zerar dados locais antigos.
+A pasta de logs (`OlhoVivoAgent`) pode permanecer — apague manualmente se quiser zerar os dados locais.
 
 ---
 
-## Problemas comuns
+## 11. Problemas comuns
 
 | Situação | O que fazer |
-|----------|-------------|
-| Instalador diz que falta `TOKEN_` no nome | Baixe de novo pelo **link do painel**. Não use só o `OlhoVivoSetup.exe` genérico do GitHub sem o nome completo. |
-| Agente não fica Online | Internet, firewall do Windows ou antivírus bloqueando saída para a internet; verifique `agente.log` na pasta acima. |
-| `agente.log` mostra `401 Unauthorized` | A `SUPABASE_ANON_KEY` não está configurada no agente. Em ambiente dev: defina a variável de ambiente (veja README). No instalador Windows gerado pelo painel, isso já vem embutido. |
-| Câmeras não aparecem | Rede: PC e câmeras na mesma LAN; credenciais RTSP configuradas no painel após aprovação. |
-| DVR aparece mas sem canais | O agente não conseguiu detectar os canais automaticamente. Clique em **Configurar DVR**, preencha usuário, senha e número de canais manualmente e aprove. |
-| DVR aprovado mas câmeras não contam | O DVR foi cadastrado, mas o agente precisa de câmeras com fluxo RTSP ativo. Confirme que os canais estão ativos no firmware do DVR. |
+|---|---|
+| Instalador recusa por falta de `TOKEN_` no nome | Baixe de novo pelo **link do painel** (não use o `.exe` genérico do GitHub) |
+| Agente não aparece Online | Verifique internet, firewall do Windows e antivírus. Consulte `agente.log` |
+| `agente.log` mostra `401 Unauthorized` | Problema com a chave de autenticação — entre em contato com o suporte |
+| Câmeras não aparecem na aba Agentes | PC e câmeras precisam estar na mesma rede local (LAN) |
+| Feed de evidências vazio | Confirme que o agente está atualizado e que o bucket `evidence` existe no Supabase |
+| Fotos não carregam no lightbox | O bucket `evidence` no Supabase precisa estar configurado como **público** |
+| DVR aparece sem canais | Clique em **Configurar DVR**, preencha manualmente usuário, senha e quantidade de canais |
+| DVR aprovado mas não conta | Confirme que os canais do DVR têm stream RTSP ativo no firmware |
+| POS × Vídeo não mostra fotos | A câmera do caixa precisa estar com o `CashMonitor` ativo (agente atualizado) |
+| POS × Vídeo mostra tudo como "Sem evidência" | Importe dados do ST Ingressos/PagBank — a timeline cruza câmera com transações financeiras |
 
 ---
 
-## Linux ou ambiente de desenvolvimento
+## 12. Ambiente de desenvolvimento / Linux
 
-Para **Linux** ou testes com código-fonte, o fluxo é outro. Variáveis necessárias:
+Para testes com o código-fonte (não Windows):
 
 ```bash
 export ESTABLISHMENT_TOKEN="uuid-do-agente"
-export SUPABASE_ANON_KEY="sua_anon_key_aqui"   # obrigatória — chave anon/public do Supabase
-export SUPABASE_URL="https://SEU_REF.supabase.co"  # opcional
+export SUPABASE_ANON_KEY="chave-anon-public-do-supabase"
+export SUPABASE_URL="https://SEU_REF.supabase.co"
+cd agent && pip install -r requirements.txt
+python main.py
 ```
 
-Sem a `SUPABASE_ANON_KEY`, todos os requests ao Supabase retornam **401 Unauthorized**. O valor fica em **Project Settings → API** no painel do Supabase.
-
-Alternativamente, use o arquivo `token.txt` para o token e coloque `SUPABASE_ANON_KEY` no `.env` ao lado do `main.py`, conforme documentado em `agent/main.py` e `.env.example`. O instalador Inno descrito acima é **só para Windows**.
+O `SUPABASE_ANON_KEY` está em **Supabase → Project Settings → API → anon / public**.
 
 ---
 
-## Referências técnicas no repositório
-
-- `README.md` — visão geral; release automático na tag `agent-v*` via `.github/workflows/agent-release.yml`.
-- `agent/main.py` — ordem de leitura do token, logs e autostart.
-- `agent/olhovivo-setup.iss` — script do instalador Inno Setup.
-
----
-
----
-
-## Para o administrador da plataforma (platform_admin)
+## 13. Para o administrador da plataforma (platform_admin)
 
 ### Registrar o bot Telegram (uma vez por deploy)
 
-Após fazer o deploy da função `telegram-connect` no Supabase, é preciso registrá-la como webhook do bot `@sistemantifraude_bot` na API do Telegram. Isso é feito **uma única vez** (ou após cada redeploy da função):
+1. Acesse o painel com conta `platform_admin`.
+2. No **Painel Administrativo**, clique em **Bot Telegram → Registrar Webhook**.
+3. Aguarde a confirmação de sucesso.
 
-1. Acesse o painel com uma conta `platform_admin`.
-2. No **Painel Administrativo**, role até a seção **Bot Telegram**.
-3. Clique em **Registrar Webhook**.
-4. Aguarde a confirmação "Webhook registrado com sucesso".
+A partir daí, cada comerciante que conectar seu Telegram em **Configurações → Conectar Telegram** terá o chat_id registrado automaticamente.
 
-A partir daí, quando qualquer comerciante acessar **Configurações → Conectar Telegram** e clicar no link gerado, o chat_id dele será registrado automaticamente.
+### Ativar / desativar estabelecimento
+
+No Painel Administrativo, cada estabelecimento tem um botão de ativar/desativar. Estabelecimentos inativos continuam com dados preservados mas não recebem alertas.
 
 ---
 
-**Olho Vivo** — manual alinhado ao instalador em um clique (Windows).
+**Olho Vivo v1.1 — By Dev Machine**

@@ -16,8 +16,6 @@ export type ScanCapability = 'ok' | 'blocked' | 'unknown';
 const CAMERA_PORTS    = [80, 554, 8000, 8080, 37777];
 const BATCH_SIZE      = 20;
 const PROBE_TIMEOUT   = 1000;
-// Conexão recusada rapidamente = host existe (TCP RST em < 120ms)
-const REFUSED_THRESH  = 120;
 
 // URLs de snapshot para tentativa de thumbnail
 export const SNAPSHOT_PATHS = [
@@ -53,7 +51,6 @@ export async function detectLocalSubnet(): Promise<string | null> {
 
 async function probePort(ip: string, port: number): Promise<boolean> {
   return new Promise((resolve) => {
-    const start = performance.now();
     let done = false;
     const finish = (v: boolean) => { if (!done) { done = true; resolve(v); } };
 
@@ -63,12 +60,11 @@ async function probePort(ip: string, port: number): Promise<boolean> {
     const ctrl = new AbortController();
     fetch(`http://${ip}:${port}/`, { signal: ctrl.signal, mode: 'no-cors', cache: 'no-store' })
       .then(() => { clearTimeout(timer); finish(true); })
-      .catch((err: Error) => {
+      .catch((_err: Error) => {
         clearTimeout(timer);
-        if (err.name === 'AbortError') { finish(false); return; }
-        // Resposta rápida = TCP RST = host existe (porta errada mas host está lá)
-        const elapsed = performance.now() - start;
-        finish(elapsed < REFUSED_THRESH);
+        // Não usamos heurística de tempo: navegadores modernos bloqueiam IPs privados
+        // instantaneamente (< 5ms) via Private Network Access, gerando falsos positivos.
+        finish(false);
       });
   });
 }

@@ -29,6 +29,7 @@ const Readiness = lazy(() => import('./pages/Readiness'));
 const Agents = lazy(() => import('./pages/Agents'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
+const PosSync = lazy(() => import('./pages/PosSync'));
 
 interface AccessContext {
   role: 'platform_admin' | 'merchant_admin';
@@ -147,6 +148,8 @@ export default function App() {
         return <UploadPage />;
       case 'alerts':
         return <AlertsPage establishmentName={currentEstName} />;
+      case 'posSync':
+        return <PosSync />;
       case 'guide':
         return <Guide />;
       case 'simulator':

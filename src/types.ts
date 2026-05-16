@@ -24,6 +24,7 @@ export interface PeopleCountEvent {
   countOut: number;
   peopleInside: number;
   recordedAt: string;
+  evidenceUrl?: string;  // URL pública do frame capturado no momento da detecção
 }
 
 export type AlertType =
@@ -82,6 +83,24 @@ export interface AuditEvent {
 export type CameraType   = 'people_counting' | 'cash_register';
 export type CameraStatus = 'pending' | 'online' | 'offline';
 export type CameraBrand  = 'intelbras' | 'hikvision' | 'dahua' | 'generic';
+
+export type PosSyncStatus = 'matched' | 'no_cash_evidence' | 'card_ok' | 'orphan_cash';
+
+export interface PosTimelineRow {
+  rowType: 'transaction' | 'orphan_cash';
+  transactionId?: string;
+  occurredAt?: string;
+  amount?: number;
+  paymentMethod?: PaymentMethod;
+  operatorId?: string;
+  source?: TransactionSource;
+  cashEventId?: string;
+  cashDetectedAt?: string;
+  cameraId?: string;
+  evidenceUrl?: string;
+  timeDiffSeconds?: number;
+  syncStatus: PosSyncStatus;
+}
 
 export interface Camera {
   id: string;

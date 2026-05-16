@@ -6,6 +6,7 @@ import {
   Severity,
   ImportBatch,
   CashPaymentEvent,
+  PosTimelineRow,
 } from '../types';
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
@@ -55,6 +56,7 @@ class DataService {
       countOut: row.count_out,
       peopleInside: row.people_inside,
       recordedAt: row.recorded_at,
+      evidenceUrl: (row.evidence_url as string) ?? undefined,
     }));
   }
 
@@ -189,6 +191,32 @@ class DataService {
     if (error) throw error;
 
     await this.runRules();
+  }
+
+  async getPosTimeline(from: string, to: string): Promise<PosTimelineRow[]> {
+    const { data, error } = await supabase.rpc('get_pos_timeline', {
+      p_establishment_id: this.establishmentId,
+      p_from: from,
+      p_to: to,
+    });
+
+    if (error) throw error;
+
+    return (data ?? []).map((row: any) => ({
+      rowType: row.row_type,
+      transactionId: row.transaction_id ?? undefined,
+      occurredAt: row.occurred_at ?? undefined,
+      amount: row.amount != null ? Number(row.amount) : undefined,
+      paymentMethod: row.payment_method ?? undefined,
+      operatorId: row.operator_id ?? undefined,
+      source: row.source ?? undefined,
+      cashEventId: row.cash_event_id ?? undefined,
+      cashDetectedAt: row.cash_detected_at ?? undefined,
+      cameraId: row.camera_id ?? undefined,
+      evidenceUrl: row.evidence_url ?? undefined,
+      timeDiffSeconds: row.time_diff_seconds ?? undefined,
+      syncStatus: row.sync_status,
+    }));
   }
 
   async resolveAlert(alertId: string, user: string): Promise<void> {

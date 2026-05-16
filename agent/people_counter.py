@@ -2,8 +2,12 @@ from __future__ import annotations
 import datetime
 import logging
 import threading
-from typing import Optional, Callable
+from typing import TYPE_CHECKING, Optional, Callable
 from agent.models import Camera, CountEvent
+from agent.evidence_uploader import frame_to_b64
+
+if TYPE_CHECKING:
+    import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -212,22 +216,23 @@ class PeopleCounter:
                 direction = detector.update_track(tid, centroid_y)
                 if direction == "in":
                     self._count_in += 1
-                    self._emit()
+                    self._emit(frame)
                 elif direction == "out":
                     self._count_out += 1
-                    self._emit()
+                    self._emit(frame)
 
             detector.cleanup_stale_tracks(active_ids)
 
         cap.release()
         logger.info("people counter stopped: camera=%s", self._camera.id)
 
-    def _emit(self) -> None:
+    def _emit(self, frame: "Optional[np.ndarray]" = None) -> None:
         event = CountEvent(
             camera_id=self._camera.id,
             count_in=self._count_in,
             count_out=self._count_out,
             people_inside=max(0, self._count_in - self._count_out),
             recorded_at=datetime.datetime.now(datetime.timezone.utc),
+            evidence_b64=frame_to_b64(frame) if frame is not None else None,
         )
         self._on_event(event)

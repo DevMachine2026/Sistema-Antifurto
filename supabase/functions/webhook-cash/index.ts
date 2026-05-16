@@ -1,5 +1,48 @@
+// @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { dispatchAlertNotifications } from './notify.ts';
+
+// ── Notificações (inlined para deploy via dashboard — sem import externo) ──
+async function dispatchAlertNotifications(
+  establishmentId: string,
+  alerts: { alert_type: string; severity: string; description: string }[],
+): Promise<void> {
+  if (!alerts || alerts.length === 0) return;
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  );
+  const [settingsRes, estRes] = await Promise.all([
+    supabase.from('settings').select('telegram_chat_id, whatsapp_number').eq('establishment_id', establishmentId).single(),
+    supabase.from('establishments').select('name').eq('id', establishmentId).single(),
+  ]);
+  const settings = settingsRes.data;
+  if (!settings) return;
+  const estName = estRes.data?.name ?? 'Estabelecimento';
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  for (const alert of alerts) {
+    const sev = String(alert.severity ?? '').toLowerCase();
+    const emoji = sev === 'high' || sev === 'critical' ? '🚨' : '⚠️';
+    const message =
+      `${emoji} *Alerta Olho Vivo*\n\n*${estName}*\n\n${alert.description}\n\nTipo: \`${alert.alert_type}\`\nSeveridade: ${alert.severity}`;
+    const tasks: Promise<void>[] = [];
+    if (settings.telegram_chat_id) {
+      tasks.push(fetch(`${supabaseUrl}/functions/v1/send-telegram`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+        body: JSON.stringify({ establishment_id: establishmentId, message }),
+      }).then(() => {}).catch(() => {}));
+    }
+    if (settings.whatsapp_number) {
+      tasks.push(fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
+        body: JSON.stringify({ establishment_id: establishmentId, number: settings.whatsapp_number, message }),
+      }).then(() => {}).catch(() => {}));
+    }
+    await Promise.allSettled(tasks);
+  }
+}
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -43,8 +86,8 @@ Deno.serve(async (req) => {
 
     const body = await readJsonBody(req);
 
-    // Payload esperado do Raspberry Pi:
-    // { camera_id, detected_at, confidence, window_minutes? }
+    // Payload esperado do Raspberry Pi / agente:
+    // { camera_id, detected_at, confidence, window_minutes?, evidence_image? (base64 JPEG) }
     const cameraId     = String(body.camera_id ?? 'cam-caixa').trim();
     const detectedAt   = String(body.detected_at ?? new Date().toISOString());
     const windowMin    = Number(body.window_minutes ?? 15);
@@ -97,12 +140,33 @@ Deno.serve(async (req) => {
       return json({ ok: true, deduplicated: true, event_key: eventKey, camera_id: cameraId, detected_at: detectedAt, request_id: ctx.request_id });
     }
 
+    // Upload de evidência visual (POS-Video Sync)
+    let evidenceUrl: string | null = null;
+    if (typeof body.evidence_image === 'string' && body.evidence_image.length > 0) {
+      try {
+        const imgBytes = Uint8Array.from(atob(body.evidence_image), (c) => c.charCodeAt(0));
+        const storagePath = `${settings.establishment_id}/cash_${eventKey}.jpg`;
+        const { error: upErr } = await supabase.storage
+          .from('evidence')
+          .upload(storagePath, imgBytes, { contentType: 'image/jpeg', upsert: true });
+        if (!upErr) {
+          const { data: pub } = supabase.storage.from('evidence').getPublicUrl(storagePath);
+          evidenceUrl = pub.publicUrl ?? null;
+        } else {
+          console.warn('cash evidence upload failed:', upErr.message);
+        }
+      } catch (imgErr: any) {
+        console.warn('cash evidence decode error:', imgErr?.message ?? imgErr);
+      }
+    }
+
     const { error } = await supabase.from('cash_payment_events').insert({
-      establishment_id: settings.establishment_id,
+      establishment_id:   settings.establishment_id,
       external_event_key: eventKey,
-      camera_id:        cameraId,
-      detected_at:      detectedAt,
-      window_minutes:   windowMin,
+      camera_id:          cameraId,
+      detected_at:        detectedAt,
+      window_minutes:     windowMin,
+      ...(evidenceUrl && { evidence_url: evidenceUrl }),
     });
 
     if (error) throw error;
@@ -118,10 +182,11 @@ Deno.serve(async (req) => {
     logInfo(ctx, 'ingest_completed', {
       establishment_id: settings.establishment_id,
       event_key: eventKey,
+      has_evidence: !!evidenceUrl,
       deduplicated: false,
       duration_ms: durationMs(ctx),
     });
-    return json({ ok: true, deduplicated: false, event_key: eventKey, camera_id: cameraId, detected_at: detectedAt, request_id: ctx.request_id });
+    return json({ ok: true, deduplicated: false, event_key: eventKey, camera_id: cameraId, detected_at: detectedAt, has_evidence: !!evidenceUrl, request_id: ctx.request_id });
   } catch (err: any) {
     if (err instanceof InvalidRequestError) {
       return json({ error: err.message, request_id: ctx.request_id }, 400);

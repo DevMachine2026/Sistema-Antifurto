@@ -139,6 +139,14 @@ function CameraCard({ cam, onDelete }: { cam: Camera; onDelete: () => void }) {
             ))}
           </div>
 
+          {cam.status === 'pending' && (
+            <div className="flex gap-2 p-2.5 rounded-lg text-[11px]"
+              style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.18)', color: 'var(--color-warning)' }}>
+              <AlertCircle size={12} className="shrink-0 mt-0.5" />
+              <span>{t('cameras.pendingHint')}</span>
+            </div>
+          )}
+
           <button onClick={onDelete}
             className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[12px] font-medium transition-colors"
             style={{ background: 'rgba(240,82,82,0.07)', border: '1px solid rgba(240,82,82,0.15)', color: 'var(--color-danger)' }}>
@@ -356,6 +364,7 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
     setScanProgress(0);
     setDiscoverySource(null);
 
+    // 1. Tenta agente local rodando na máquina (instalação local)
     try {
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 5000);
@@ -369,9 +378,56 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
         return;
       }
     } catch {
-      // backend indisponível — cai no scan do browser
+      // agente local indisponível
     }
 
+    // 2. Consulta o Supabase: câmeras descobertas pelo agente Python (agent_camera_candidates)
+    try {
+      const eid = getCurrentEstablishmentId();
+      const { data: agents } = await supabase
+        .from('agent_configs')
+        .select('id')
+        .eq('establishment_id', eid);
+
+      if (agents && agents.length > 0) {
+        const agentIds = agents.map((a: { id: string }) => a.id);
+        const { data: candidates } = await supabase
+          .from('agent_camera_candidates')
+          .select('ip, port, service_url, manufacturer, device_type, credentials_ok')
+          .in('agent_id', agentIds);
+
+        if (candidates && candidates.length > 0) {
+          const discovered: DiscoveredCamera[] = candidates.map((c: {
+            ip: string; port: number; service_url?: string;
+            manufacturer?: string; device_type?: string;
+          }) => {
+            const mfr = (c.manufacturer ?? '').toLowerCase();
+            const brand =
+              mfr.includes('dahua')      ? 'dahua'      :
+              mfr.includes('hikvision')  ? 'hikvision'  :
+              mfr.includes('intelbras')  ? 'intelbras'  : 'generic';
+            return {
+              ip:                 c.ip,
+              port:               c.port ?? 80,
+              brand,
+              hasRtsp:            c.port === 554 || (c.service_url?.startsWith('rtsp://') ?? false),
+              manufacturer:       c.manufacturer ?? undefined,
+              model:              c.device_type ?? undefined,
+              onvifProfileToken:  undefined,
+              snapshotUrl:        undefined,
+            };
+          });
+          setBackendDevices(discovered);
+          setDiscoverySource('backend');
+          setScanning(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('agent_camera_candidates query failed:', err);
+    }
+
+    // 3. Fallback: scan de browser (limitado por restrições de segurança do navegador)
     setDiscoverySource('browser');
     const cap = await checkScanCapability(subnet);
     setScanCapability(cap);

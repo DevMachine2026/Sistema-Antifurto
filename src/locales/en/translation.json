@@ -44,7 +44,8 @@
     "settings": "Settings",
     "readiness": "Readiness",
     "agents": "Agents",
-    "onboarding": "Onboarding"
+    "onboarding": "Onboarding",
+    "posSync": "POS × Video"
   },
   "readiness": {
     "title": "System readiness",
@@ -170,7 +171,19 @@
     "lastImport": "Last Import",
     "noImports": "No imports recorded",
     "batchOk": "OK",
-    "batchError": "ERROR"
+    "batchError": "ERROR",
+    "evidenceFeed": "Visual Evidence",
+    "evidenceCount": "records",
+    "evidenceIn": "Entry",
+    "evidenceOut": "Exit",
+    "inside": "inside",
+    "evidenceTitle": "Evidence Frame",
+    "evidenceTime": "Time",
+    "evidenceCamera": "Camera",
+    "evidencePeople": "People inside",
+    "evidenceEntrance": "Entry",
+    "evidenceExit": "Exit",
+    "evidenceDirection": "Direction"
   },
   "upload": {
     "title": "Ingestion Center",
@@ -453,10 +466,26 @@
       "franchises": "Franchises"
     },
     "stats": {
-      "alertTime": { "value": "< 1min", "label": "Alert time", "sub": "From event to notification" },
-      "rules": { "value": "3", "label": "Detection rules", "sub": "R01 · R02 · R05" },
-      "isolation": { "value": "100%", "label": "Data isolation", "sub": "Per establishment" },
-      "monitoring": { "value": "24/7", "label": "Monitoring", "sub": "Database engine" }
+      "alertTime": {
+        "value": "< 1min",
+        "label": "Alert time",
+        "sub": "From event to notification"
+      },
+      "rules": {
+        "value": "3",
+        "label": "Detection rules",
+        "sub": "R01 · R02 · R05"
+      },
+      "isolation": {
+        "value": "100%",
+        "label": "Data isolation",
+        "sub": "Per establishment"
+      },
+      "monitoring": {
+        "value": "24/7",
+        "label": "Monitoring",
+        "sub": "Database engine"
+      }
     },
     "problem": {
       "badge": "The Problem",
@@ -481,26 +510,62 @@
       "badge": "Rules Engine",
       "title": "Three rules. Zero margin for deviation.",
       "desc": "Rules run directly in the PostgreSQL database, without depending on the frontend. Each event triggers detection instantly.",
-      "r01": { "title": "Movement Without Register", "desc": "Cameras cross the actual space occupancy with registered sales. If customer flow doesn't reflect in the register, the alert fires immediately." },
-      "r02": { "title": "Financial Gap", "desc": "Automatic reconciliation between the amount received at the terminal and recorded in the sales system. Any divergence is flagged." },
-      "r05": { "title": "Cash Ghost", "desc": "Dedicated camera detects bill manipulation. If there is no corresponding entry in the system, a high criticality alert is fired." }
+      "r01": {
+        "title": "Movement Without Register",
+        "desc": "Cameras cross the actual space occupancy with registered sales. If customer flow doesn't reflect in the register, the alert fires immediately."
+      },
+      "r02": {
+        "title": "Financial Gap",
+        "desc": "Automatic reconciliation between the amount received at the terminal and recorded in the sales system. Any divergence is flagged."
+      },
+      "r05": {
+        "title": "Cash Ghost",
+        "desc": "Dedicated camera detects bill manipulation. If there is no corresponding entry in the system, a high criticality alert is fired."
+      }
     },
     "how": {
       "badge": "Installation",
       "title": "Complete setup in less than a day.",
-      "step1": { "title": "Install the cameras", "desc": "Cameras with ISAPI support connect automatically via webhook. Any model can be integrated via Raspberry Pi." },
-      "step2": { "title": "Connect your systems", "desc": "Integrate your sales system via webhook or import CSV reports. No extra development." },
-      "step3": { "title": "Receive real-time alerts", "desc": "The rules engine runs in the database and notifies via Telegram and WhatsApp before the shift closes." }
+      "step1": {
+        "title": "Install the cameras",
+        "desc": "Cameras with ISAPI support connect automatically via webhook. Any model can be integrated via Raspberry Pi."
+      },
+      "step2": {
+        "title": "Connect your systems",
+        "desc": "Integrate your sales system via webhook or import CSV reports. No extra development."
+      },
+      "step3": {
+        "title": "Receive real-time alerts",
+        "desc": "The rules engine runs in the database and notifies via Telegram and WhatsApp before the shift closes."
+      }
     },
     "integrations": {
       "badge": "Compatibility",
       "title": "Integrates with what you already use.",
-      "camera": { "name": "IP Camera", "desc": "ISAPI · ONVIF · Webhook" },
-      "pos": { "name": "Sales System", "desc": "POS · API · PDF" },
-      "gateway": { "name": "Terminal / Gateway", "desc": "CSV · API · Webhook" },
-      "telegram": { "name": "Telegram", "desc": "Automatic alerts" },
-      "whatsapp": { "name": "WhatsApp", "desc": "Push + deep link" },
-      "raspberry": { "name": "Raspberry Pi", "desc": "Cash detection" }
+      "camera": {
+        "name": "IP Camera",
+        "desc": "ISAPI · ONVIF · Webhook"
+      },
+      "pos": {
+        "name": "Sales System",
+        "desc": "POS · API · PDF"
+      },
+      "gateway": {
+        "name": "Terminal / Gateway",
+        "desc": "CSV · API · Webhook"
+      },
+      "telegram": {
+        "name": "Telegram",
+        "desc": "Automatic alerts"
+      },
+      "whatsapp": {
+        "name": "WhatsApp",
+        "desc": "Push + deep link"
+      },
+      "raspberry": {
+        "name": "Raspberry Pi",
+        "desc": "Cash detection"
+      }
     },
     "cta": {
       "badge": "Production ready",
@@ -570,7 +635,7 @@
     "testTimeout": "No event received in 60 seconds. Check your settings and try again.",
     "testRetry": "Try again",
     "status": {
-      "pending": "Pending",
+      "pending": "Waiting for agent",
       "online": "Online",
       "offline": "Offline"
     },
@@ -629,6 +694,7 @@
       "title": "No cameras configured",
       "desc": "Add cameras so the system can monitor movement in your establishment.",
       "cta": "Set up cameras now"
-    }
+    },
+    "pendingHint": "This camera is waiting for the agent. Configure it in the Admin Panel to start monitoring."
   }
 }

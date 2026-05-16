@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'motion/react';
-import { Users, TrendingUp, AlertCircle, Wallet } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Users, TrendingUp, AlertCircle, Wallet, X, ArrowUpRight, ArrowDownLeft, Camera } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer
@@ -212,7 +212,142 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Feed de evidências visuais */}
+      <EvidenceFeed events={people} />
     </div>
+  );
+}
+
+// ── EvidenceFeed ─────────────────────────────────────────────────────────────
+
+function EvidenceFeed({ events }: { events: import('../types').PeopleCountEvent[] }) {
+  const { t } = useTranslation();
+  const [lightbox, setLightbox] = useState<import('../types').PeopleCountEvent | null>(null);
+
+  const withEvidence = events.filter((e) => e.evidenceUrl).slice(-30).reverse();
+  if (withEvidence.length === 0) return null;
+
+  const direction = (e: import('../types').PeopleCountEvent) =>
+    e.countIn > e.countOut ? 'in' : 'out';
+
+  return (
+    <>
+      <div className="bg-surface rounded-lg border border-border shadow-sm">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse inline-block" />
+            <h3 className="text-[13px] uppercase font-semibold tracking-wider text-text">
+              {t('dashboard.evidenceFeed')}
+            </h3>
+          </div>
+          <span className="text-[10px] text-text-dim font-mono uppercase tracking-wider">
+            {withEvidence.length} {t('dashboard.evidenceCount')}
+          </span>
+        </div>
+
+        <div className="flex gap-3 overflow-x-auto p-4 pb-5"
+          style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--color-border) transparent' }}>
+          {withEvidence.map((ev) => {
+            const dir = direction(ev);
+            return (
+              <motion.button
+                key={ev.id}
+                whileHover={{ y: -2, scale: 1.02 }}
+                onClick={() => setLightbox(ev)}
+                className="shrink-0 rounded-xl overflow-hidden text-left"
+                style={{ width: 160, border: '1px solid var(--color-border)', background: 'var(--color-surface-alt)' }}>
+                {/* Thumbnail */}
+                <div className="relative" style={{ height: 100 }}>
+                  <img src={ev.evidenceUrl} alt=""
+                    className="w-full h-full object-cover"
+                    loading="lazy" />
+                  {/* Badge entrada/saída */}
+                  <span className="absolute top-1.5 left-1.5 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold"
+                    style={{
+                      background: dir === 'in' ? 'rgba(16,185,129,0.85)' : 'rgba(239,68,68,0.85)',
+                      color: '#fff',
+                    }}>
+                    {dir === 'in'
+                      ? <><ArrowDownLeft size={9} /> {t('dashboard.evidenceIn')}</>
+                      : <><ArrowUpRight size={9} /> {t('dashboard.evidenceOut')}</>}
+                  </span>
+                </div>
+                {/* Metadados */}
+                <div className="px-2.5 py-2 space-y-0.5">
+                  <p className="text-[10px] font-mono text-text-dim truncate">
+                    {format(parseISO(ev.recordedAt), 'dd/MM HH:mm:ss')}
+                  </p>
+                  <p className="text-[11px] font-semibold text-text flex items-center gap-1">
+                    <Users size={10} /> {ev.peopleInside} {t('dashboard.inside')}
+                  </p>
+                </div>
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {lightbox && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(6px)' }}
+            onClick={() => setLightbox(null)}>
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+              className="w-full max-w-2xl rounded-2xl overflow-hidden"
+              style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border-strong)' }}
+              onClick={(e) => e.stopPropagation()}>
+
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3.5"
+                style={{ borderBottom: '1px solid var(--color-border)' }}>
+                <div className="flex items-center gap-2">
+                  <Camera size={15} style={{ color: 'var(--color-primary)' }} />
+                  <span className="text-[14px] font-bold text-text">
+                    {t('dashboard.evidenceTitle')}
+                  </span>
+                </div>
+                <button onClick={() => setLightbox(null)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center"
+                  style={{ background: 'var(--color-surface-alt)' }}>
+                  <X size={14} style={{ color: 'var(--color-text-dim)' }} />
+                </button>
+              </div>
+
+              {/* Imagem */}
+              <img src={lightbox.evidenceUrl} alt="evidência"
+                className="w-full" style={{ maxHeight: '60vh', objectFit: 'contain', background: '#000' }} />
+
+              {/* Metadados */}
+              <div className="px-5 py-4 grid grid-cols-3 gap-4">
+                {[
+                  [t('dashboard.evidenceTime'), format(parseISO(lightbox.recordedAt), 'dd/MM/yyyy HH:mm:ss')],
+                  [t('dashboard.evidenceCamera'), lightbox.cameraId],
+                  [t('dashboard.evidencePeople'), String(lightbox.peopleInside)],
+                  [t('dashboard.evidenceIn'), String(lightbox.countIn)],
+                  [t('dashboard.evidenceOut'), String(lightbox.countOut)],
+                  [t('dashboard.evidenceDirection'),
+                    lightbox.countIn > lightbox.countOut
+                      ? t('dashboard.evidenceEntrance')
+                      : t('dashboard.evidenceExit')],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>{label}</p>
+                    <p className="text-[13px] font-mono font-semibold text-text mt-0.5 truncate">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

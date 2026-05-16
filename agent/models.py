@@ -91,15 +91,19 @@ class CountEvent:
     count_out: int
     people_inside: int
     recorded_at: datetime.datetime
+    evidence_b64: Optional[str] = None  # JPEG base64 do frame no momento da detecção
 
     def to_dict(self) -> dict:
-        return {
+        d: dict = {
             "camera_id":     self.camera_id,
             "count_in":      self.count_in,
             "count_out":     self.count_out,
             "people_inside": self.people_inside,
             "recorded_at":   _to_utc_iso(self.recorded_at),
         }
+        if self.evidence_b64:
+            d["evidence_image"] = self.evidence_b64
+        return d
 
 @dataclass
 class HeartbeatPayload:

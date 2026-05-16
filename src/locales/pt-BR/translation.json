@@ -44,7 +44,8 @@
     "settings": "Configurações",
     "readiness": "Prontidão",
     "agents": "Agentes",
-    "onboarding": "Implantação"
+    "onboarding": "Implantação",
+    "posSync": "POS × Vídeo"
   },
   "readiness": {
     "title": "Prontidão do sistema",
@@ -170,7 +171,19 @@
     "lastImport": "Última Importação",
     "noImports": "Nenhuma importação registrada",
     "batchOk": "OK",
-    "batchError": "ERRO"
+    "batchError": "ERRO",
+    "evidenceFeed": "Evidências Visuais",
+    "evidenceCount": "registros",
+    "evidenceIn": "Entrada",
+    "evidenceOut": "Saída",
+    "inside": "dentro",
+    "evidenceTitle": "Frame de Evidência",
+    "evidenceTime": "Horário",
+    "evidenceCamera": "Câmera",
+    "evidencePeople": "Pessoas dentro",
+    "evidenceEntrance": "Entrada",
+    "evidenceExit": "Saída",
+    "evidenceDirection": "Direção"
   },
   "upload": {
     "title": "Central de Ingestão",
@@ -453,10 +466,26 @@
       "franchises": "Franquias"
     },
     "stats": {
-      "alertTime": { "value": "< 1min", "label": "Tempo de alerta", "sub": "Do evento à notificação" },
-      "rules": { "value": "3", "label": "Regras de detecção", "sub": "R01 · R02 · R05" },
-      "isolation": { "value": "100%", "label": "Isolamento de dados", "sub": "Por estabelecimento" },
-      "monitoring": { "value": "24/7", "label": "Monitoramento", "sub": "Motor no banco de dados" }
+      "alertTime": {
+        "value": "< 1min",
+        "label": "Tempo de alerta",
+        "sub": "Do evento à notificação"
+      },
+      "rules": {
+        "value": "3",
+        "label": "Regras de detecção",
+        "sub": "R01 · R02 · R05"
+      },
+      "isolation": {
+        "value": "100%",
+        "label": "Isolamento de dados",
+        "sub": "Por estabelecimento"
+      },
+      "monitoring": {
+        "value": "24/7",
+        "label": "Monitoramento",
+        "sub": "Motor no banco de dados"
+      }
     },
     "problem": {
       "badge": "O Problema",
@@ -481,26 +510,62 @@
       "badge": "Motor de Regras",
       "title": "Três regras. Zero margem para desvio.",
       "desc": "As regras rodam diretamente no banco de dados PostgreSQL, sem depender do frontend. Cada evento ativa a detecção instantaneamente.",
-      "r01": { "title": "Movimento sem Caixa", "desc": "Câmeras cruzam a ocupação real do espaço com as vendas registradas. Se o fluxo de clientes não refletir no caixa, o alerta dispara imediatamente." },
-      "r02": { "title": "Gap Financeiro", "desc": "Reconciliação automática entre o valor recebido na maquineta e o registrado no sistema de vendas. Qualquer divergência é sinalizada." },
-      "r05": { "title": "Cash Ghost", "desc": "Câmera dedicada detecta manipulação de cédulas. Se não houver lançamento correspondente no sistema, alerta de alta criticidade é disparado." }
+      "r01": {
+        "title": "Movimento sem Caixa",
+        "desc": "Câmeras cruzam a ocupação real do espaço com as vendas registradas. Se o fluxo de clientes não refletir no caixa, o alerta dispara imediatamente."
+      },
+      "r02": {
+        "title": "Gap Financeiro",
+        "desc": "Reconciliação automática entre o valor recebido na maquineta e o registrado no sistema de vendas. Qualquer divergência é sinalizada."
+      },
+      "r05": {
+        "title": "Cash Ghost",
+        "desc": "Câmera dedicada detecta manipulação de cédulas. Se não houver lançamento correspondente no sistema, alerta de alta criticidade é disparado."
+      }
     },
     "how": {
       "badge": "Instalação",
       "title": "Setup completo em menos de um dia.",
-      "step1": { "title": "Instale as câmeras", "desc": "Câmeras com suporte ISAPI se conectam automaticamente via webhook. Qualquer modelo pode ser integrado via Raspberry Pi." },
-      "step2": { "title": "Conecte seus sistemas", "desc": "Integre seu sistema de vendas via webhook ou importe relatórios CSV. Sem desenvolvimento extra." },
-      "step3": { "title": "Receba alertas em tempo real", "desc": "O motor de regras roda no banco de dados e notifica via Telegram e WhatsApp antes do turno fechar." }
+      "step1": {
+        "title": "Instale as câmeras",
+        "desc": "Câmeras com suporte ISAPI se conectam automaticamente via webhook. Qualquer modelo pode ser integrado via Raspberry Pi."
+      },
+      "step2": {
+        "title": "Conecte seus sistemas",
+        "desc": "Integre seu sistema de vendas via webhook ou importe relatórios CSV. Sem desenvolvimento extra."
+      },
+      "step3": {
+        "title": "Receba alertas em tempo real",
+        "desc": "O motor de regras roda no banco de dados e notifica via Telegram e WhatsApp antes do turno fechar."
+      }
     },
     "integrations": {
       "badge": "Compatibilidade",
       "title": "Integra com o que você já usa.",
-      "camera": { "name": "Câmera IP", "desc": "ISAPI · ONVIF · Webhook" },
-      "pos": { "name": "Sistema de Vendas", "desc": "PDV · API · PDF" },
-      "gateway": { "name": "Maquineta / Gateway", "desc": "CSV · API · Webhook" },
-      "telegram": { "name": "Telegram", "desc": "Alertas automáticos" },
-      "whatsapp": { "name": "WhatsApp", "desc": "Push + deep link" },
-      "raspberry": { "name": "Raspberry Pi", "desc": "Detecção de espécie" }
+      "camera": {
+        "name": "Câmera IP",
+        "desc": "ISAPI · ONVIF · Webhook"
+      },
+      "pos": {
+        "name": "Sistema de Vendas",
+        "desc": "PDV · API · PDF"
+      },
+      "gateway": {
+        "name": "Maquineta / Gateway",
+        "desc": "CSV · API · Webhook"
+      },
+      "telegram": {
+        "name": "Telegram",
+        "desc": "Alertas automáticos"
+      },
+      "whatsapp": {
+        "name": "WhatsApp",
+        "desc": "Push + deep link"
+      },
+      "raspberry": {
+        "name": "Raspberry Pi",
+        "desc": "Detecção de espécie"
+      }
     },
     "cta": {
       "badge": "Pronto para produção",
@@ -570,7 +635,7 @@
     "testTimeout": "Nenhum evento recebido em 60 segundos. Verifique as configurações e tente novamente.",
     "testRetry": "Tentar novamente",
     "status": {
-      "pending": "Aguardando",
+      "pending": "Aguardando agente",
       "online": "Online",
       "offline": "Offline"
     },
@@ -629,6 +694,7 @@
       "title": "Nenhuma câmera configurada",
       "desc": "Adicione câmeras para que o sistema possa monitorar a movimentação do estabelecimento.",
       "cta": "Configurar câmeras agora"
-    }
+    },
+    "pendingHint": "Esta câmera aguarda o agente. Configure-a no Painel Admin para iniciar o monitoramento."
   }
 }

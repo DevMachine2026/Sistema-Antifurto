@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard, Upload, AlertTriangle, Settings,
   Menu, X, BookOpen, FlaskConical, Plug, ClipboardList,
-  ShieldCheck, LogOut, ChevronLeft, Camera, ListChecks, Cpu, Rocket,
+  ShieldCheck, LogOut, ChevronLeft, Camera, ListChecks, Cpu, Rocket, Link2,
 } from 'lucide-react';
 import { dataService } from '../../services/dataService';
 import { cn } from '../../lib/utils';
@@ -27,6 +27,7 @@ const NAV_ITEMS = [
   { id: 'onboarding',   labelKey: 'nav.onboarding',   icon: Rocket },
   { id: 'upload',       labelKey: 'nav.importData',   icon: Upload },
   { id: 'alerts',       labelKey: 'nav.fraudAlerts',  icon: AlertTriangle },
+  { id: 'posSync',      labelKey: 'nav.posSync',      icon: Link2 },
   { id: 'simulator',    labelKey: 'nav.simulator',    icon: FlaskConical },
   { id: 'integrations', labelKey: 'nav.integrations', icon: Plug },
   { id: 'audit',        labelKey: 'nav.auditTrail',   icon: ClipboardList },
