@@ -41,10 +41,12 @@ class DataService {
   }
 
   async getPeopleCount(): Promise<PeopleCountEvent[]> {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await supabase
       .from('people_count_events')
       .select('*')
       .eq('establishment_id', this.establishmentId)
+      .gte('recorded_at', since)
       .order('recorded_at', { ascending: true });
 
     if (error) throw error;

@@ -2,6 +2,7 @@ from __future__ import annotations
 import datetime
 import logging
 import threading
+import time
 from typing import TYPE_CHECKING, Optional, Callable
 from agent.models import Camera, CountEvent
 from agent.evidence_uploader import frame_to_b64
@@ -105,13 +106,24 @@ class LineCrossDetector:
                 del self._prev[tid]
 
 
+_EVIDENCE_INTERVAL_S = 60.0  # máximo 1 frame de evidência por câmera por minuto
+
+
 class PeopleCounter:
-    def __init__(self, camera: Camera, on_event: Callable[[CountEvent], None]):
+    def __init__(
+        self,
+        camera: Camera,
+        on_event: Callable[[CountEvent], None],
+        initial_people_inside: int = 0,
+    ):
         self._camera = camera
         self._on_event = on_event
-        self._count_in = 0
+        # Inicializa a partir do último estado salvo no DB para sobreviver a reinicializações.
+        # count_out começa em 0; count_in absorve o offset para que people_inside seja correto.
+        self._count_in = max(0, initial_people_inside)
         self._count_out = 0
         self._last_inference: Optional[datetime.datetime] = None
+        self._last_evidence_at: float = 0.0
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
@@ -227,12 +239,21 @@ class PeopleCounter:
         logger.info("people counter stopped: camera=%s", self._camera.id)
 
     def _emit(self, frame: "Optional[np.ndarray]" = None) -> None:
+        # Throttle: captura frame de evidência no máximo 1 vez por minuto por câmera.
+        now_mono = time.monotonic()
+        capture_evidence = (
+            frame is not None
+            and now_mono - self._last_evidence_at >= _EVIDENCE_INTERVAL_S
+        )
+        if capture_evidence:
+            self._last_evidence_at = now_mono
+
         event = CountEvent(
             camera_id=self._camera.id,
             count_in=self._count_in,
             count_out=self._count_out,
             people_inside=max(0, self._count_in - self._count_out),
             recorded_at=datetime.datetime.now(datetime.timezone.utc),
-            evidence_b64=frame_to_b64(frame) if frame is not None else None,
+            evidence_b64=frame_to_b64(frame) if capture_evidence else None,
         )
         self._on_event(event)

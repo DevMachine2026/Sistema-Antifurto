@@ -59,6 +59,11 @@ class AgentConfig:
     supabase_url: str
     config_changed_at: str  # ISO timestamp — enviado no heartbeat como last_config_changed_at
     request_scan: bool = False  # sinaliza que o backend quer um novo scan de câmeras
+    camera_states: dict[str, int] = None  # {camera_id: people_inside} — estado persistido no DB
+
+    def __post_init__(self):
+        if self.camera_states is None:
+            self.camera_states = {}
 
     @property
     def counting_cameras(self) -> list[Camera]:
@@ -82,6 +87,7 @@ class AgentConfig:
             supabase_url=d.get("supabase_url", ""),
             config_changed_at=d.get("config_changed_at", ""),
             request_scan=bool(d.get("request_scan", False)),
+            camera_states={k: int(v) for k, v in d.get("camera_states", {}).items()},
         )
 
 @dataclass

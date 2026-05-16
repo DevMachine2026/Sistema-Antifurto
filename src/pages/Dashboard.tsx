@@ -69,7 +69,13 @@ export default function Dashboard() {
 
   const stats = useMemo(() => {
     const totalSales = transactions.reduce((acc, t) => acc + t.amount, 0);
-    const peopleInside = people[people.length - 1]?.peopleInside || 0;
+    // Soma o último people_inside de cada câmera (people está ordenado por recorded_at asc,
+    // então a última escrita por cameraId é a mais recente).
+    const latestPerCamera = new Map<string, number>();
+    for (const p of people) {
+      latestPerCamera.set(p.cameraId, p.peopleInside);
+    }
+    const peopleInside = Array.from(latestPerCamera.values()).reduce((a, b) => a + b, 0);
     const highAlerts = alerts.filter(a => a.severity === 'high').length;
     const stTotal = transactions.filter(t => t.source === 'st_ingressos').reduce((a, t) => a + t.amount, 0);
     const pagbankTotal = transactions.filter(t => t.source === 'pagbank').reduce((a, t) => a + t.amount, 0);
@@ -77,17 +83,22 @@ export default function Dashboard() {
   }, [transactions, people, alerts]);
 
   const chartData = useMemo(() => {
-    const hours: Record<string, { time: string; sales: number; people: number }> = {};
+    const hours: Record<string, { time: string; sales: number; people: number; _cams: Record<string, number> }> = {};
     transactions.forEach(tx => {
       const hour = format(parseISO(tx.occurredAt), 'HH:00');
-      if (!hours[hour]) hours[hour] = { time: hour, sales: 0, people: 0 };
+      if (!hours[hour]) hours[hour] = { time: hour, sales: 0, people: 0, _cams: {} };
       hours[hour].sales += tx.amount;
     });
+    // Para cada hora, mantém o último people_inside de cada câmera e soma.
     people.forEach(p => {
       const hour = format(parseISO(p.recordedAt), 'HH:00');
-      if (hours[hour]) hours[hour].people = p.peopleInside;
+      if (!hours[hour]) hours[hour] = { time: hour, sales: 0, people: 0, _cams: {} };
+      hours[hour]._cams[p.cameraId] = p.peopleInside;
+      hours[hour].people = Object.values(hours[hour]._cams).reduce((a, b) => a + b, 0);
     });
-    return Object.values(hours).sort((a, b) => a.time.localeCompare(b.time));
+    return Object.values(hours)
+      .map(({ _cams: _ignored, ...rest }) => rest)
+      .sort((a, b) => a.time.localeCompare(b.time));
   }, [transactions, people]);
 
   if (loading) {

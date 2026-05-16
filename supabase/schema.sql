@@ -229,15 +229,15 @@ $$;
 CREATE OR REPLACE FUNCTION run_fraud_rules(p_establishment_id uuid)
 RETURNS TABLE(alert_type text, severity text, description text) LANGUAGE plpgsql AS $$
 DECLARE
-  v_settings    settings%ROWTYPE;
-  v_last_people people_count_events%ROWTYPE;
-  v_recent_sales_count integer;
-  v_pagbank_total numeric;
-  v_st_total      numeric;
-  v_gap           numeric;
-  v_window_start  timestamptz;
+  v_settings              settings%ROWTYPE;
+  v_total_people_inside   integer  := 0;
+  v_recent_event_at       timestamptz;
+  v_recent_sales_count    integer;
+  v_pagbank_total         numeric;
+  v_st_total              numeric;
+  v_gap                   numeric;
+  v_window_start          timestamptz;
 BEGIN
-  -- Carrega configurações do estabelecimento
   SELECT * INTO v_settings
   FROM settings
   WHERE establishment_id = p_establishment_id;
@@ -246,15 +246,25 @@ BEGIN
     RAISE EXCEPTION 'Configurações não encontradas para establishment %', p_establishment_id;
   END IF;
 
-  -- ── R01: Lotação sem Vendas ──────────────────────────────
-  SELECT * INTO v_last_people
-  FROM people_count_events
-  WHERE establishment_id = p_establishment_id
-  ORDER BY recorded_at DESC
-  LIMIT 1;
+  v_window_start := now() - (v_settings.r01_window_minutes || ' minutes')::interval;
 
-  IF FOUND AND v_last_people.people_inside > v_settings.r01_min_people THEN
-    v_window_start := now() - (v_settings.r01_window_minutes || ' minutes')::interval;
+  -- ── R01: Lotação sem Vendas ──────────────────────────────
+  -- Agrega o evento mais recente de cada câmera dentro da janela.
+  -- Câmeras sem dado recente (agente offline) não inflam o total.
+  SELECT
+    COALESCE(SUM(latest.people_inside), 0),
+    MAX(latest.recorded_at)
+  INTO v_total_people_inside, v_recent_event_at
+  FROM (
+    SELECT DISTINCT ON (camera_id)
+      camera_id, people_inside, recorded_at
+    FROM people_count_events
+    WHERE establishment_id = p_establishment_id
+      AND recorded_at >= v_window_start
+    ORDER BY camera_id, recorded_at DESC
+  ) latest;
+
+  IF v_recent_event_at IS NOT NULL AND v_total_people_inside > v_settings.r01_min_people THEN
 
     SELECT COUNT(*) INTO v_recent_sales_count
     FROM transactions
@@ -263,7 +273,6 @@ BEGIN
       AND occurred_at >= v_window_start;
 
     IF v_recent_sales_count = 0 THEN
-      -- Evita duplicata de alerta ativo do mesmo tipo
       IF NOT EXISTS (
         SELECT 1 FROM alerts
         WHERE establishment_id = p_establishment_id
@@ -277,15 +286,17 @@ BEGIN
           'crowd_no_sales',
           'high',
           format('R01: %s pessoas no salão sem vendas nos últimos %s min.',
-                 v_last_people.people_inside, v_settings.r01_window_minutes),
+                 v_total_people_inside, v_settings.r01_window_minutes),
           jsonb_build_object(
-            'people_inside', v_last_people.people_inside,
+            'people_inside',  v_total_people_inside,
             'window_minutes', v_settings.r01_window_minutes,
-            'camera_id', v_last_people.camera_id
+            'window_start',   v_window_start
           )
         );
-        RETURN QUERY SELECT 'crowd_no_sales', 'high',
-          format('R01: %s pessoas sem vendas.', v_last_people.people_inside);
+        RETURN QUERY SELECT
+          'crowd_no_sales'::text,
+          'high'::text,
+          format('R01: %s pessoas sem vendas.', v_total_people_inside);
       END IF;
     END IF;
   END IF;
@@ -318,12 +329,14 @@ BEGIN
                to_char(v_gap, 'FM"R$"999G999D99')),
         jsonb_build_object(
           'pagbank_total', v_pagbank_total,
-          'st_total', v_st_total,
-          'diff', v_pagbank_total - v_st_total,
-          'threshold', v_settings.r02_gap_threshold
+          'st_total',      v_st_total,
+          'diff',          v_pagbank_total - v_st_total,
+          'threshold',     v_settings.r02_gap_threshold
         )
       );
-      RETURN QUERY SELECT 'card_gap', 'high',
+      RETURN QUERY SELECT
+        'card_gap'::text,
+        'high'::text,
         format('R02: Gap de R$ %s.', v_gap);
     END IF;
   END IF;

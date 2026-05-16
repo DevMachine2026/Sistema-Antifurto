@@ -285,10 +285,17 @@ def main() -> None:
         anon_key=anon_key,
     )
 
-    # 5. Inicia contadores por câmera
+    # 5. Inicia contadores por câmera, restaurando o estado salvo no DB
     counters: list[PeopleCounter] = []
     for camera in config.counting_cameras:
-        counter = PeopleCounter(camera=camera, on_event=publisher.publish)
+        initial = config.camera_states.get(camera.id, 0)
+        if initial > 0:
+            logger.info("camera %s: restoring people_inside=%d from DB", camera.id, initial)
+        counter = PeopleCounter(
+            camera=camera,
+            on_event=publisher.publish,
+            initial_people_inside=initial,
+        )
         counter.start()
         counters.append(counter)
 
@@ -332,7 +339,12 @@ def main() -> None:
                     heartbeat_interval = config.heartbeat_interval
                     heartbeat.update_config_changed_at(config.config_changed_at)
                     for camera in config.counting_cameras:
-                        counter = PeopleCounter(camera=camera, on_event=publisher.publish)
+                        initial = config.camera_states.get(camera.id, 0)
+                        counter = PeopleCounter(
+                            camera=camera,
+                            on_event=publisher.publish,
+                            initial_people_inside=initial,
+                        )
                         counter.start()
                         counters.append(counter)
                     logger.info("config reloaded: cameras=%d", len(counters))

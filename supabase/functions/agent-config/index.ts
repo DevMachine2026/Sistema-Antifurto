@@ -61,6 +61,24 @@ Deno.serve(async (req) => {
       .eq('establishment_id', agent.establishment_id)
       .single();
 
+    // Último people_inside por câmera nas últimas 24h — usado pelo agente para
+    // inicializar a contagem corretamente após reinicialização.
+    const since24h = new Date(Date.now() - 86_400_000).toISOString();
+    const { data: recentPeople } = await supabase
+      .from('people_count_events')
+      .select('camera_id, people_inside, recorded_at')
+      .eq('establishment_id', agent.establishment_id)
+      .gte('recorded_at', since24h)
+      .order('recorded_at', { ascending: false })
+      .limit(200);
+
+    const cameraStates: Record<string, number> = {};
+    for (const row of recentPeople ?? []) {
+      if (cameraStates[row.camera_id] === undefined) {
+        cameraStates[row.camera_id] = row.people_inside;
+      }
+    }
+
     // Atualiza timestamp de última conexão (best-effort — não bloqueia resposta)
     supabase
       .from('agent_configs')
@@ -77,6 +95,7 @@ Deno.serve(async (req) => {
       webhook_token: settings?.webhook_token ?? null,
       config_changed_at: agent.config_changed_at,
       supabase_url: Deno.env.get('SUPABASE_URL'),
+      camera_states: cameraStates,
     });
   } catch (err: any) {
     console.error('agent-config error:', err?.message ?? err);
