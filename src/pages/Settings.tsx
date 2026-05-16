@@ -40,6 +40,7 @@ export default function Settings() {
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [telegramChatId, setTelegramChatId] = useState<string | null>(null);
   const [webhookToken, setWebhookToken] = useState<string | null>(null);
+  const [connectingTelegram, setConnectingTelegram] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -129,6 +130,32 @@ export default function Settings() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     }
+  }
+
+  function handleConnectTelegram() {
+    if (!webhookToken) return;
+    window.open(`https://t.me/${BOT_USERNAME}?start=${webhookToken}`, '_blank');
+    setConnectingTelegram(true);
+
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > 30) { // 60s timeout
+        clearInterval(interval);
+        setConnectingTelegram(false);
+        return;
+      }
+      const { data } = await supabase
+        .from('settings')
+        .select('telegram_chat_id')
+        .eq('establishment_id', establishmentId)
+        .single();
+      if (data?.telegram_chat_id) {
+        clearInterval(interval);
+        setTelegramChatId(String(data.telegram_chat_id));
+        setConnectingTelegram(false);
+      }
+    }, 2000);
   }
 
   async function disconnectTelegram() {
@@ -271,13 +298,32 @@ export default function Settings() {
               {t('settings.test')}
             </button>
           </div>
+        ) : connectingTelegram ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
+              style={{ background: 'rgba(79,124,255,0.07)', border: '1px solid rgba(79,124,255,0.2)' }}>
+              <Loader2 size={16} className="animate-spin shrink-0" style={{ color: 'var(--color-primary)' }} />
+              <div>
+                <p className="text-[13px] font-semibold" style={{ color: 'var(--color-primary)' }}>
+                  Aguardando conexão…
+                </p>
+                <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                  Abra o Telegram e clique em <strong>Iniciar</strong> no bot.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setConnectingTelegram(false)}
+              className="text-[11px] underline underline-offset-2"
+              style={{ color: 'var(--color-text-muted)' }}>
+              Cancelar
+            </button>
+          </div>
         ) : (
           <div className="space-y-3">
-            <p className="text-[10px] text-text-dim">Clique no botão abaixo — o bot confirma a conexão automaticamente em segundos.</p>
-            <a
-              href={webhookToken ? `https://t.me/${BOT_USERNAME}?start=${webhookToken}` : undefined}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={handleConnectTelegram}
+              disabled={!webhookToken}
               className={cn(
                 "inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded font-black text-[11px] uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20",
                 !webhookToken && "opacity-50 pointer-events-none"
@@ -285,8 +331,8 @@ export default function Settings() {
             >
               <ExternalLink size={14} />
               Conectar Telegram
-            </a>
-            <p className="text-[10px] text-text-dim">Abrirá o Telegram com @{BOT_USERNAME}. Basta clicar em Iniciar.</p>
+            </button>
+            <p className="text-[10px] text-text-dim">Abrirá o Telegram com @{BOT_USERNAME}. Basta clicar em <strong>Iniciar</strong>.</p>
           </div>
         )}
         {testResult && (

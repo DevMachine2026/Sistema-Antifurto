@@ -15,8 +15,6 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const BOT_USERNAME = "sistemantifraude_bot";
-
 async function sendMessage(botToken: string, chatId: number, text: string) {
   await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
