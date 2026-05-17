@@ -24,6 +24,7 @@
 17. migrations/migration_cameras.sql
 18. migration_realtime.sql
 19. migration_platform_admin_scope.sql
+20. migration_security_hotfix.sql          # RLS cameras/agent, get_pos_timeline, run_fraud_rules R05, profiles
 
 # Pós-migração (opcional)
 # - seed_demo.sql

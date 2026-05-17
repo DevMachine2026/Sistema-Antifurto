@@ -41,4 +41,24 @@ SELECT 'policy rbac_settings_tenant', EXISTS (
   SELECT 1 FROM pg_policies
   WHERE schemaname = 'public' AND tablename = 'settings' AND policyname = 'rbac_settings_tenant'
 )
+UNION ALL
+SELECT 'policy rbac_cameras_tenant', EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'public' AND tablename = 'cameras' AND policyname = 'rbac_cameras_tenant'
+)
+UNION ALL
+SELECT 'trigger trg_profiles_role_guard', EXISTS (
+  SELECT 1 FROM pg_trigger t
+  JOIN pg_class c ON c.oid = t.tgrelid
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public' AND c.relname = 'profiles' AND t.tgname = 'trg_profiles_role_guard'
+)
+UNION ALL
+SELECT 'run_fraud_rules has R05', (
+  SELECT prosrc LIKE '%cash_ghost%'
+  FROM pg_proc p
+  JOIN pg_namespace ns ON ns.oid = p.pronamespace
+  WHERE ns.nspname = 'public' AND p.proname = 'run_fraud_rules'
+  LIMIT 1
+)
 ORDER BY item;
