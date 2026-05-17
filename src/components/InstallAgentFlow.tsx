@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, AlertTriangle, Download, FolderOpen, Copy, Check } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Download, FolderOpen, Copy, Check, MousePointerClick, ChevronDown } from 'lucide-react';
 import {
   type AgentOs,
   detectInstallerOs,
@@ -23,7 +23,7 @@ interface InstallAgentFlowProps {
 
 export default function InstallAgentFlow({
   token,
-  subtitle = 'Windows, Linux ou macOS — já selecionamos o sistema deste computador',
+  subtitle = 'Baixe e instale com duplo clique — sem precisar de Terminal',
   compact = false,
 }: InstallAgentFlowProps) {
   const [selectedOs, setSelectedOs] = useState<AgentOs | null>(null);
@@ -92,6 +92,9 @@ export default function InstallAgentFlow({
         <p className={`text-text font-bold text-center ${compact ? 'text-base' : 'text-lg'}`}>
           Download concluído!
         </p>
+        <p className="text-center text-text-dim text-sm">
+          Falta só um passo — sem Terminal, sem comandos.
+        </p>
 
         {selectedOs === 'windows' && (
           <>
@@ -108,23 +111,14 @@ export default function InstallAgentFlow({
           </>
         )}
 
-                {selectedOs === 'linux' && (
+        {(selectedOs === 'linux' || selectedOs === 'macos') && (
           <UnixInstallDone
+            os={selectedOs}
             runCommand={runCommand}
             copied={copied}
             onCopy={copyCommand}
             filename={filename}
-            steps={postInstallSteps('linux')}
-          />
-        )}
-        {selectedOs === 'macos' && (
-          <UnixInstallDone
-            runCommand={runCommand}
-            copied={copied}
-            onCopy={copyCommand}
-            filename={filename}
-            steps={postInstallSteps('macos')}
-            terminalHint="No Mac: Busca (⌘+Espaço) → digite Terminal → Enter"
+            steps={postInstallSteps(selectedOs)}
           />
         )}
       </div>
@@ -208,57 +202,94 @@ function UnixInstallDone({
   onCopy,
   filename,
   steps,
-  terminalHint,
+  os,
 }: {
+  os: AgentOs;
   runCommand: string;
   copied: boolean;
   onCopy: () => void;
   filename: string;
   steps: string[];
-  terminalHint?: string;
 }) {
+  const friendlyName = filename.replace(/\.(sh|command)$/, '');
   return (
     <>
       <div
-        className="rounded-xl px-4 py-4 text-left space-y-2"
+        className="rounded-xl px-4 py-4 text-left space-y-3"
         style={{ background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.2)' }}
       >
-        <p className="text-sm font-bold text-text">
-          Abra o <span style={{ color: 'var(--color-success)' }}>Terminal</span> e execute:
-        </p>
-        {terminalHint && (
-          <p className="text-xs text-text-dim">{terminalHint}</p>
-        )}
-        <div className="flex items-center gap-2 mt-1">
-          <code
-            className="flex-1 text-[11px] break-all font-mono px-3 py-2 rounded-lg"
-            style={{ background: 'rgba(0,0,0,0.25)', color: 'var(--color-text)' }}
-          >
-            {runCommand}
-          </code>
-          <button
-            type="button"
-            onClick={onCopy}
-            className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg"
-            style={{ background: 'rgba(79,124,255,0.12)', color: 'var(--color-primary)' }}
-            title="Copiar comando"
-          >
-            {copied ? <Check size={14} /> : <Copy size={14} />}
-          </button>
+        <div className="flex items-start gap-3">
+          <MousePointerClick size={22} className="shrink-0 mt-0.5" style={{ color: 'var(--color-success)' }} />
+          <div className="space-y-1">
+            <p className="text-sm font-bold text-text">
+              Na pasta <span style={{ color: 'var(--color-success)' }}>Downloads</span>, clique duas vezes em:
+            </p>
+            <p className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>
+              {friendlyName}
+            </p>
+            {os === 'linux' && (
+              <p className="text-xs text-text-dim">
+                Se aparecer uma pergunta, escolha <strong>Executar</strong> ou{' '}
+                <strong>Executar no Terminal</strong>.
+              </p>
+            )}
+            {os === 'macos' && (
+              <p className="text-xs text-text-dim">
+                Se o Mac avisar que o arquivo veio da internet, toque em <strong>Abrir</strong>.
+              </p>
+            )}
+          </div>
         </div>
       </div>
       <div
         className="rounded-xl px-4 py-3 text-left space-y-2"
         style={{ background: 'rgba(79,124,255,0.05)', border: '1px solid var(--color-border)' }}
       >
-        <p className="text-[11px] font-bold text-text-dim uppercase tracking-widest">O script vai:</p>
-        {steps.map((step) => (
-          <p key={step} className="text-[11px] text-text-dim flex items-start gap-1">
-            <span style={{ color: 'var(--color-success)' }}>✓</span> {step}
+        <p className="text-[11px] font-bold text-text-dim uppercase tracking-widest">Próximos passos</p>
+        {steps.map((step, i) => (
+          <p key={step} className="text-xs text-text-dim flex items-start gap-2">
+            <span
+              className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+              style={{ background: 'rgba(79,124,255,0.15)', color: 'var(--color-primary)' }}
+            >
+              {i + 1}
+            </span>
+            {step}
           </p>
         ))}
       </div>
       <FolderHint filename={filename} />
+      <details
+        className="rounded-xl overflow-hidden"
+        style={{ border: '1px solid var(--color-border)' }}
+      >
+        <summary className="px-4 py-2.5 text-xs text-text-dim cursor-pointer flex items-center gap-1 list-none [&::-webkit-details-marker]:hidden">
+          <ChevronDown size={14} />
+          Só se não abrir com duplo clique (suporte técnico)
+        </summary>
+        <div className="px-4 pb-3 space-y-2">
+          <p className="text-[11px] text-text-dim">
+            Abra o Terminal, cole o comando abaixo e pressione Enter:
+          </p>
+          <div className="flex items-center gap-2">
+            <code
+              className="flex-1 text-[11px] break-all font-mono px-3 py-2 rounded-lg"
+              style={{ background: 'rgba(0,0,0,0.25)', color: 'var(--color-text)' }}
+            >
+              {runCommand}
+            </code>
+            <button
+              type="button"
+              onClick={onCopy}
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg"
+              style={{ background: 'rgba(79,124,255,0.12)', color: 'var(--color-primary)' }}
+              title="Copiar comando"
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+          </div>
+        </div>
+      </details>
     </>
   );
 }

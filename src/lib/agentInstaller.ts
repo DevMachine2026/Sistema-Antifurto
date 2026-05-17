@@ -21,12 +21,23 @@ export function detectInstallerOs(): AgentOs {
   return 'windows';
 }
 
-export function installerExtension(os: AgentOs): 'exe' | 'sh' {
-  return os === 'windows' ? 'exe' : 'sh';
+export function installerExtension(os: AgentOs): 'exe' | 'sh' | 'command' {
+  if (os === 'windows') return 'exe';
+  if (os === 'macos') return 'command';
+  return 'sh';
 }
 
-export function installerFilename(token: string, os: AgentOs): string {
-  return `OlhoVivoSetup_TOKEN_${assertSafeToken(token)}.${installerExtension(os)}`;
+/** Nome amigável para o cliente (token vai no .olhovivo.env, não no nome do arquivo). */
+export function installerFilename(_token: string, os: AgentOs): string {
+  if (os === 'windows') {
+    return `OlhoVivoSetup_TOKEN_${assertSafeToken(_token)}.exe`;
+  }
+  if (os === 'macos') return 'Instalar-Olho-Vivo.command';
+  return 'Instalar-Olho-Vivo.sh';
+}
+
+export function installerDisplayName(filename: string): string {
+  return filename.replace(/_/g, ' ').replace('.command', '').replace('.sh', '');
 }
 
 export function unixInstallCommand(filename: string, os: AgentOs = 'linux'): string {
@@ -53,15 +64,15 @@ export function postInstallSteps(os: AgentOs): string[] {
   }
   if (os === 'macos') {
     return [
-      'Abra o Terminal (Busca → Terminal)',
-      'Cole o comando e pressione Enter',
-      'O script instala e configura início automático (LaunchAgent)',
+      'Abra a pasta Downloads',
+      'Clique duas vezes em Instalar-Olho-Vivo',
+      'Aguarde "Instalação concluída" e feche a janela',
     ];
   }
   return [
-    'Abra o Terminal',
-    'Cole o comando e pressione Enter',
-    'O script instala e configura início automático (systemd)',
+    'Abra a pasta Downloads',
+    'Clique duas vezes em Instalar-Olho-Vivo',
+    'Aguarde "Instalação concluída" — o agente inicia sozinho',
   ];
 }
 

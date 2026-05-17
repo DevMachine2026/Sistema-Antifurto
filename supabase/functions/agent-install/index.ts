@@ -107,11 +107,27 @@ launchctl load "$PLIST_DIR/com.olhovivo.agent.plist"
 echo ""
 echo "Agente iniciado via launchd. Log: $LOG_PATH"`;
 
+  const openTerminalBlock = os === "linux"
+    ? `
+# Duplo clique no arquivo: abre uma janela e instala sem o cliente digitar comandos
+if [ ! -t 0 ]; then
+  if command -v x-terminal-emulator >/dev/null 2>&1; then
+    exec x-terminal-emulator -e bash -lc "bash \\"$0\\"; echo; read -n 1 -s -r -p 'Pressione Enter para fechar...'"
+  elif command -v gnome-terminal >/dev/null 2>&1; then
+    exec gnome-terminal -- bash -lc "bash \\"$0\\"; echo; read -n 1 -s -r -p 'Pressione Enter para fechar...'"
+  elif command -v konsole >/dev/null 2>&1; then
+    exec konsole -e bash -lc "bash \\"$0\\"; echo; read -n 1 -s -r -p 'Pressione Enter para fechar...'"
+  fi
+fi
+`
+    : "";
+
   return `#!/usr/bin/env bash
-# Olho Vivo Agent — Instalação automática
+# Olho Vivo Agent — Instalação automática (duplo clique em Downloads)
 # Gerado em: $(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "n/a")
 set -euo pipefail
-
+chmod u+x "$0" 2>/dev/null || true
+${openTerminalBlock}
 TOKEN="${token}"
 ARCHIVE_URL="${archiveUrl}"
 INSTALL_DIR="${installDir}"
@@ -156,6 +172,11 @@ echo ""
 echo "========================================"
 echo "  Instalação concluída!"
 echo "========================================"
+if command -v zenity >/dev/null 2>&1; then
+  zenity --info --title="Olho Vivo" --text="Instalação concluída!\\nO agente já está em execução." --width=340 2>/dev/null || true
+elif command -v kdialog >/dev/null 2>&1; then
+  kdialog --msgbox "Olho Vivo: instalação concluída!" 2>/dev/null || true
+fi
 `;
 }
 
@@ -189,8 +210,12 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
     const script = makeShellScript(token, os, anonKey);
     const headers = new Headers(CORS);
-    headers.set("Content-Disposition", `attachment; filename="OlhoVivoSetup_TOKEN_${token}.sh"`);
-    headers.set("Content-Type", "text/x-shellscript");
+    const scriptName = os === "macos" ? "Instalar-Olho-Vivo.command" : "Instalar-Olho-Vivo.sh";
+    headers.set("Content-Disposition", `attachment; filename="${scriptName}"`);
+    headers.set(
+      "Content-Type",
+      "text/x-shellscript; charset=utf-8",
+    );
     return new Response(script, { status: 200, headers });
   }
 
