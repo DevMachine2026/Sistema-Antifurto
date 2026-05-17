@@ -1,4 +1,13 @@
 // @ts-nocheck
+function isServiceRoleRequest(req: Request): boolean {
+  const expected = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim();
+  if (!expected) return false;
+  const auth = req.headers.get('Authorization') ?? req.headers.get('authorization') ?? '';
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1]?.trim();
+  return !!token && token === expected;
+}
+
 /**
  * send-whatsapp — envia mensagem via WhatsApp usando Evolution API (ou compatível).
  *
@@ -23,6 +32,10 @@ const cors = {
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
+
+  if (!isServiceRoleRequest(req)) {
+    return json({ error: 'unauthorized' }, 401);
+  }
 
   try {
     const apiUrl   = Deno.env.get('WHATSAPP_API_URL');

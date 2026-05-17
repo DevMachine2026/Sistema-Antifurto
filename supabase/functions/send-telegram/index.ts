@@ -1,6 +1,15 @@
 // @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+function isServiceRoleRequest(req: Request): boolean {
+  const expected = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim();
+  if (!expected) return false;
+  const auth = req.headers.get('Authorization') ?? req.headers.get('authorization') ?? '';
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  const token = match?.[1]?.trim();
+  return !!token && token === expected;
+}
+
 // supabase-js envia x-client-info no invoke; sem isso o preflight falha no browser (ex.: localhost).
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -15,6 +24,11 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     logInfo(ctx, 'request_rejected', { reason: 'method_not_allowed' });
     return json({ error: 'method_not_allowed', request_id: ctx.request_id }, 405);
+  }
+
+  if (!isServiceRoleRequest(req)) {
+    logInfo(ctx, 'auth_failed', { reason: 'service_role_required' });
+    return json({ error: 'unauthorized', request_id: ctx.request_id }, 401);
   }
 
   try {

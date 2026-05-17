@@ -26,8 +26,13 @@ async function sendMessage(botToken: string, chatId: number, text: string) {
 Deno.serve(async (req) => {
   const url = new URL(req.url);
 
-  // GET /telegram-connect?setup=1 — registra o webhook automaticamente
+  // GET /telegram-connect?setup=1 — registra o webhook (exige TELEGRAM_SETUP_SECRET)
   if (req.method === "GET" && url.searchParams.get("setup") === "1") {
+    const setupSecret = Deno.env.get("TELEGRAM_SETUP_SECRET")?.trim();
+    const provided = req.headers.get("x-setup-secret")?.trim();
+    if (!setupSecret || provided !== setupSecret) {
+      return new Response("unauthorized", { status: 401 });
+    }
     const botToken = Deno.env.get("TELEGRAM_BOT_TOKEN")!;
     const webhookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/telegram-connect`;
     const res = await fetch(`https://api.telegram.org/bot${botToken}/setWebhook`, {

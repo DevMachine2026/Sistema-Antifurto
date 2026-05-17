@@ -2,6 +2,11 @@
 // @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const MAX_EVIDENCE_B64_CHARS = 700_000;
+function evidenceB64TooLarge(b64: string | null | undefined): boolean {
+  return typeof b64 === 'string' && b64.length > MAX_EVIDENCE_B64_CHARS;
+}
+
 // ── Notificações (inlined de notify.ts para compatibilidade com deploy via dashboard) ──
 async function dispatchAlertNotifications(
   establishmentId: string,
@@ -96,6 +101,10 @@ Deno.serve(async (req) => {
     }
 
     const body = await readJsonBody(req);
+
+    if (evidenceB64TooLarge(body.evidence_image)) {
+      return json({ error: 'evidence_too_large', request_id: ctx.request_id }, 413);
+    }
 
     // Suporta formato Intelbras ISAPI e formato genérico
     let cameraId: string, countIn: number, countOut: number,
