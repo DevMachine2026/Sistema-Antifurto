@@ -23,6 +23,9 @@ import threading
 from agent.config_sync import ConfigSync
 from agent.scanner import discover_cameras, report_discovered
 from agent.event_publisher import EventPublisher
+from agent.cash_publisher import CashPublisher
+from agent.cash_monitor import start_cash_monitors, stop_all as stop_cash_monitors
+from agent.cash_detector import start_cash_detectors, stop_cash_detectors
 from agent.heartbeat import HeartbeatSender
 from agent.people_counter import PeopleCounter
 from agent.models import AgentConfig
@@ -69,12 +72,19 @@ def _frozen_yolo_onnx_path() -> str:
 
 def _writable_data_dir() -> str:
     """
-    Em Windows com .exe empacotado, logs, fila e .env ficam em %LOCALAPPDATA%\\OlhoVivoAgent\\
-    (evita depender de escrita ao lado do binário em pastas de instalação).
+    Em build congelada, dados ficam num diretório por plataforma:
+      Windows:  %LOCALAPPDATA%\\OlhoVivoAgent\\
+      macOS:    ~/Library/Application Support/OlhoVivoAgent/
+      Linux:    ~/.local/share/OlhoVivoAgent/
     """
-    if getattr(sys, "frozen", False) and sys.platform == "win32":
-        base = os.environ.get("LOCALAPPDATA") or _exe_dir()
-        path = os.path.join(base, "OlhoVivoAgent")
+    if getattr(sys, "frozen", False):
+        if sys.platform == "win32":
+            base = os.environ.get("LOCALAPPDATA") or _exe_dir()
+            path = os.path.join(base, "OlhoVivoAgent")
+        elif sys.platform == "darwin":
+            path = os.path.expanduser("~/Library/Application Support/OlhoVivoAgent")
+        else:
+            path = os.path.expanduser("~/.local/share/OlhoVivoAgent")
         try:
             os.makedirs(path, exist_ok=True)
         except OSError:
@@ -167,6 +177,66 @@ def ensure_autostart_windows() -> None:
         logger.warning("autostart registry failed: %s", exc)
 
 
+def ensure_autostart_linux() -> None:
+    """Cria serviço systemd --user para iniciar com o login (somente Linux, build congelada)."""
+    if sys.platform != "linux" or not getattr(sys, "frozen", False):
+        return
+    try:
+        exe = os.path.abspath(sys.executable)
+        service_dir = os.path.expanduser("~/.config/systemd/user")
+        os.makedirs(service_dir, exist_ok=True)
+        service_path = os.path.join(service_dir, "olhovivo-agent.service")
+        with open(service_path, "w", encoding="utf-8") as f:
+            f.write(
+                "[Unit]\n"
+                "Description=Olho Vivo Agent\n"
+                "After=network-online.target\n"
+                "Wants=network-online.target\n\n"
+                "[Service]\n"
+                f"ExecStart={exe}\n"
+                "Restart=always\n"
+                "RestartSec=10\n\n"
+                "[Install]\n"
+                "WantedBy=default.target\n"
+            )
+        os.system("systemctl --user daemon-reload")
+        os.system("systemctl --user enable olhovivo-agent.service")
+        logger.info("systemd user service criado: %s", service_path)
+    except OSError as exc:
+        logger.warning("autostart linux falhou: %s", exc)
+
+
+def ensure_autostart_macos() -> None:
+    """Cria LaunchAgent plist para iniciar com o login (somente macOS, build congelada)."""
+    if sys.platform != "darwin" or not getattr(sys, "frozen", False):
+        return
+    try:
+        exe = os.path.abspath(sys.executable)
+        launch_dir = os.path.expanduser("~/Library/LaunchAgents")
+        os.makedirs(launch_dir, exist_ok=True)
+        plist_path = os.path.join(launch_dir, "com.olhovivo.agent.plist")
+        log_path = os.path.join(_writable_data_dir(), _LOG_FILE_NAME)
+        with open(plist_path, "w", encoding="utf-8") as f:
+            f.write(
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'
+                ' "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+                "<plist version=\"1.0\">\n<dict>\n"
+                "  <key>Label</key><string>com.olhovivo.agent</string>\n"
+                "  <key>ProgramArguments</key>\n"
+                f"  <array><string>{exe}</string></array>\n"
+                "  <key>RunAtLoad</key><true/>\n"
+                "  <key>KeepAlive</key><true/>\n"
+                f"  <key>StandardOutPath</key><string>{log_path}</string>\n"
+                f"  <key>StandardErrorPath</key><string>{log_path}</string>\n"
+                "</dict>\n</plist>\n"
+            )
+        os.system(f"launchctl load '{plist_path}'")
+        logger.info("launchd plist criado: %s", plist_path)
+    except OSError as exc:
+        logger.warning("autostart macos falhou: %s", exc)
+
+
 def _scan_done_path() -> str:
     return os.path.join(_writable_data_dir(), _SCAN_DONE_FILE)
 
@@ -240,6 +310,8 @@ def load_token() -> str:
 def main() -> None:
     configure_logging()
     ensure_autostart_windows()
+    ensure_autostart_linux()
+    ensure_autostart_macos()
 
     if getattr(sys, "frozen", False):
         os.environ.setdefault("YOLO_MODEL_PATH", _frozen_yolo_onnx_path())
@@ -302,6 +374,25 @@ def main() -> None:
     if not counters:
         logger.warning("nenhuma câmera com role=counting — aguardando config via AdminPanel")
 
+    # 5b. Câmeras de caixa: buffer de evidência + detecção de atividade
+    cash_publisher = CashPublisher(
+        webhook_url=f"{supabase_url}/functions/v1/webhook-cash",
+        webhook_token=config.webhook_token,
+        db_path=queue_path,
+        anon_key=anon_key,
+    )
+    window_min = int(config.thresholds.get("cash_window_minutes", 15))
+
+    def _on_cash_event(event) -> None:
+        cash_publisher.publish(event)
+
+    start_cash_monitors(config.cameras)
+    start_cash_detectors(config.cash_cameras, on_event=_on_cash_event, window_minutes=window_min)
+    if config.cash_cameras:
+        logger.info("cash pipeline: %d câmera(s) de caixa", len(config.cash_cameras))
+    else:
+        logger.info("nenhuma câmera com role=cash — POS×Vídeo depende de config no painel")
+
     # 6. Loop principal
     heartbeat_interval = config.heartbeat_interval
 
@@ -310,6 +401,7 @@ def main() -> None:
             time.sleep(heartbeat_interval)
 
             publisher.flush_queue()
+            cash_publisher.flush_queue()
 
             last_inference = max(
                 (c.last_inference for c in counters if c.last_inference),
@@ -327,6 +419,9 @@ def main() -> None:
                     for c in counters:
                         c.stop()
                     counters.clear()
+                    stop_cash_detectors()
+                    stop_cash_monitors()
+                    cash_publisher.close()
                     config = new_config
                     # Re-create publisher with new webhook_token
                     publisher.close()
@@ -335,6 +430,19 @@ def main() -> None:
                         webhook_token=config.webhook_token,
                         db_path=queue_path,
                         anon_key=anon_key,
+                    )
+                    cash_publisher = CashPublisher(
+                        webhook_url=f"{supabase_url}/functions/v1/webhook-cash",
+                        webhook_token=config.webhook_token,
+                        db_path=queue_path,
+                        anon_key=anon_key,
+                    )
+                    window_min = int(config.thresholds.get("cash_window_minutes", 15))
+                    start_cash_monitors(config.cameras)
+                    start_cash_detectors(
+                        config.cash_cameras,
+                        on_event=cash_publisher.publish,
+                        window_minutes=window_min,
                     )
                     heartbeat_interval = config.heartbeat_interval
                     heartbeat.update_config_changed_at(config.config_changed_at)
@@ -347,7 +455,11 @@ def main() -> None:
                         )
                         counter.start()
                         counters.append(counter)
-                    logger.info("config reloaded: cameras=%d", len(counters))
+                    logger.info(
+                        "config reloaded: counting=%d cash=%d",
+                        len(counters),
+                        len(config.cash_cameras),
+                    )
 
                     # Etapa 4: command remoto via request_scan no agent_config
                     if config.request_scan:
@@ -366,7 +478,10 @@ def main() -> None:
         logger.info("agent stopping")
         for c in counters:
             c.stop()
+        stop_cash_detectors()
+        stop_cash_monitors()
         publisher.close()
+        cash_publisher.close()
 
 
 if __name__ == "__main__":

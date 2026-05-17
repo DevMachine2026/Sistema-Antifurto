@@ -21,7 +21,7 @@ Quando os dados não batem — salão cheio mas sem vendas, dinheiro no caixa se
 
 ## 2. O agente local (PC do estabelecimento)
 
-O **Agente Olho Vivo** é um programa instalado num **computador Windows** no local. Ele:
+O **Agente Olho Vivo** é um programa instalado num computador no local (**Windows, Linux ou macOS**). Ele:
 
 - lê as câmeras pela rede local (sem precisar de internet para isso);
 - conta pessoas com inteligência artificial no momento de cada entrada e saída;
@@ -29,35 +29,66 @@ O **Agente Olho Vivo** é um programa instalado num **computador Windows** no lo
 - monitora a câmera do caixa e mantém um histórico dos últimos 60 segundos de frames;
 - descobre câmeras automaticamente na rede (ONVIF + varredura de portas).
 
-Você **não** precisa instalar Python, Docker, abrir terminal ou mexer em arquivos de configuração.
+Você **não** precisa instalar Python, Docker ou mexer em arquivos de configuração.
 
 ---
 
-## 3. Instalação do agente (Windows)
+## 3. Instalação do agente
 
 ### Passo 1 — Baixar pelo painel
 
 1. Acesse o painel → **Agentes** → clique no botão de instalação do agente desejado.
-2. O navegador baixa um arquivo com nome parecido com:
+2. Escolha o sistema operacional do PC do estabelecimento: **Windows**, **Linux** ou **macOS**.
+3. Clique em **Baixar instalador**.
 
-   ```
-   OlhoVivoSetup_TOKEN_xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.exe
-   ```
+O arquivo baixado terá o código do agente embutido no nome. **Não renomeie o arquivo.**
 
-   O trecho depois de `TOKEN_` é o código único do seu agente. **Não renomeie o arquivo.**
+---
 
-### Passo 2 — Instalar
+### Windows
 
-1. Dê dois cliques no instalador baixado.
-2. Clique em **Avançar / Next** até concluir. Administrador **não é necessário** na instalação padrão.
-3. Ao terminar, o agente inicia sozinho e fica configurado para **abrir automaticamente quando o Windows ligar**.
+**Arquivo baixado:** `OlhoVivoSetup_TOKEN_<uuid>.exe`
 
-### Passo 3 — Confirmar no painel
+1. Dê **duplo clique** no arquivo baixado.
+2. Clique em **Avançar / Next** até concluir. Conta de administrador **não é necessária**.
+3. O agente inicia sozinho e fica configurado para **abrir automaticamente quando o Windows ligar**.
+
+---
+
+### Linux
+
+**Arquivo baixado:** `OlhoVivoSetup_TOKEN_<uuid>.sh`
+
+O painel exibe o comando pronto para copiar. Abra o **Terminal** e cole:
+
+```bash
+bash ~/Downloads/OlhoVivoSetup_TOKEN_<uuid>.sh
+```
+
+O script instala o agente, grava a configuração e cria um **serviço systemd** que inicia automaticamente com o login.
+
+---
+
+### macOS
+
+**Arquivo baixado:** `OlhoVivoSetup_TOKEN_<uuid>.sh`
+
+O painel exibe o comando pronto para copiar. Abra o **Terminal** (Launchpad → Outros → Terminal) e cole:
+
+```bash
+bash ~/Downloads/OlhoVivoSetup_TOKEN_<uuid>.sh
+```
+
+O script instala o agente, grava a configuração e cria um **LaunchAgent** que inicia automaticamente com o login.
+
+---
+
+### Passo final — Confirmar no painel (todos os sistemas)
 
 1. Aguarde até 1 minuto e verifique se o agente aparece como **Online** no painel → Agentes.
-2. Abra a aba **Câmeras** — as câmeras detectadas na rede local aparecem automaticamente, sem nenhuma configuração adicional.
+2. Abra a aba **Câmeras** — as câmeras detectadas na rede local aparecem automaticamente.
 
-> O token de autenticação vem embutido no nome do arquivo — o instalador cuida de tudo. O dono do negócio não vê nem digita nenhum código.
+> O token de autenticação vem embutido no arquivo baixado — o instalador cuida de tudo. O dono do negócio não vê nem digita nenhum código.
 
 ---
 
@@ -195,13 +226,15 @@ Se algum item estiver vermelho, resolva antes de abrir as portas.
 
 ---
 
-## 9. Arquivos locais do agente (Windows)
+## 9. Arquivos locais do agente
 
-O agente grava seus arquivos em:
+O agente grava seus arquivos em pastas específicas por sistema operacional:
 
-```
-C:\Users\SEU_NOME\AppData\Local\OlhoVivoAgent\
-```
+| Sistema | Pasta |
+|---|---|
+| **Windows** | `C:\Users\SEU_NOME\AppData\Local\OlhoVivoAgent\` |
+| **Linux** | `~/.local/share/OlhoVivoAgent/` |
+| **macOS** | `~/Library/Application Support/OlhoVivoAgent/` |
 
 | Arquivo | Para que serve |
 |---|---|
@@ -215,10 +248,26 @@ C:\Users\SEU_NOME\AppData\Local\OlhoVivoAgent\
 
 ## 10. Desinstalar o agente
 
-1. **Configurações do Windows → Aplicativos → Aplicativos instalados**
+**Windows:**
+1. Configurações → Aplicativos → Aplicativos instalados
 2. Procure **Olho Vivo Agente** e desinstale.
 
-A pasta de logs (`OlhoVivoAgent`) pode permanecer — apague manualmente se quiser zerar os dados locais.
+**Linux:**
+```bash
+systemctl --user stop olhovivo-agent
+systemctl --user disable olhovivo-agent
+rm ~/.config/systemd/user/olhovivo-agent.service
+rm -rf ~/.local/share/olhovivo-agent
+```
+
+**macOS:**
+```bash
+launchctl unload ~/Library/LaunchAgents/com.olhovivo.agent.plist
+rm ~/Library/LaunchAgents/com.olhovivo.agent.plist
+rm -rf "$HOME/Library/Application Support/olhovivo-agent"
+```
+
+A pasta de dados (`OlhoVivoAgent`) pode permanecer em todos os sistemas — apague manualmente se quiser zerar os dados locais.
 
 ---
 
@@ -227,7 +276,9 @@ A pasta de logs (`OlhoVivoAgent`) pode permanecer — apague manualmente se quis
 | Situação | O que fazer |
 |---|---|
 | Instalador recusa por falta de `TOKEN_` no nome | Baixe de novo pelo **link do painel** (não use o `.exe` genérico do GitHub) |
-| Agente não aparece Online | Verifique internet, firewall do Windows e antivírus. Consulte `agente.log` |
+| Agente não aparece Online | Verifique internet e firewall. Consulte `agente.log` na pasta de dados |
+| Script `.sh` recusa executar (`permission denied`) | Execute com `bash` na frente: `bash ~/Downloads/OlhoVivoSetup_TOKEN_*.sh` |
+| Linux: agente não inicia com o sistema | Verifique se `loginctl enable-linger $USER` está ativo para serviços systemd sem sessão gráfica |
 | `agente.log` mostra `401 Unauthorized` | Problema com a chave de autenticação — entre em contato com o suporte |
 | Câmeras não aparecem na aba Câmeras | PC e câmeras precisam estar na mesma rede local (LAN). Aguarde 2 a 3 minutos após o agente ficar Online. Se não aparecer, a câmera pode não ter ONVIF — use **Adicionar manualmente** |
 | Feed de evidências vazio | Confirme que o agente está atualizado e que o bucket `evidence` existe no Supabase |
@@ -239,19 +290,21 @@ A pasta de logs (`OlhoVivoAgent`) pode permanecer — apague manualmente se quis
 
 ---
 
-## 12. Ambiente de desenvolvimento / Linux
+## 12. Ambiente de desenvolvimento (sem instalador)
 
-Para testes com o código-fonte (não Windows):
+Para rodar o agente diretamente do código-fonte (qualquer SO, útil para testes e desenvolvimento):
 
 ```bash
 export ESTABLISHMENT_TOKEN="uuid-do-agente"
 export SUPABASE_ANON_KEY="chave-anon-public-do-supabase"
-export SUPABASE_URL="https://SEU_REF.supabase.co"
+export SUPABASE_URL="https://SEU_REF.supabase.co"   # opcional
 cd agent && pip install -r requirements.txt
 python main.py
 ```
 
 O `SUPABASE_ANON_KEY` está em **Supabase → Project Settings → API → anon / public**.
+
+> Modo desenvolvimento não configura autostart nem cria os diretórios de dados de produção — os arquivos ficam na pasta `agent/`.
 
 ---
 

@@ -191,10 +191,12 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS trg_establishments_updated_at ON establishments;
 CREATE TRIGGER trg_establishments_updated_at
   BEFORE UPDATE ON establishments
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+DROP TRIGGER IF EXISTS trg_settings_updated_at ON settings;
 CREATE TRIGGER trg_settings_updated_at
   BEFORE UPDATE ON settings
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();

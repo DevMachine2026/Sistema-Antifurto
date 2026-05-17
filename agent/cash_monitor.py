@@ -117,7 +117,7 @@ _monitors: dict[str, CashMonitor] = {}
 
 def start_cash_monitors(cameras: list[Camera]) -> None:
     for cam in cameras:
-        if cam.camera_type == 'cash_register' and cam.id not in _monitors:
+        if cam.is_cash and cam.id not in _monitors:
             m = CashMonitor(cam)
             m.start()
             _monitors[cam.id] = m

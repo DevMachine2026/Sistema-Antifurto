@@ -1,0 +1,18 @@
+# Supabase local / CLI — referência para o projeto Olho Vivo
+# https://supabase.com/docs/guides/cli/config
+
+project_id = "olho-vivo"
+
+[api]
+enabled = true
+
+[db]
+major_version = 15
+
+[studio]
+enabled = true
+
+[functions]
+# agent-* usam Bearer establishment_token — desativar verify JWT no Dashboard ao deployar:
+# agent-config, agent-heartbeat, agent-cameras-found, agent-install
+# download-agent: manter verify JWT ativo

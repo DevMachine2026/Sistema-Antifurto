@@ -29,6 +29,7 @@ LANGUAGE sql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+  SELECT * FROM (
   -- 1. Transações com evento de caixa mais próximo (dentro de ±10 min)
   SELECT
     'transaction'::text                                                     AS row_type,
@@ -83,6 +84,6 @@ AS $$
               BETWEEN c.detected_at - interval '10 minutes'
                   AND c.detected_at + interval '10 minutes'
     )
-
-  ORDER BY COALESCE(occurred_at, cash_detected_at) DESC;
+  ) timeline
+  ORDER BY COALESCE(timeline.occurred_at, timeline.cash_detected_at) DESC;
 $$;

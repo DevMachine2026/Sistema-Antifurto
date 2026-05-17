@@ -14,7 +14,7 @@ O sistema roda em três camadas:
 
 | Camada | Onde roda | O que faz |
 |---|---|---|
-| **Agente local** | PC Windows no estabelecimento | Lê câmeras via RTSP, detecta pessoas com IA, captura evidências visuais |
+| **Agente local** | PC no estabelecimento (Windows, Linux ou macOS) | Lê câmeras via RTSP, detecta pessoas com IA, captura evidências visuais |
 | **Backend em nuvem** | Supabase (PostgreSQL + Edge Functions) | Recebe eventos, cruza dados, executa regras, dispara alertas |
 | **Painel web** | Navegador do gestor | Visualiza métricas, evidências, timeline POS×Vídeo, alertas e configurações |
 
@@ -37,7 +37,7 @@ Dados chegam de quatro fontes distintas:
 
 ### Etapa 2 — Processamento na borda (Agente)
 
-O **Agente Olho Vivo** roda num PC comum no estabelecimento (Windows, sem necessidade de admin). Para cada câmera de contagem configurada:
+O **Agente Olho Vivo** roda num PC comum no estabelecimento (Windows, Linux ou macOS, sem necessidade de conta de administrador). Para cada câmera de contagem configurada:
 
 1. Conecta ao stream RTSP da câmera.
 2. Roda **YOLOv8-nano** (ONNX) para detectar pessoas em cada frame amostrado.
@@ -120,9 +120,11 @@ Cada linha da timeline exibe thumbnail da câmera, horário, valor, método, ope
 
 ## Agente Olho Vivo (PC do estabelecimento)
 
+O estabelecimento recebe um link de instalação pelo painel. O painel exibe um seletor de sistema operacional (Windows / Linux / macOS) e entrega o instalador correto automaticamente. O token fica embutido no nome do arquivo — o cliente nunca digita nem vê nenhum código.
+
 ### Instalação Windows (usuário final)
 
-O estabelecimento recebe um link que baixa `OlhoVivoSetup_TOKEN_<uuid>.exe`. O token está no nome do arquivo — o instalador extrai e configura tudo automaticamente. Nenhum Python, Docker, ZIP ou terminal é necessário.
+Baixa `OlhoVivoSetup_TOKEN_<uuid>.exe`. Duplo clique → Avançar → Concluir. Nenhum Python, Docker, ZIP ou terminal necessário.
 
 ```
 %LocalAppData%\Programs\Olho Vivo\   ← binários + yolov8n.onnx
@@ -132,7 +134,27 @@ O estabelecimento recebe um link que baixa `OlhoVivoSetup_TOKEN_<uuid>.exe`. O t
 └── queue.db                          ← fila offline SQLite
 ```
 
-O agente inicia com o Windows (chave `HKCU\...\Run`) e reconecta automaticamente se a internet cair.
+Autostart via registro `HKCU\...\Run`. Reconecta automaticamente se a internet cair.
+
+### Instalação Linux / macOS (usuário final)
+
+Baixa `OlhoVivoSetup_TOKEN_<uuid>.sh`. O painel exibe o comando de um clique para copiar:
+
+```bash
+bash ~/Downloads/OlhoVivoSetup_TOKEN_<uuid>.sh
+```
+
+O script baixa o binário PyInstaller do GitHub Release, grava `.olhovivo.env` com o token e configura o autostart:
+- **Linux**: serviço systemd `--user` (`~/.config/systemd/user/olhovivo-agent.service`)
+- **macOS**: LaunchAgent plist (`~/Library/LaunchAgents/com.olhovivo.agent.plist`)
+
+```
+Linux:   ~/.local/share/OlhoVivoAgent/
+macOS:   ~/Library/Application Support/OlhoVivoAgent/
+├── .olhovivo.env   ← token + SUPABASE_ANON_KEY
+├── agente.log
+└── queue.db
+```
 
 ### O que o agente faz
 
@@ -157,12 +179,20 @@ Para câmeras do caixa, o `CashMonitor` mantém buffer circular de 60 s (2 fps) 
 ### Build e distribuição
 
 ```bash
-# Criar release automático (GitHub Actions → Windows runner → OlhoVivoSetup.exe)
-git tag agent-v0.3.0
-git push origin agent-v0.3.0
+# Criar release automático (3 plataformas em paralelo)
+git tag agent-v0.4.0
+git push origin agent-v0.4.0
 ```
 
-O workflow `.github/workflows/agent-release.yml` gera o ONNX, empacota com PyInstaller (sem console, layout `onedir`) e compila o instalador com Inno Setup.
+O workflow `.github/workflows/agent-release.yml` roda três jobs:
+
+| Job | Runner | Artefato publicado |
+|---|---|---|
+| `build-windows` | `windows-latest` | `OlhoVivoSetup.exe` (via Inno Setup) |
+| `build-linux` | `ubuntu-latest` | `OlhoVivoAgent-linux.tar.gz` |
+| `build-macos` | `macos-latest` | `OlhoVivoAgent-macos.tar.gz` |
+
+Linux e macOS dependem de `build-windows` para garantir que o release já exista antes de fazer upload. A edge function `agent-install` gera o script `.sh` dinamicamente com o token embutido.
 
 ---
 
@@ -176,25 +206,7 @@ Cada regra usa janelas de tempo configuráveis, lidas da tabela `settings` do es
 
 ## Banco de dados — migrações em ordem
 
-Execute no Supabase SQL Editor nesta sequência:
-
-```
-1.  supabase/schema.sql                           ← estrutura base
-2.  supabase/migration_cash_ghost.sql             ← cash_payment_events
-3.  supabase/migration_webhooks.sql               ← tokens e settings
-4.  supabase/migration_rls_production.sql         ← RLS multi-tenant
-5.  supabase/migration_idempotency.sql            ← deduplicação por event_key
-6.  supabase/migration_audit_events.sql           ← trilha de auditoria
-7.  supabase/migration_remove_telegram_bot_token.sql
-8.  supabase/migration_rls_audit_hardening.sql
-9.  supabase/migration_rbac_multitenant.sql       ← roles merchant/platform_admin
-10. supabase/migration_signup_merchant_provision.sql
-11. supabase/migration_agent.sql                  ← agentes, heartbeat, câmeras
-12. supabase/migration_multi_camera.sql           ← R01 com múltiplas câmeras
-13. supabase/migration_dvr.sql                    ← DVRs e credenciais auto-detectadas
-14. supabase/migration_evidence.sql               ← evidence_url em people_count_events
-15. supabase/migration_pos_sync.sql               ← evidence_url em cash_payment_events + get_pos_timeline()
-```
+Execute no Supabase SQL Editor na sequência documentada em [`supabase/MIGRATIONS_ORDER.txt`](supabase/MIGRATIONS_ORDER.txt) (inclui `migration_people_count_fix`, `migration_cameras`, `migration_realtime` e `migration_platform_admin_scope` após o RBAC).
 
 ---
 
@@ -266,7 +278,8 @@ WHERE user_id = (SELECT id FROM auth.users WHERE email = 'seu@email.com');
 | Armazenamento de evidências | Supabase Storage (bucket `evidence`, público) |
 | Agente IA | Python 3.11 + YOLOv8-nano (ONNX Runtime) + OpenCV + HTTPX |
 | Empacotamento Windows | PyInstaller (sem console, onedir) + Inno Setup |
-| CI/CD | GitHub Actions → `OlhoVivoSetup.exe` publicado no GitHub Release |
+| Empacotamento Linux/macOS | PyInstaller (onedir) → `tar.gz` + script `.sh` gerado pela edge function |
+| CI/CD | GitHub Actions → 3 artefatos publicados no GitHub Release (Windows/Linux/macOS) |
 
 ---
 
@@ -369,6 +382,8 @@ supabase/
 | **Evidências visuais — frame capturado no evento + EvidenceFeed no Dashboard** | ✅ |
 | **POS × Vídeo — timeline transação ↔ câmera do caixa** | ✅ |
 | **Build automático do instalador Windows (PyInstaller + Inno + GitHub Actions)** | ✅ |
+| **Instalador Linux — script .sh + systemd (PyInstaller + GitHub Actions)** | ✅ |
+| **Instalador macOS — script .sh + launchd (PyInstaller + GitHub Actions)** | ✅ |
 | Score de risco por operador | 🔜 Fase 2 |
 | Relatório automático de turno (WhatsApp/email) | 🔜 Fase 2 |
 | Comparativo histórico entre turnos | 🔜 Fase 2 |
@@ -380,7 +395,7 @@ supabase/
 
 | Arquivo | Conteúdo |
 |---|---|
-| [`MANUAL_IMPLANTACAO_RESTAURANTE.md`](MANUAL_IMPLANTACAO_RESTAURANTE.md) | Guia para o dono do estabelecimento: instalação Windows, câmeras, POS×Vídeo |
+| [`MANUAL_IMPLANTACAO_RESTAURANTE.md`](MANUAL_IMPLANTACAO_RESTAURANTE.md) | Guia para o dono do estabelecimento: instalação Windows/Linux/macOS, câmeras, POS×Vídeo |
 | [`RUNBOOK_INCIDENTES.md`](RUNBOOK_INCIDENTES.md) | Diagnóstico e resolução de incidentes em produção |
 | [`.github/workflows/agent-release.yml`](.github/workflows/agent-release.yml) | Release automático na tag `agent-v*` |
 | [`.github/workflows/build-agent.yml`](.github/workflows/build-agent.yml) | Build manual sem release (`workflow_dispatch`) |

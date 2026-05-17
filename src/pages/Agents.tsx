@@ -293,7 +293,7 @@ function AgentCard({
   agent: AgentConfig;
   heartbeat: AgentHeartbeat | undefined;
   candidates: CameraCandidate[];
-  onApprove: (candidate: CameraCandidate) => Promise<void>;
+  onApprove: (candidate: CameraCandidate, role?: CameraConfig['role']) => Promise<void>;
   onIgnore: (candidate: CameraCandidate) => Promise<void>;
   onApproveDvr: (c: CameraCandidate, user: string, pass: string, channels: number) => Promise<void>;
 }) {
@@ -304,9 +304,9 @@ function AgentCard({
   const [downloadingInstaller, setDownloadingInstaller] = useState(false);
   const [dvrModal, setDvrModal] = useState<CameraCandidate | null>(null);
 
-  async function handleApprove(c: CameraCandidate) {
+  async function handleApprove(c: CameraCandidate, role: CameraConfig['role'] = 'counting') {
     setApprovingId(c.id);
-    await onApprove(c);
+    await onApprove(c, role);
     setApprovingId(null);
   }
 
@@ -505,16 +505,28 @@ function AgentCard({
                     ) : (
                       <div className="flex gap-1 shrink-0">
                         <button
+                          type="button"
                           className="text-xs font-semibold px-3 py-1 rounded-lg"
                           style={{ background: 'rgba(34,197,94,0.15)', color: 'var(--color-success)' }}
-                          onClick={() => onApprove(c)}
+                          onClick={() => void handleApprove(c, 'counting')}
+                          disabled={approvingId === c.id}
                         >
-                          Aprovar
+                          Contagem
                         </button>
                         <button
+                          type="button"
+                          className="text-xs font-semibold px-3 py-1 rounded-lg"
+                          style={{ background: 'rgba(59,130,246,0.15)', color: 'var(--color-primary)' }}
+                          onClick={() => void handleApprove(c, 'cash')}
+                          disabled={approvingId === c.id}
+                        >
+                          Caixa
+                        </button>
+                        <button
+                          type="button"
                           className="text-xs px-2 py-1 rounded-lg"
                           style={{ background: 'var(--color-bg)', color: 'var(--color-text-dim)' }}
-                          onClick={() => onIgnore(c)}
+                          onClick={() => void handleIgnore(c)}
                         >
                           Ignorar
                         </button>
@@ -687,7 +699,10 @@ export default function Agents() {
 
   useEffect(() => { void load(); }, []);
 
-  async function approveCandidate(candidate: CameraCandidate) {
+  async function approveCandidate(
+    candidate: CameraCandidate,
+    role: CameraConfig['role'] = 'counting',
+  ) {
     const agent = agents.find((a) => a.id === candidate.agent_id);
     if (!agent) return;
 
@@ -695,7 +710,7 @@ export default function Agents() {
       id:        crypto.randomUUID(),
       ip:        candidate.ip,
       name:      candidate.name ?? candidate.ip,
-      role:      'counting',
+      role,
       line_y:    0.5,
       user:      candidate.username ?? 'admin',
       pass:      candidate.password ?? '',

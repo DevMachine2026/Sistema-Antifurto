@@ -8,6 +8,18 @@ from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
+_CASH_ROLES = frozenset({"cash", "cash_register"})
+
+
+def normalize_camera_role(role: str | None) -> str:
+    """Unifica role do agente: counting | cash."""
+    r = (role or "counting").strip().lower()
+    if r in _CASH_ROLES:
+        return "cash"
+    if r in ("counting", "people_counting"):
+        return "counting"
+    return "counting"
+
 
 def _to_utc_iso(dt: datetime.datetime) -> str:
     """Normalize a datetime to UTC and return a Z-suffixed ISO 8601 string.
@@ -26,10 +38,17 @@ class Camera:
     ip: str
     user: str
     password: str
-    role: str          # "counting" | "cash"
+    role: str          # "counting" | "cash" (aceita aliases cash_register / people_counting na ingestão)
     name: str
     line_y: float      # 0.0–1.0, posição vertical da linha de contagem
     rtsp_path: str
+
+    def __post_init__(self) -> None:
+        self.role = normalize_camera_role(self.role)
+
+    @property
+    def is_cash(self) -> bool:
+        return self.role == "cash"
 
     @property
     def rtsp_url(self) -> str:
@@ -42,7 +61,7 @@ class Camera:
             ip=d["ip"],
             user=d["user"],
             password=d["pass"],
-            role=d.get("role", "counting"),
+            role=normalize_camera_role(d.get("role")),
             name=d.get("name", d["id"]),
             line_y=float(d.get("line_y", 0.5)),
             rtsp_path=d.get("rtsp_path", "/stream1"),
@@ -68,6 +87,10 @@ class AgentConfig:
     @property
     def counting_cameras(self) -> list[Camera]:
         return [c for c in self.cameras if c.role == "counting"]
+
+    @property
+    def cash_cameras(self) -> list[Camera]:
+        return [c for c in self.cameras if c.is_cash]
 
     @staticmethod
     def from_dict(d: dict) -> AgentConfig:
@@ -110,6 +133,27 @@ class CountEvent:
         if self.evidence_b64:
             d["evidence_image"] = self.evidence_b64
         return d
+
+
+@dataclass
+class CashEvent:
+    camera_id: str
+    detected_at: datetime.datetime
+    confidence: float
+    window_minutes: int = 15
+    evidence_b64: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        d: dict = {
+            "camera_id": self.camera_id,
+            "detected_at": _to_utc_iso(self.detected_at),
+            "confidence": round(float(self.confidence), 4),
+            "window_minutes": int(self.window_minutes),
+        }
+        if self.evidence_b64:
+            d["evidence_image"] = self.evidence_b64
+        return d
+
 
 @dataclass
 class HeartbeatPayload:

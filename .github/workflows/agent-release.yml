@@ -1,4 +1,4 @@
-# Release do agente Windows: tag agent-v* → PyInstaller (sem console, onedir) + Inno Setup → GitHub Release com OlhoVivoSetup.exe
+# Release do agente: tag agent-v* → PyInstaller (Windows/Linux/macOS) → GitHub Release
 name: Agent Release
 
 on:
@@ -10,8 +10,9 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    name: Build e release (Windows)
+  # ── Windows ────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Build (Windows)
     runs-on: windows-latest
 
     steps:
@@ -34,7 +35,7 @@ jobs:
           cd agent
           python -c "from ultralytics import YOLO; YOLO('yolov8n.pt').export(format='onnx', imgsz=640)"
 
-      - name: PyInstaller (sem console via .spec; onedir via COLLECT)
+      - name: PyInstaller
         run: |
           $env:PYTHONPATH = $PWD
           pyinstaller agent/olhovivo-agent.spec --noconfirm
@@ -45,7 +46,7 @@ jobs:
           $dist = Join-Path $PWD "dist/olhovivo-agent"
           $found = Get-ChildItem -LiteralPath $dist -Recurse -Filter "yolov8n.onnx" -File -ErrorAction SilentlyContinue | Select-Object -First 1
           if (-not $found) {
-            Write-Error "yolov8n.onnx nao encontrado sob $dist (PyInstaller 6+ pode usar _internal/)"
+            Write-Error "yolov8n.onnx nao encontrado sob $dist"
             exit 1
           }
           Write-Host "OK: $($found.FullName)"
@@ -74,17 +75,110 @@ jobs:
           }
           Write-Host "OK: $exe"
 
-      - name: Criar release no GitHub
+      - name: Criar release e publicar instalador Windows
         uses: softprops/action-gh-release@v2
         with:
           name: Olho Vivo Agent ${{ github.ref_name }}
           generate_release_notes: true
           body: |
-            ## Instalação em um clique (Windows)
+            ## Instalação em um clique
 
-            Use o **link de instalação** no painel Olho Vivo (Agentes). O navegador deve salvar o arquivo como `OlhoVivoSetup_TOKEN_<codigo>.exe` — não renomeie.
+            Use o **link de instalação** no painel Olho Vivo (Agentes → Adicionar agente).
+            O navegador salva o arquivo com o código do agente no nome — **não renomeie**.
 
-            O instalador não pede conta de administrador: instala em **%LocalAppData%\Programs\Olho Vivo**.
+            | Sistema | Arquivo | Instrução |
+            |---|---|---|
+            | **Windows** | `OlhoVivoSetup_TOKEN_*.exe` | Duplo clique → avance as telas |
+            | **Linux** | `OlhoVivoSetup_TOKEN_*.sh` | `bash ~/Downloads/OlhoVivoSetup_TOKEN_*.sh` |
+            | **macOS** | `OlhoVivoSetup_TOKEN_*.sh` | `bash ~/Downloads/OlhoVivoSetup_TOKEN_*.sh` |
 
-            Não é necessário ZIP nem `token.txt` manual.
+            O instalador Windows não exige conta de administrador (instala em `%LocalAppData%`).
           files: dist-installer/OlhoVivoSetup.exe
+
+  # ── Linux ──────────────────────────────────────────────────────────────────
+  build-linux:
+    name: Build (Linux)
+    runs-on: ubuntu-latest
+    needs: build-windows   # garante que o release já existe antes de fazer upload
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Dependências e PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r agent/requirements.txt
+          pip install pyinstaller ultralytics
+
+      - name: Exportar YOLOv8n para ONNX
+        run: |
+          cd agent
+          python -c "from ultralytics import YOLO; YOLO('yolov8n.pt').export(format='onnx', imgsz=640)"
+
+      - name: PyInstaller
+        run: |
+          PYTHONPATH=$PWD pyinstaller agent/olhovivo-agent.spec --noconfirm
+
+      - name: Verificar modelo ONNX
+        run: |
+          find dist/olhovivo-agent -name "yolov8n.onnx" | grep . || (echo "yolov8n.onnx não encontrado" && exit 1)
+
+      - name: Empacotar tar.gz
+        run: |
+          cd dist
+          tar czf OlhoVivoAgent-linux.tar.gz olhovivo-agent/
+
+      - name: Publicar no release existente
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/OlhoVivoAgent-linux.tar.gz
+
+  # ── macOS ──────────────────────────────────────────────────────────────────
+  build-macos:
+    name: Build (macOS)
+    runs-on: macos-latest
+    needs: build-windows   # garante que o release já existe antes de fazer upload
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Dependências e PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r agent/requirements.txt
+          pip install pyinstaller ultralytics
+
+      - name: Exportar YOLOv8n para ONNX
+        run: |
+          cd agent
+          python -c "from ultralytics import YOLO; YOLO('yolov8n.pt').export(format='onnx', imgsz=640)"
+
+      - name: PyInstaller
+        run: |
+          PYTHONPATH=$PWD pyinstaller agent/olhovivo-agent.spec --noconfirm
+
+      - name: Verificar modelo ONNX
+        run: |
+          find dist/olhovivo-agent -name "yolov8n.onnx" | grep . || (echo "yolov8n.onnx não encontrado" && exit 1)
+
+      - name: Empacotar tar.gz
+        run: |
+          cd dist
+          tar czf OlhoVivoAgent-macos.tar.gz olhovivo-agent/
+
+      - name: Publicar no release existente
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/OlhoVivoAgent-macos.tar.gz

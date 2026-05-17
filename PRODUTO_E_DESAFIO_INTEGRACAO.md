@@ -27,10 +27,18 @@ O objetivo é dar ao dono do estabelecimento visibilidade em tempo real sobre o 
 **Stack:**
 - Frontend: React 19 + TypeScript + Vite + TailwindCSS, hospedado na Vercel
 - Backend: Supabase (PostgreSQL + Auth + RLS + Edge Functions)
-- Agente edge: Python 3.11 + YOLOv8-nano (ONNX Runtime) + OpenCV, distribuído como `.exe` Windows via PyInstaller + GitHub Actions
+- Agente edge: Python 3.11 + YOLOv8-nano (ONNX Runtime) + OpenCV, distribuído para Windows, Linux e macOS via PyInstaller + GitHub Actions
 
-**Distribuição do agente (atual — Windows):**
-PyInstaller (`console=False`, pasta `onedir`) + **Inno Setup** (`agent/olhovivo-setup.iss`). O GitHub Actions, em tag `agent-v*`, publica **`OlhoVivoSetup.exe`**. O painel força o download com nome `OlhoVivoSetup_TOKEN_<uuid>.exe`; o token não passa pela mão do cliente. Ver `README.md` e `MANUAL_IMPLANTACAO_RESTAURANTE.md`.
+**Distribuição do agente (atual — Windows / Linux / macOS):**
+PyInstaller (`console=False`, pasta `onedir`) em três runners do GitHub Actions. Em tag `agent-v*`, o workflow publica três artefatos no GitHub Release:
+
+| Plataforma | Artefato | Instalação para o cliente |
+|---|---|---|
+| Windows | `OlhoVivoSetup.exe` (Inno Setup) | Duplo clique → Avançar → Concluir |
+| Linux | `OlhoVivoAgent-linux.tar.gz` | `bash OlhoVivoSetup_TOKEN_<uuid>.sh` |
+| macOS | `OlhoVivoAgent-macos.tar.gz` | `bash OlhoVivoSetup_TOKEN_<uuid>.sh` |
+
+O painel exibe um seletor de OS e a edge function `agent-install` entrega o arquivo correto. Para Linux/macOS, o script `.sh` é gerado dinamicamente com token embutido, baixa o binário, escreve `.olhovivo.env` e configura o autostart (systemd ou launchd). O token nunca passa pela mão do cliente. Ver `README.md` e `MANUAL_IMPLANTACAO_RESTAURANTE.md`.
 
 **Distribuição legada (histórico):** a seção *Lições do fluxo legado* descreve o antigo par ZIP + `token.txt` — mantida como registro do problema de produto.
 
@@ -97,25 +105,32 @@ Descrito acima. Falha nos passos de extração e cópia do token.
 **Tentativa 2 — `.bat` auto-instalador (rejeitada antes de testar)**
 O Cursor (ferramenta de IA) propôs gerar um único arquivo `.bat` no browser com o token embutido. O `.bat` baixaria o ZIP, extrairia, escreveria o `token.txt` automaticamente e abriria o agente. A tentativa foi descartada porque as mudanças foram feitas sem autorização prévia, não por problema técnico na abordagem.
 
-### Implementação atual (Windows)
+### Implementação atual (Windows / Linux / macOS)
 
-Instalador único **`OlhoVivoSetup.exe`** com token no nome do arquivo (`TOKEN_`), Inno Setup, agente sem janela de console, autostart e logs em `%LOCALAPPDATA%\OlhoVivoAgent\`. Detalhes técnicos: `README.md`, `MANUAL_IMPLANTACAO_RESTAURANTE.md`, `agent/`.
+**Windows:** Instalador único `OlhoVivoSetup.exe` com token no nome, Inno Setup, agente sem janela de console, autostart via registro `HKCU\Run`, logs em `%LOCALAPPDATA%\OlhoVivoAgent\`.
+
+**Linux:** Script `.sh` gerado dinamicamente, binário PyInstaller em `~/.local/share/olhovivo-agent/`, autostart via `systemctl --user`, logs em `~/.local/share/OlhoVivoAgent/agente.log`.
+
+**macOS:** Script `.sh` gerado dinamicamente, binário PyInstaller em `~/Library/Application Support/olhovivo-agent/`, autostart via `launchctl load`, logs em `~/Library/Logs/olhovivo-agent.log`.
+
+Detalhes técnicos: `README.md`, `MANUAL_IMPLANTACAO_RESTAURANTE.md`, `agent/`.
 
 ### O que ainda pode evoluir
 
-Melhorias de produto (feedback visual “instalado com sucesso”, métricas de falha de download, Linux com paridade, etc.) continuam válidas além do instalador Windows.
+Melhorias de produto (feedback visual “instalado com sucesso”, métricas de falha de download, pacote `.deb`/`.pkg` para instalação sem terminal) continuam válidas.
 
 ---
 
 ## Critérios de sucesso para a integração
 
-- [x] **1 arquivo** entregue ao cliente (Windows: um `.exe` de instalador pelo link do painel)
-- [x] **0 passos de configuração manual** de token para o leigo (sem ZIP + token.txt no fluxo principal)
+- [x] **1 arquivo** entregue ao cliente (Windows: `.exe`; Linux/macOS: `.sh` com 1 comando)
+- [x] **0 passos de configuração manual** de token para o leigo (embutido no arquivo)
 - [x] **Token invisível** para o cliente — embutido no nome do instalador / persistido pelo agente
-- [x] **Agente persiste no boot** (registro Windows)
-- [ ] **Feedback visual claro** — “Instalado com sucesso” dedicado (além do assistente Inno)
+- [x] **Agente persiste no boot** — Windows: registro `HKCU\Run`; Linux: systemd; macOS: launchd
+- [x] **Suporte multiplataforma** — Windows, Linux e macOS com fluxo equivalente
+- [ ] **Feedback visual claro** — “Instalado com sucesso” dedicado (além do assistente Inno / saída do script)
 - [ ] **Admin vê online no painel** em até 2 minutos (depende de rede e firewall; validar em campo)
 
 ---
 
-*Documento criado em mai/2026 — RonalDigital — atualizado com fluxo Inno + PyInstaller.*
+*Documento criado em mai/2026 — RonalDigital — atualizado com suporte Windows + Linux + macOS.*

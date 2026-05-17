@@ -35,7 +35,7 @@ def test_agent_config_counting_cameras():
             Camera(id="c1", ip="1.2.3.4", user="u", password="p",
                    role="counting", name="N", line_y=0.5, rtsp_path="/s1"),
             Camera(id="c2", ip="1.2.3.5", user="u", password="p",
-                   role="cash", name="Caixa", line_y=0.5, rtsp_path="/s1"),
+                   role="cash_register", name="Caixa", line_y=0.5, rtsp_path="/s1"),
         ],
         thresholds={},
         heartbeat_interval=300,
@@ -46,6 +46,8 @@ def test_agent_config_counting_cameras():
     counting = config.counting_cameras
     assert len(counting) == 1
     assert counting[0].id == "c1"
+    assert len(config.cash_cameras) == 1
+    assert config.cash_cameras[0].role == "cash"
 
 def test_count_event_fields():
     import datetime

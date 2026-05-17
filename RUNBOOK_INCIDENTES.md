@@ -27,12 +27,20 @@
 
 O merchant verifica o status em **Menu → Agentes**. O platform_admin vê todos os agentes no **Painel Administrativo → lista de estabelecimentos**.
 
-1. Verificar se o PC do restaurante está ligado e com internet
-2. Verificar se o processo do agente está rodando (no Windows empacotado pode aparecer como `OlhoVivo_TOKEN_*.exe` ou similar)
+1. Verificar se o PC está ligado e com internet
+2. Verificar se o processo do agente está rodando:
+   - **Windows:** pode aparecer como `OlhoVivo_TOKEN_*.exe` no Gerenciador de Tarefas
+   - **Linux:** `systemctl --user status olhovivo-agent`
+   - **macOS:** `launchctl list | grep olhovivo`
 3. **Token / autenticação do agente**
-   - **Windows (instalador):** o token vem do nome do instalador (`OlhoVivoSetup_TOKEN_...exe`) e fica em `%LOCALAPPDATA%\OlhoVivoAgent\.olhovivo.env`. Se o cliente renomeou o instalador ou usou só `OlhoVivoSetup.exe` do Release sem `TOKEN_`, peça novo download pelo link do painel (ou reinstalar com `/TOKEN=` em cenário técnico).
-   - **Dev / Linux:** conferir `ESTABLISHMENT_TOKEN` ou `token.txt` na pasta do agente; copiar de novo da aba **Agentes** no painel se necessário.
-4. Verificar `agente.log` em `%LOCALAPPDATA%\OlhoVivoAgent\` (Windows empacotado) — erros de conexão com Supabase?
+   - **Windows (instalador):** token em `%LOCALAPPDATA%\OlhoVivoAgent\.olhovivo.env`. Se o cliente renomeou o `.exe`, peça novo download pelo link do painel.
+   - **Linux (instalador):** token em `~/.local/share/OlhoVivoAgent/.olhovivo.env`
+   - **macOS (instalador):** token em `~/Library/Application Support/OlhoVivoAgent/.olhovivo.env`
+   - **Dev:** conferir `ESTABLISHMENT_TOKEN` no ambiente; copiar da aba **Agentes** se necessário.
+4. Verificar `agente.log` na pasta de dados do SO:
+   - Windows: `%LOCALAPPDATA%\OlhoVivoAgent\agente.log`
+   - Linux: `~/.local/share/OlhoVivoAgent/agente.log`
+   - macOS: `~/Library/Application Support/OlhoVivoAgent/agente.log`
 5. Confirmar JWT desativado em `agent-config`, `agent-heartbeat`, `agent-cameras-found` (Supabase → Edge Functions → Settings)
 
 ### Câmeras não contam pessoas
@@ -97,4 +105,4 @@ O merchant verifica o status em **Menu → Agentes**. O platform_admin vê todos
 
 ---
 
-*Atualizado mai/2026*
+*Atualizado mai/2026 — suporte Windows + Linux + macOS*
