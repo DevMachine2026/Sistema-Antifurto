@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test": "node --import tsx --test \"src/**/*.test.ts\""
+    "test": "node --import tsx --test src/lib/parsers/stIngressosParser.test.ts src/lib/parsers/pagbankParser.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.104.1",
