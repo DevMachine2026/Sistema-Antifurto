@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
-import { downloadAgentInstaller } from '../lib/downloadAgentInstaller';
+import InstallAgentFlow from '../components/InstallAgentFlow';
 
 // ── types ─────────────────────────────────────────────────────────────────────
 
@@ -79,7 +79,40 @@ function isOnline(hb: AgentHeartbeat | undefined): boolean {
   return Date.now() - new Date(hb.reported_at).getTime() < 10 * 60 * 1000;
 }
 
-// ── InstallModal ──────────────────────────────────────────────────────────────
+// ── Instalar neste PC (seletor de SO) ─────────────────────────────────────────
+
+function InstallHereModal({ token, onClose }: { token: string; onClose: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        initial={{ y: 30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 30, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 350, damping: 35 }}
+        className="w-full max-w-md rounded-2xl p-5"
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border-strong)' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-[15px] font-bold text-text">Instalar neste computador</p>
+          <button type="button" onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'var(--color-surface-alt)' }}>
+            <X size={14} style={{ color: 'var(--color-text-dim)' }} />
+          </button>
+        </div>
+        <InstallAgentFlow token={token} compact />
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── InstallModal (link para outro PC) ─────────────────────────────────────────
 
 function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => void }) {
   const [token, setToken] = useState<string | null>(null);
@@ -159,9 +192,9 @@ function InstallModal({ agentId, onClose }: { agentId: string; onClose: () => vo
             </p>
             {[
               'Abra o link no navegador daquele computador',
-              'O instalador (.exe) baixa automaticamente',
-              'Dê dois cliques e avance nas telas',
-              'O agente inicia sozinho e sobe com o Windows',
+              'Escolha Windows, Linux ou macOS',
+              'Baixe o instalador (.exe no Windows ou .sh no Linux/Mac)',
+              'Siga os passos na tela — o agente inicia sozinho ao ligar o PC',
             ].map((s, i) => (
               <div key={s} className="flex items-start gap-2">
                 <span className="text-[10px] font-black rounded px-1.5 py-0.5 shrink-0 mt-0.5" style={{ background: 'rgba(79,124,255,0.2)', color: 'var(--color-primary)' }}>{i + 1}</span>
@@ -301,7 +334,7 @@ function AgentCard({
   const [expanded, setExpanded] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [showInstall, setShowInstall] = useState(false);
-  const [downloadingInstaller, setDownloadingInstaller] = useState(false);
+  const [showInstallHere, setShowInstallHere] = useState(false);
   const [dvrModal, setDvrModal] = useState<CameraCandidate | null>(null);
 
   async function handleApprove(c: CameraCandidate, role: CameraConfig['role'] = 'counting') {
@@ -314,17 +347,6 @@ function AgentCard({
     setApprovingId(c.id);
     await onIgnore(c);
     setApprovingId(null);
-  }
-
-  async function handleDownloadInstaller() {
-    setDownloadingInstaller(true);
-    try {
-      await downloadAgentInstaller(agent.token);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Não foi possível baixar o instalador.');
-    } finally {
-      setDownloadingInstaller(false);
-    }
   }
 
   return (
@@ -423,17 +445,12 @@ function AgentCard({
       <div className="px-4 pb-4 flex flex-col gap-2">
         <button
           type="button"
-          onClick={() => void handleDownloadInstaller()}
-          disabled={downloadingInstaller}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all w-full justify-center disabled:opacity-60"
+          onClick={() => setShowInstallHere(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all w-full justify-center"
           style={{ background: 'var(--color-primary)', color: '#fff' }}
         >
-          {downloadingInstaller ? (
-            <Loader2 size={14} className="animate-spin" />
-          ) : (
-            <Download size={14} />
-          )}
-          {downloadingInstaller ? 'Preparando download…' : 'Baixar instalador neste PC'}
+          <Download size={14} />
+          Instalar neste computador
         </button>
         <button
           type="button"
@@ -450,7 +467,14 @@ function AgentCard({
         </button>
       </div>
 
-      {/* ── Install modal ── */}
+      {/* ── Instalar neste PC (Windows / Linux / macOS) ── */}
+      <AnimatePresence>
+        {showInstallHere && (
+          <InstallHereModal token={agent.token} onClose={() => setShowInstallHere(false)} />
+        )}
+      </AnimatePresence>
+
+      {/* ── Link para outro PC ── */}
       <AnimatePresence>
         {showInstall && (
           <InstallModal agentId={agent.id} onClose={() => setShowInstall(false)} />
