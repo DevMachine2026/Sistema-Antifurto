@@ -12,6 +12,7 @@ import { getCurrentEstablishmentId } from '../lib/tenant';
 import { formatCurrency, cn } from '../lib/utils';
 import { Transaction, PeopleCountEvent, Alert, ImportBatch } from '../types';
 import { format, parseISO } from 'date-fns';
+import { SignedEvidenceImg } from '../components/SignedEvidenceImg';
 
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -270,9 +271,12 @@ function EvidenceFeed({ events }: { events: import('../types').PeopleCountEvent[
                 style={{ width: 160, border: '1px solid var(--color-border)', background: 'var(--color-surface-alt)' }}>
                 {/* Thumbnail */}
                 <div className="relative" style={{ height: 100 }}>
-                  <img src={ev.evidenceUrl} alt=""
+                  <SignedEvidenceImg
+                    evidenceRef={ev.evidenceUrl}
+                    alt=""
                     className="w-full h-full object-cover"
-                    loading="lazy" />
+                    loading="lazy"
+                  />
                   {/* Badge entrada/saída */}
                   <span className="absolute top-1.5 left-1.5 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold"
                     style={{
@@ -332,8 +336,12 @@ function EvidenceFeed({ events }: { events: import('../types').PeopleCountEvent[
               </div>
 
               {/* Imagem */}
-              <img src={lightbox.evidenceUrl} alt="evidência"
-                className="w-full" style={{ maxHeight: '60vh', objectFit: 'contain', background: '#000' }} />
+              <SignedEvidenceImg
+                evidenceRef={lightbox.evidenceUrl}
+                alt="evidência"
+                className="w-full"
+                style={{ maxHeight: '60vh', objectFit: 'contain', background: '#000' }}
+              />
 
               {/* Metadados */}
               <div className="px-5 py-4 grid grid-cols-3 gap-4">

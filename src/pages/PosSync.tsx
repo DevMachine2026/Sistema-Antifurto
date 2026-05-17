@@ -8,6 +8,7 @@ import {
   ArrowRight, Shield,
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
+import { SignedEvidenceImg } from '../components/SignedEvidenceImg';
 import { PosTimelineRow, PosSyncStatus } from '../types';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -105,7 +106,7 @@ function Thumbnail({ url, alt, onClick }: { url?: string; alt: string; onClick: 
       onClick={onClick}
       className="relative w-16 h-12 rounded overflow-hidden flex-shrink-0 group border border-zinc-700 hover:border-primary transition-colors"
     >
-      <img src={url} alt={alt} className="w-full h-full object-cover" />
+      <SignedEvidenceImg evidenceRef={url} alt={alt} className="w-full h-full object-cover" />
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
         <ZoomIn size={12} className="text-white" />
       </div>
@@ -142,7 +143,11 @@ function Lightbox({ row, onClose }: { row: PosTimelineRow; onClose: () => void }
         >
           {/* image */}
           {row.evidenceUrl ? (
-            <img src={row.evidenceUrl} alt="evidência" className="w-full max-h-96 object-contain bg-black" />
+            <SignedEvidenceImg
+              evidenceRef={row.evidenceUrl}
+              alt="evidência"
+              className="w-full max-h-96 object-contain bg-black"
+            />
           ) : (
             <div className="w-full h-48 bg-zinc-800 flex flex-col items-center justify-center gap-2 text-zinc-500">
               <Camera size={32} />

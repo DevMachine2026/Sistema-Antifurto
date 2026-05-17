@@ -29,6 +29,7 @@ interface DiscoveredCamera {
 }
 
 import { getStreamBackendUrl } from '../lib/streamBackend';
+import { evidenceRef } from '../lib/evidenceUrl';
 
 const BACKEND_BRAND_LABELS: Record<string, string> = {
   intelbras: 'Intelbras', hikvision: 'Hikvision', dahua: 'Dahua', generic: 'Genérica',
@@ -98,20 +99,33 @@ function CameraCard({ cam, onDelete }: { cam: Camera; onDelete: () => void }) {
   const [lastEvidence, setLastEvidence] = useState<{ url: string; at: string } | null>(null);
 
   useEffect(() => {
+    const isCash = cam.cameraType === 'cash_register';
+    const table = isCash ? 'cash_payment_events' : 'people_count_events';
+    const timeCol = isCash ? 'detected_at' : 'recorded_at';
+
     supabase
-      .from('people_count_events')
-      .select('evidence_url, recorded_at')
+      .from(table)
+      .select(`evidence_storage_path, evidence_url, ${timeCol}`)
+      .eq('establishment_id', cam.establishmentId)
       .eq('camera_id', cam.cameraId)
-      .not('evidence_url', 'is', null)
-      .order('recorded_at', { ascending: false })
+      .or('evidence_storage_path.not.is.null,evidence_url.not.is.null')
+      .order(timeCol, { ascending: false })
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.evidence_url) {
-          setLastEvidence({ url: data.evidence_url as string, at: data.recorded_at as string });
+        if (!data) return;
+        const ref = evidenceRef(
+          data.evidence_storage_path as string | null,
+          data.evidence_url as string | null,
+        );
+        if (ref) {
+          setLastEvidence({
+            url: ref,
+            at: (data[timeCol] as string) ?? '',
+          });
         }
       });
-  }, [cam.cameraId]);
+  }, [cam.cameraId, cam.cameraType, cam.establishmentId]);
   const brandLabel: Record<CameraBrand, string> = {
     intelbras: 'Intelbras', hikvision: 'Hikvision', dahua: 'Dahua', generic: t('cameras.brandGeneric'),
   };

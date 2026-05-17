@@ -150,8 +150,7 @@ Deno.serve(async (req) => {
           .from('evidence')
           .upload(storagePath, imgBytes, { contentType: 'image/jpeg', upsert: true });
         if (!upErr) {
-          const { data: pub } = supabase.storage.from('evidence').getPublicUrl(storagePath);
-          evidenceUrl = pub.publicUrl ?? null;
+          evidenceUrl = storagePath;
         } else {
           console.warn('cash evidence upload failed:', upErr.message);
         }
@@ -166,7 +165,7 @@ Deno.serve(async (req) => {
       camera_id:          cameraId,
       detected_at:        detectedAt,
       window_minutes:     windowMin,
-      ...(evidenceUrl && { evidence_url: evidenceUrl }),
+      ...(evidenceUrl && { evidence_storage_path: evidenceUrl, evidence_url: evidenceUrl }),
     });
 
     if (error) throw error;

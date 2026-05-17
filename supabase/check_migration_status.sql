@@ -61,4 +61,15 @@ SELECT 'run_fraud_rules has R05', (
   WHERE ns.nspname = 'public' AND p.proname = 'run_fraud_rules'
   LIMIT 1
 )
+UNION ALL
+SELECT 'evidence_storage_path (people_count)', EXISTS (
+  SELECT 1 FROM information_schema.columns
+  WHERE table_schema = 'public' AND table_name = 'people_count_events'
+    AND column_name = 'evidence_storage_path'
+)
+UNION ALL
+SELECT 'policy tenant_evidence_select (storage)', EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'tenant_evidence_select'
+)
 ORDER BY item;

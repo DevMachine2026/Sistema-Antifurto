@@ -3,6 +3,7 @@ import Hls from 'hls.js';
 import { Camera as CameraIcon } from 'lucide-react';
 import { Camera } from '../types';
 import { getStreamBackendUrl } from '../lib/streamBackend';
+import { useSignedEvidenceUrl } from '../hooks/useSignedEvidenceUrl';
 
 type PlayerState = 'loading' | 'hls' | 'snapshot' | 'error' | 'offline' | 'evidence';
 
@@ -22,6 +23,7 @@ export function CameraPlayer({ cameraId, ip, status, height, lastEvidenceUrl, la
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const streamBackend = getStreamBackendUrl();
+  const signedEvidenceUrl = useSignedEvidenceUrl(lastEvidenceUrl);
 
   const [playerState, setPlayerState] = useState<PlayerState>(() => {
     if (status !== 'online' || !ip) return 'offline';
@@ -138,10 +140,17 @@ export function CameraPlayer({ cameraId, ip, status, height, lastEvidenceUrl, la
 
   function EvidenceFrame({ subtitle }: { subtitle?: string }) {
     if (!lastEvidenceUrl) return null;
+    if (!signedEvidenceUrl) {
+      return (
+        <div style={containerStyle}>
+          <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+        </div>
+      );
+    }
     return (
       <div style={containerStyle}>
         <img
-          src={lastEvidenceUrl}
+          src={signedEvidenceUrl}
           alt="último frame capturado"
           style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.75 }}
         />

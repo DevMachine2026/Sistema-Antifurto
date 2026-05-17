@@ -24,7 +24,8 @@ export interface PeopleCountEvent {
   countOut: number;
   peopleInside: number;
   recordedAt: string;
-  evidenceUrl?: string;  // URL pública do frame capturado no momento da detecção
+  /** Path no Storage ou URL legada — resolver com signEvidenceRef / SignedEvidenceImg */
+  evidenceUrl?: string;
 }
 
 export type AlertType =

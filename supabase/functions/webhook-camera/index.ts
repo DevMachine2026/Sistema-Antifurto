@@ -174,8 +174,7 @@ Deno.serve(async (req) => {
           .from('evidence')
           .upload(fileName, bytes, { contentType: 'image/jpeg', upsert: false });
         if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage.from('evidence').getPublicUrl(fileName);
-          evidenceUrl = publicUrl;
+          evidenceUrl = fileName;
         }
       } catch { /* falha de upload não impede o evento */ }
     }
@@ -188,7 +187,7 @@ Deno.serve(async (req) => {
       count_out:    countOut,
       people_inside: peopleInside,
       recorded_at:  recordedAt,
-      ...(evidenceUrl ? { evidence_url: evidenceUrl } : {}),
+      ...(evidenceUrl ? { evidence_storage_path: evidenceUrl, evidence_url: evidenceUrl } : {}),
     });
 
     if (error) throw error;

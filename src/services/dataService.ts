@@ -10,6 +10,7 @@ import {
 } from '../types';
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
+import { evidenceRef } from '../lib/evidenceUrl';
 import { notificationService } from './notificationService';
 
 class DataService {
@@ -58,7 +59,10 @@ class DataService {
       countOut: row.count_out,
       peopleInside: row.people_inside,
       recordedAt: row.recorded_at,
-      evidenceUrl: (row.evidence_url as string) ?? undefined,
+      evidenceUrl: evidenceRef(
+        row.evidence_storage_path as string | null,
+        row.evidence_url as string | null,
+      ) ?? undefined,
     }));
   }
 
@@ -215,7 +219,7 @@ class DataService {
       cashEventId: row.cash_event_id ?? undefined,
       cashDetectedAt: row.cash_detected_at ?? undefined,
       cameraId: row.camera_id ?? undefined,
-      evidenceUrl: row.evidence_url ?? undefined,
+      evidenceUrl: evidenceRef(row.evidence_storage_path, row.evidence_url) ?? undefined,
       timeDiffSeconds: row.time_diff_seconds ?? undefined,
       syncStatus: row.sync_status,
     }));
