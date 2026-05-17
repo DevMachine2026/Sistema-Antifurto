@@ -108,35 +108,24 @@ export default function InstallAgentFlow({
           </>
         )}
 
-        {isUnix && (
-          <>
-            <div
-              className="rounded-xl px-4 py-4 text-left space-y-2"
-              style={{ background: 'rgba(34,197,94,0.07)', border: '1px solid rgba(34,197,94,0.2)' }}
-            >
-              <p className="text-sm font-bold text-text">
-                Abra o <span style={{ color: 'var(--color-success)' }}>Terminal</span> e execute:
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <code
-                  className="flex-1 text-[11px] break-all font-mono px-3 py-2 rounded-lg"
-                  style={{ background: 'rgba(0,0,0,0.25)', color: 'var(--color-text)' }}
-                >
-                  {runCommand}
-                </code>
-                <button
-                  type="button"
-                  onClick={copyCommand}
-                  className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg"
-                  style={{ background: 'rgba(79,124,255,0.12)', color: 'var(--color-primary)' }}
-                  title="Copiar comando"
-                >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                </button>
-              </div>
-            </div>
-            <FolderHint filename={filename} />
-          </>
+                {selectedOs === 'linux' && (
+          <UnixInstallDone
+            runCommand={runCommand}
+            copied={copied}
+            onCopy={copyCommand}
+            filename={filename}
+            steps={postInstallSteps('linux')}
+          />
+        )}
+        {selectedOs === 'macos' && (
+          <UnixInstallDone
+            runCommand={runCommand}
+            copied={copied}
+            onCopy={copyCommand}
+            filename={filename}
+            steps={postInstallSteps('macos')}
+            terminalHint="No Mac: Busca (⌘+Espaço) → digite Terminal → Enter"
+          />
         )}
       </div>
     );
@@ -256,8 +245,8 @@ function UnixInstallDone({
           >
             {copied ? <Check size={14} /> : <Copy size={14} />}
           </button>
-        </motionless>
-      </motionless>
+        </div>
+      </div>
       <div
         className="rounded-xl px-4 py-3 text-left space-y-2"
         style={{ background: 'rgba(79,124,255,0.05)', border: '1px solid var(--color-border)' }}
@@ -268,7 +257,7 @@ function UnixInstallDone({
             <span style={{ color: 'var(--color-success)' }}>✓</span> {step}
           </p>
         ))}
-      </motionless>
+      </div>
       <FolderHint filename={filename} />
     </>
   );
