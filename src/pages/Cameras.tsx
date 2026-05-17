@@ -28,7 +28,7 @@ interface DiscoveredCamera {
   model?: string;
 }
 
-const BACKEND = import.meta.env.VITE_API_URL ?? 'http://localhost:3456';
+import { getStreamBackendUrl } from '../lib/streamBackend';
 
 const BACKEND_BRAND_LABELS: Record<string, string> = {
   intelbras: 'Intelbras', hikvision: 'Hikvision', dahua: 'Dahua', generic: 'Genérica',
@@ -455,11 +455,13 @@ function Wizard({ onClose, onDone }: { onClose: () => void; onDone: (cam: Camera
     setDiscoverySource(null);
     if (pollTimerRef.current) clearInterval(pollTimerRef.current);
 
-    // 1. Agente local na mesma máquina (dev / instalação local)
+    // 1. Agente local na mesma máquina (dev / instalação local) — só se VITE_API_URL configurada
+    const backend = getStreamBackendUrl();
     try {
+      if (!backend) throw new Error('stream-backend-disabled');
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(`${BACKEND}/api/cameras/discover`, { signal: ctrl.signal });
+      const res = await fetch(`${backend}/api/cameras/discover`, { signal: ctrl.signal });
       clearTimeout(timer);
       if (res.ok) {
         const data: DiscoveredCamera[] = await res.json();
