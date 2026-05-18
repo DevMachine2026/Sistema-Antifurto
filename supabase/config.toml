@@ -16,3 +16,7 @@ enabled = true
 # agent-* usam Bearer establishment_token — desativar verify JWT no Dashboard ao deployar:
 # agent-config, agent-heartbeat, agent-cameras-found, agent-install
 # download-agent: manter verify JWT ativo
+
+# Cron chama só com x-cron-secret (sem JWT de usuário)
+[functions.evidence-purge]
+verify_jwt = false

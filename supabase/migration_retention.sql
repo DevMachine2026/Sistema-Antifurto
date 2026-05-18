@@ -2,9 +2,10 @@
 -- MIGRATION: Retenção de dados (DB) + suporte a purge de evidências
 -- Aplicar após migration_evidence_private.sql
 --
--- PASSO MANUAL (Dashboard → Edge Functions → Cron):
---   Agendar GET/POST diário em evidence-purge (ex.: 04:00 UTC)
+-- PASSO MANUAL (Integrations → Cron → SQL Snippet + pg_net):
+--   Agendar POST diário em evidence-purge (ex.: 04:00 UTC)
 --   Header: x-cron-secret = valor de CRON_SECRET nos Secrets
+--   Deploy: supabase functions deploy evidence-purge --no-verify-jwt
 --
 -- Variáveis (opcional, defaults abaixo):
 --   people_count_events: 90 dias
