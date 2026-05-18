@@ -7,7 +7,7 @@
  *   3. Câmera (aprovação pelo admin)
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Send, Cpu, Camera, CheckCircle2, Circle, Loader2,
@@ -16,12 +16,22 @@ import {
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
 import { cn } from '../lib/utils';
-import { downloadAgentInstaller } from '../lib/agentInstaller';
+import {
+  type AgentOs,
+  detectInstallerOs,
+  downloadAgentInstaller,
+  osLabel,
+  postInstallSteps,
+} from '../lib/agentInstaller';
 import { ensureDefaultAgent } from '../lib/ensureAgent';
 
 const BOT_USERNAME = 'sistemantifraude_bot';
-const INSTALL_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-install`;
-const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+const OS_OPTIONS: { id: AgentOs; label: string }[] = [
+  { id: 'windows', label: '🪟 Windows' },
+  { id: 'linux', label: '🐧 Linux' },
+  { id: 'macos', label: '🍎 macOS' },
+];
 
 type StepStatus = 'pending' | 'active' | 'done';
 
@@ -35,37 +45,27 @@ interface State {
   cameraApproved: boolean;
 }
 
-async function downloadInstaller(token: string, platform: 'windows' | 'linux') {
-  if (platform === 'windows') {
-    await downloadAgentInstaller(token);
-    return;
-  }
+const POLL_MS = 15_000;
 
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) {
-    throw new Error('Faça login no painel para baixar o instalador.');
-  }
-
-  const res = await fetch(`${INSTALL_URL}?token=${encodeURIComponent(token)}&os=${platform}`, {
-    headers: {
-      apikey: ANON_KEY,
-      Authorization: `Bearer ${session.access_token}`,
-    },
-  });
-  if (!res.ok) throw new Error(await res.text());
-  const blob = await res.blob();
-  const filename = 'instalar-olhovivo.sh';
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
+function stateEquals(a: State, b: State): boolean {
+  const ca = a.cameraCandidate;
+  const cb = b.cameraCandidate;
+  return (
+    a.telegramChatId === b.telegramChatId &&
+    a.webhookToken === b.webhookToken &&
+    a.agentId === b.agentId &&
+    a.agentToken === b.agentToken &&
+    a.agentOnline === b.agentOnline &&
+    a.cameraApproved === b.cameraApproved &&
+    ca?.id === cb?.id &&
+    ca?.ip === cb?.ip &&
+    ca?.name === cb?.name
+  );
 }
 
 export default function Onboarding() {
   const estId = getCurrentEstablishmentId();
-  const [platform, setPlatform] = useState<'windows' | 'linux'>('windows');
+  const [platform, setPlatform] = useState<AgentOs>(() => detectInstallerOs());
   const [downloading, setDownloading] = useState(false);
   const [state, setState] = useState<State>({
     telegramChatId: null,
@@ -77,11 +77,15 @@ export default function Onboarding() {
     cameraApproved: false,
   });
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [approvingCamera, setApprovingCamera] = useState(false);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   // ── carrega dados iniciais ────────────────────────────────────────────────
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setLoading(true);
     const [settingsRes, agentsRes] = await Promise.all([
       supabase.from('settings').select('telegram_chat_id, webhook_token').eq('establishment_id', estId).single(),
       supabase.from('agent_configs').select('id, token').eq('establishment_id', estId).eq('active', true).order('created_at').limit(1),
@@ -114,7 +118,7 @@ export default function Onboarding() {
       }
     }
 
-    setState({
+    const next: State = {
       telegramChatId: settings?.telegram_chat_id ?? null,
       webhookToken: settings?.webhook_token ?? null,
       agentId: agent?.id ?? null,
@@ -122,21 +126,35 @@ export default function Onboarding() {
       agentOnline,
       cameraCandidate,
       cameraApproved,
-    });
-    setLoading(false);
+    };
+    setState((prev) => (stateEquals(prev, next) ? prev : next));
+    if (!silent) setLoading(false);
   }, [estId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
-  // ── polling automático enquanto aguardando ────────────────────────────────
+  // Polling em background — sem spinner na página nem reanimar cards
   useEffect(() => {
-    const allDone = state.telegramChatId && state.agentOnline && state.cameraApproved;
-    if (allDone || loading) return;
-    const interval = setInterval(load, 5000);
+    if (loading) return;
+    const tick = () => {
+      const s = stateRef.current;
+      if (s.telegramChatId && s.agentOnline && s.cameraApproved) return;
+      void load({ silent: true });
+    };
+    const interval = setInterval(tick, POLL_MS);
     return () => clearInterval(interval);
-  }, [state, loading, load]);
+  }, [loading, load]);
 
-  // ── realtime para o Telegram ──────────────────────────────────────────────
+  async function manualRefresh() {
+    setRefreshing(true);
+    try {
+      await load({ silent: true });
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  // ── realtime (Telegram, heartbeat, câmera) — evita depender só do polling ─
   useEffect(() => {
     const ch = supabase
       .channel(`onboarding:settings:${estId}`)
@@ -147,6 +165,21 @@ export default function Onboarding() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [estId]);
+
+  useEffect(() => {
+    const agentId = state.agentId;
+    if (!agentId) return;
+    const ch = supabase
+      .channel(`onboarding:agent:${agentId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'agent_heartbeats', filter: `agent_id=eq.${agentId}` }, () => {
+        void load({ silent: true });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_camera_candidates', filter: `agent_id=eq.${agentId}` }, () => {
+        void load({ silent: true });
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [state.agentId, load]);
 
   // ── aprovação de câmera ───────────────────────────────────────────────────
   async function approveCamera() {
@@ -186,9 +219,19 @@ export default function Onboarding() {
         <div>
           <h2 className="text-2xl font-bold text-text uppercase tracking-tight">Implantação guiada</h2>
           <p className="text-text-dim text-sm mt-1">Siga os 3 passos abaixo — o sistema confirma cada etapa automaticamente.</p>
+          {!allDone && (
+            <p className="text-[10px] text-text-dim mt-2 font-mono">
+              Verificação automática a cada {POLL_MS / 1000}s — a página não recarrega.
+            </p>
+          )}
         </div>
-        <button onClick={load} className="flex items-center gap-1.5 px-3 py-2 rounded text-[10px] font-black uppercase tracking-widest text-text-dim border border-border hover:text-text transition-colors bg-surface">
-          <RefreshCw size={11} />
+        <button
+          type="button"
+          onClick={() => void manualRefresh()}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 px-3 py-2 rounded text-[10px] font-black uppercase tracking-widest text-text-dim border border-border hover:text-text transition-colors bg-surface disabled:opacity-60"
+        >
+          <RefreshCw size={11} className={cn(refreshing && 'animate-spin')} />
           Atualizar
         </button>
       </div>
@@ -262,24 +305,26 @@ export default function Onboarding() {
         ) : step2 === 'active' ? (
           <div className="space-y-4">
             {/* seletor de plataforma */}
-            <div className="flex gap-2">
-              {(['windows', 'linux'] as const).map(p => (
+            <div className="flex flex-wrap gap-2">
+              {OS_OPTIONS.map(({ id, label }) => (
                 <button
-                  key={p}
-                  onClick={() => setPlatform(p)}
-                  className={cn('px-3 py-1.5 rounded text-[12px] font-semibold transition-all border', platform === p ? 'bg-primary text-white border-transparent' : 'bg-surface-alt text-text-dim border-border')}
+                  key={id}
+                  type="button"
+                  onClick={() => setPlatform(id)}
+                  className={cn('px-3 py-1.5 rounded text-[12px] font-semibold transition-all border', platform === id ? 'bg-primary text-white border-transparent' : 'bg-surface-alt text-text-dim border-border')}
                 >
-                  {p === 'windows' ? '🪟 Windows' : '🐧 Linux'}
+                  {label}
                 </button>
               ))}
             </div>
 
             {state.agentToken ? (
               <button
+                type="button"
                 onClick={async () => {
                   setDownloading(true);
                   try {
-                    await downloadInstaller(state.agentToken!, platform);
+                    await downloadAgentInstaller(state.agentToken!, platform);
                   } catch (e) {
                     alert(e instanceof Error ? e.message : 'Erro ao baixar.');
                   } finally {
@@ -291,7 +336,7 @@ export default function Onboarding() {
                 style={{ background: 'var(--color-primary)', boxShadow: '0 4px 20px rgba(79,124,255,0.3)' }}
               >
                 {downloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                {platform === 'windows' ? 'Baixar instalador para Windows' : 'Baixar script para Linux'}
+                {`Baixar instalador para ${osLabel(platform)}`}
               </button>
             ) : (
               <div className="flex items-center gap-2 text-warning text-xs">
@@ -301,16 +346,11 @@ export default function Onboarding() {
 
             <div className="rounded-lg px-4 py-3 space-y-2" style={{ background: 'rgba(79,124,255,0.06)', border: '1px solid rgba(79,124,255,0.12)' }}>
               <p className="text-[10px] font-black uppercase tracking-widest text-primary">Instruções para o cliente</p>
-              {(platform === 'windows' ? [
-                'Baixe e envie o instalador (.exe) por WhatsApp ou e-mail',
-                'Cliente: duplo clique no arquivo e avança no assistente (Avançar)',
-                'Não precisa de ZIP, token em ficheiro nem janela de terminal',
+              {[
+                `Baixe e envie o instalador por WhatsApp ou e-mail (${osLabel(platform)})`,
+                ...postInstallSteps(platform),
                 'Aguardar "Agente Online" ficar verde aqui',
-              ] : [
-                'Baixe e envie o arquivo .sh por e-mail',
-                'Cliente: abre o Terminal e roda o arquivo',
-                'Aguardar "Agente Online" ficar verde aqui',
-              ]).map((s, i) => (
+              ].map((s, i) => (
                 <div key={s} className="flex items-start gap-2">
                   <span className="text-[10px] font-black rounded px-1.5 py-0.5 shrink-0 mt-0.5" style={{ background: 'rgba(79,124,255,0.2)', color: 'var(--color-primary)' }}>{i + 1}</span>
                   <p className="text-[12px] text-text-dim">{s}</p>
@@ -416,9 +456,8 @@ function StepCard({
   const c = colors[status];
 
   return (
-    <motion.div
-      layout
-      className={cn('rounded-xl p-5 space-y-4 transition-all', c.bg, 'border', c.border)}
+    <div
+      className={cn('rounded-xl p-5 space-y-4 transition-colors', c.bg, 'border', c.border)}
     >
       <div className="flex items-start gap-4">
         <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-surface-alt', c.icon)}>
@@ -441,11 +480,7 @@ function StepCard({
         </div>
       </div>
 
-      {status !== 'pending' && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          {children}
-        </motion.div>
-      )}
-    </motion.div>
+      {status !== 'pending' && children}
+    </div>
   );
 }
