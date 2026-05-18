@@ -26,7 +26,7 @@ Quando detecta uma inconsistência, o sistema envia aviso pelo Telegram e/ou Wha
 
 | Aba | Para que serve |
 |---|---|
-| **Dashboard** | Visão geral em tempo real: pessoas no salão, vendas, últimos alertas |
+| **Dashboard** | Visão geral: saúde do sistema, pessoas no salão, vendas, alertas, feed de evidências |
 | **Alertas de Fraude** | Lista de alertas; é aqui que você analisa e registra o que foi feito |
 | **POS × Vídeo** | Cruza cada transação com a imagem da câmera do caixa no momento exato |
 | **Importar Dados** | Envio manual de arquivos da bilheteria (PDF) e da maquineta (CSV) |
@@ -35,8 +35,11 @@ Quando detecta uma inconsistência, o sistema envia aviso pelo Telegram e/ou Wha
 | **Agentes** | Instala o software de monitoramento nos computadores locais |
 | **Simulador Demo** | Testa o fluxo de alerta sem precisar de dados reais |
 | **Trilha Auditoria** | Histórico completo de todas as ações registradas no sistema |
-| **Configurações** | Número de WhatsApp e conta do Telegram para receber alertas |
+| **Configurações** | Telegram, WhatsApp, regras e exportação de dados (LGPD) |
 | **Prontidão** | Checklist automático antes de iniciar a operação |
+| **Implantação** | Onboarding guiado (Telegram, agente, câmera) |
+
+Use **Modo Operação** no menu (padrão) para telas essenciais; **Modo Avançado** expõe simulador e opções técnicas.
 
 ---
 
@@ -223,11 +226,7 @@ Quando a câmera suporta envio direto de People Counting via webhook (sem agente
 
 Função: identificar quando alguém manuseia cédulas no caixa sem lançamento correspondente.
 
-**Equipamento necessário:**
-- 1 câmera apontada para a área do caixa ou bilheteria
-- Raspberry Pi 4 com modelo de visão computacional (fornecido ou configurado pela Dev Machine)
-
-O Raspberry Pi processa as imagens localmente e envia o evento automaticamente. Detecções com nível de certeza abaixo de 70% são descartadas para evitar falsos positivos.
+**Equipamento:** 1 câmera apontada para o caixa, processada pelo **Agente Olho Vivo** no PC do estabelecimento (mesmo instalador das câmeras de contagem). O agente mantém buffer de frames e envia evidência junto ao evento.
 
 ---
 

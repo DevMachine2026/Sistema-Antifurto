@@ -50,11 +50,11 @@ Para câmeras do caixa, o `CashMonitor` mantém um ring-buffer dos últimos 60 s
 
 As Edge Functions recebem os webhooks do agente (e de câmeras IP com firmware próprio):
 
-- **`webhook-camera`**: valida, deduplica por hash SHA-256, faz upload do JPEG para o bucket `evidence` no Supabase Storage, grava URL em `people_count_events.evidence_url`.
-- **`webhook-cash`**: idem para eventos de caixa, grava em `cash_payment_events.evidence_url`.
+- **`webhook-camera`**: valida, deduplica por hash SHA-256, faz upload do JPEG para o bucket privado `evidence`, grava `evidence_storage_path` em `people_count_events`.
+- **`webhook-cash`**: idem para eventos de caixa em `cash_payment_events`.
 - **`webhook-st-ingressos`**: recebe vendas da bilheteria em tempo real.
 
-Todos os webhooks têm rate limiting por IP e autenticação por Bearer token (rotacionável no painel).
+Todos os webhooks têm rate limiting (Upstash Redis quando configurado, fallback em memória), módulos compartilhados em `supabase/functions/_shared/` e autenticação por Bearer token (webhook ou agente).
 
 ### Etapa 4 — Motor de regras antifraude
 
@@ -75,7 +75,7 @@ Quando uma regra dispara, o alerta é gravado no banco e as notificações são 
 O gestor abre o painel web e tem acesso a quatro níveis de investigação, do mais simples ao mais profundo:
 
 **Nível 1 — Dashboard**
-Visão executiva: pessoas no salão agora, total de vendas, gap financeiro, alertas ativos, gráfico Vendas × Pessoas por hora.
+Visão executiva: pessoas no salão agora, total de vendas, gap financeiro, alertas ativos, gráfico Vendas × Pessoas por hora, card **Saúde do sistema** (notificações, agente, contagem, alertas) e feed de evidências com URL assinada.
 
 **Nível 2 — Alertas**
 Central de alertas com filtros, histórico de resoluções e auditoria de quem resolveu cada ocorrência.
@@ -108,7 +108,7 @@ Cada linha da timeline exibe thumbnail da câmera, horário, valor, método, ope
 | **Agentes** | Menu → Agentes | Gestão do agente local: status, câmeras descobertas, aprovação |
 | **Importar Dados** | Menu → Importar | Upload de PDF (ST Ingressos) e CSV (PagBank) |
 | **Integrações** | Menu → Integrações | URLs de webhook, token, status de cada fonte |
-| **Configurações** | Menu → Configurações | Telegram, WhatsApp, regras R01/R02, janela de monitoramento |
+| **Configurações** | Menu → Configurações | Telegram, WhatsApp, regras R01/R02, janela de monitoramento, exportação LGPD (JSON) |
 | **Prontidão** | Menu → Prontidão | Checklist de saúde antes de abrir o estabelecimento |
 | **Trilha de Auditoria** | Menu → Auditoria | Log completo de quem fez o quê e quando |
 | **Simulador** | Menu → Simulador | Gera dados de demo para apresentações |
@@ -129,7 +129,7 @@ Baixa `OlhoVivoSetup_TOKEN_<uuid>.exe`. Duplo clique → Avançar → Concluir. 
 ```
 %LocalAppData%\Programs\Olho Vivo\   ← binários + yolov8n.onnx
 %LOCALAPPDATA%\OlhoVivoAgent\
-├── .olhovivo.env                     ← token + SUPABASE_ANON_KEY (auto-gerado)
+├── .olhovivo.env                     ← token + SUPABASE_URL + SUPABASE_ANON_KEY (auto-gerado)
 ├── agente.log                        ← logs de operação
 └── queue.db                          ← fila offline SQLite
 ```
@@ -151,7 +151,7 @@ O script baixa o binário PyInstaller do GitHub Release, grava `.olhovivo.env` c
 ```
 Linux:   ~/.local/share/OlhoVivoAgent/
 macOS:   ~/Library/Application Support/OlhoVivoAgent/
-├── .olhovivo.env   ← token + SUPABASE_ANON_KEY
+├── .olhovivo.env   ← token + SUPABASE_URL + SUPABASE_ANON_KEY
 ├── agente.log
 └── queue.db
 ```
@@ -200,37 +200,44 @@ Linux e macOS dependem de `build-windows` para garantir que o release já exista
 
 As regras rodam em PostgreSQL puro via função `run_fraud_rules(p_establishment_id uuid)`, chamada automaticamente após cada webhook de ingestão. Isso garante que nunca haja lag entre a chegada de um evento e a avaliação de fraude — independente de qual cliente/estabelecimento enviou.
 
-Cada regra usa janelas de tempo configuráveis, lidas da tabela `settings` do estabelecimento. Os alertas gerados são inseridos na tabela `alerts` e propagados via `dispatchAlertNotifications()` (inlined nas Edge Functions para evitar dependências externas no deploy via dashboard).
+Cada regra usa janelas de tempo configuráveis, lidas da tabela `settings` do estabelecimento. Os alertas gerados são inseridos na tabela `alerts` e propagados via `_shared/notify.ts` (Telegram/WhatsApp com retry).
 
 ---
 
 ## Banco de dados — migrações em ordem
 
-Execute no Supabase SQL Editor na sequência documentada em [`supabase/MIGRATIONS_ORDER.txt`](supabase/MIGRATIONS_ORDER.txt) (inclui `migration_people_count_fix`, `migration_cameras`, `migration_realtime` e `migration_platform_admin_scope` após o RBAC).
+Execute na sequência de [`supabase/MIGRATIONS_ORDER.txt`](supabase/MIGRATIONS_ORDER.txt) (23 migrações até `migration_export_tenant.sql`). Em produção já migrada, use [`supabase/check_migration_status.sql`](supabase/check_migration_status.sql) e aplique só o que faltar. **Não** rode `schema.sql` inteiro de novo em banco existente.
 
 ---
 
 ## Edge Functions — deploy
 
 ```bash
-# Todas as funções (substituir SEU_REF)
+# Substituir SEU_REF (ex.: uoxcwvjtsebwmbsmyszj)
 for fn in webhook-camera webhook-cash webhook-st-ingressos \
            agent-config agent-heartbeat agent-cameras-found \
-           agent-install download-agent \
+           agent-install download-agent evidence-purge \
            send-telegram send-whatsapp telegram-connect; do
-  npx supabase functions deploy $fn --project-ref SEU_REF
+  supabase functions deploy $fn --project-ref SEU_REF
 done
+
+# evidence-purge: autenticação só por x-cron-secret (cron pg_net)
+supabase functions deploy evidence-purge --no-verify-jwt --project-ref SEU_REF
 ```
 
-**JWT:**
-- `download-agent`: manter "Verify JWT" **ativo**
-- `agent-config`, `agent-heartbeat`, `agent-cameras-found`: **desativar** "Verify JWT" (usam token próprio)
+**JWT (Verify JWT no Dashboard):**
+- **Ativo:** `download-agent`
+- **Desativado:** `agent-config`, `agent-heartbeat`, `agent-cameras-found`, `agent-install`, `evidence-purge`
 
-**Secrets:**
+**Secrets (exemplos):**
 ```bash
 supabase secrets set TELEGRAM_BOT_TOKEN=SEU_TOKEN --project-ref SEU_REF
-supabase secrets set GITHUB_AGENT_INSTALLER_URL="https://github.com/.../OlhoVivoSetup.exe" --project-ref SEU_REF
+supabase secrets set CRON_SECRET=senha-longa-aleatoria --project-ref SEU_REF
+supabase secrets set UPSTASH_REDIS_REST_URL=... --project-ref SEU_REF   # opcional: rate limit distribuído
+supabase secrets set UPSTASH_REDIS_REST_TOKEN=... --project-ref SEU_REF
 ```
+
+**Cron `evidence-purge`:** Integrations → Cron → job diário (`0 4 * * *`) com SQL `net.http_post` e header `x-cron-secret`. Ver [`RUNBOOK_INCIDENTES.md`](RUNBOOK_INCIDENTES.md).
 
 Registrar webhook do bot Telegram: Painel Admin → **Bot Telegram → Registrar Webhook**.
 
@@ -251,7 +258,7 @@ npm run dev             # http://localhost:3000
 ```bash
 export ESTABLISHMENT_TOKEN="uuid-do-agente"
 export SUPABASE_ANON_KEY="chave-anon-public-do-supabase"
-export SUPABASE_URL="https://SEU_REF.supabase.co"  # opcional
+export SUPABASE_URL="https://SEU_REF.supabase.co"  # obrigatório (ou em .olhovivo.env)
 cd agent && pip install -r requirements.txt
 python main.py
 ```
@@ -275,7 +282,8 @@ WHERE user_id = (SELECT id FROM auth.users WHERE email = 'seu@email.com');
 | Gráficos | Recharts |
 | Parsers | pdfjs-dist (PDF) + papaparse (CSV) |
 | Banco / Auth | Supabase — PostgreSQL + Auth + RLS + Edge Functions (Deno) |
-| Armazenamento de evidências | Supabase Storage (bucket `evidence`, público) |
+| Armazenamento de evidências | Supabase Storage (bucket `evidence`, privado + signed URL no painel) |
+| CI | GitHub Actions — lint, build, testes front e agente (`.github/workflows/ci.yml`) |
 | Agente IA | Python 3.11 + YOLOv8-nano (ONNX Runtime) + OpenCV + HTTPX |
 | Empacotamento Windows | PyInstaller (sem console, onedir) + Inno Setup |
 | Empacotamento Linux/macOS | PyInstaller (onedir) → `tar.gz` + script `.sh` gerado pela edge function |
@@ -311,14 +319,18 @@ src/
 │   ├── Guide.tsx             ← guia operacional in-app
 │   ├── AdminPanel.tsx        ← painel platform_admin
 │   ├── Onboarding.tsx        ← fluxo de onboarding guiado
-│   └── Install.tsx           ← download do agente Windows
-├── components/layout/
-│   ├── Shell.tsx             ← shell do comerciante com navegação
-│   └── AdminShell.tsx        ← shell do admin da plataforma
+│   └── Install.tsx           ← download do agente (multi-OS)
+├── components/
+│   ├── SystemHealthCard.tsx  ← saúde: notif, agente, pessoas, alertas
+│   └── layout/
+│       ├── Shell.tsx         ← shell do comerciante (modo Operação/Avançado)
+│       └── AdminShell.tsx    ← shell do admin da plataforma
 ├── lib/
 │   ├── supabase.ts
 │   ├── tenant.ts             ← isolamento multi-tenant por establishment_id
-│   └── authInput.ts
+│   ├── operationMode.ts      ← Operação vs Avançado (localStorage)
+│   ├── alertHumanLabels.ts   ← títulos legíveis nos alertas
+│   └── debounce.ts
 └── services/
     ├── dataService.ts        ← CRUD + getPosTimeline() + getPeopleCount() + ...
     ├── notificationService.ts
@@ -337,12 +349,14 @@ agent/
 ├── models.py                 ← dataclasses: Camera, CountEvent, AgentConfig
 ├── olhovivo-agent.spec       ← PyInstaller spec (sem console, onedir)
 ├── olhovivo-setup.iss        ← Inno Setup → OlhoVivoSetup.exe
-└── tests/                    ← pytest: 52 testes
+└── tests/                    ← pytest (~59 testes)
 
 supabase/
-├── schema.sql
-├── migration_*.sql           ← 15 migrações em ordem numerada acima
+├── schema.sql                ← só ambiente novo; ver aviso no arquivo
+├── migration_*.sql           ← ver MIGRATIONS_ORDER.txt (#1–23)
+├── check_migration_status.sql
 └── functions/
+    ├── _shared/              ← notify, rateLimit, webhookAuth, log, evidenceLimits
     ├── webhook-camera/       ← ingestão de contagem + upload de evidência
     ├── webhook-cash/         ← ingestão de espécie + upload de evidência
     ├── webhook-st-ingressos/ ← ingestão de vendas da bilheteria
@@ -351,8 +365,9 @@ supabase/
     ├── agent-cameras-found/  ← câmeras descobertas pelo scanner
     ├── agent-install/        ← geração de link de instalação
     ├── download-agent/       ← proxy autenticado para o instalador .exe
+    ├── evidence-purge/       ← purge Storage por retenção (cron + CRON_SECRET)
     ├── send-telegram/        ← envio de mensagem via bot Telegram
-    ├── send-whatsapp/        ← envio de mensagem via WhatsApp
+    ├── send-whatsapp/       ← envio de mensagem via WhatsApp
     └── telegram-connect/     ← registro do webhook do bot Telegram
 ```
 
@@ -380,6 +395,9 @@ supabase/
 | **Descoberta automática de câmeras (ONVIF + ARP)** | ✅ |
 | **Suporte a DVRs — detecção automática de canais e credenciais** | ✅ |
 | **Evidências visuais — frame capturado no evento + EvidenceFeed no Dashboard** | ✅ |
+| **Retenção LGPD — purge DB (pg_cron) + Storage (`evidence-purge`)** | ✅ |
+| **Exportação de dados do estabelecimento (JSON)** | ✅ |
+| **Modo Operação / Avançado + card Saúde do sistema** | ✅ |
 | **POS × Vídeo — timeline transação ↔ câmera do caixa** | ✅ |
 | **Build automático do instalador Windows (PyInstaller + Inno + GitHub Actions)** | ✅ |
 | **Instalador Linux — script .sh + systemd (PyInstaller + GitHub Actions)** | ✅ |
@@ -395,10 +413,12 @@ supabase/
 
 | Arquivo | Conteúdo |
 |---|---|
-| [`MANUAL_IMPLANTACAO_RESTAURANTE.md`](MANUAL_IMPLANTACAO_RESTAURANTE.md) | Guia para o dono do estabelecimento: instalação Windows/Linux/macOS, câmeras, POS×Vídeo |
+| [`MANUAL_IMPLANTACAO_RESTAURANTE.md`](MANUAL_IMPLANTACAO_RESTAURANTE.md) | Guia para o dono/gestor: instalação, câmeras, painel, problemas comuns |
 | [`RUNBOOK_INCIDENTES.md`](RUNBOOK_INCIDENTES.md) | Diagnóstico e resolução de incidentes em produção |
+| [`src/GUIDE.md`](src/GUIDE.md) | Guia de operação embutido no app (aba Guia) |
+| [`docs/YOLO_O_QUE_E.md`](docs/YOLO_O_QUE_E.md) | Por que usamos YOLO e não LLM para visão |
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | CI: lint, build, testes |
 | [`.github/workflows/agent-release.yml`](.github/workflows/agent-release.yml) | Release automático na tag `agent-v*` |
-| [`.github/workflows/build-agent.yml`](.github/workflows/build-agent.yml) | Build manual sem release (`workflow_dispatch`) |
 
 ---
 

@@ -140,12 +140,15 @@ Antes de confirmar, o sistema mostra um preview com total de linhas e possíveis
 
 A primeira tela que você abre. Mostra em tempo real:
 
+- **Saúde do sistema** — semáforo: Telegram/WhatsApp, agente online, contagem recente, alertas abertos (com atalho para corrigir)
 - Total de pessoas no salão agora
 - Total de vendas ST Ingressos e PagBank
 - Gap financeiro (diferença entre as duas fontes)
 - Alertas ativos (vermelho = não resolvidos)
 - Gráfico de Vendas × Pessoas por hora
 - **Feed de Evidências Visuais**: faixa com fotos tiradas no momento de cada entrada/saída detectada
+
+No menu, use **Modo Operação** (padrão, mais simples) ou **Modo Avançado** (simulador, telas técnicas) — alternância no rodapé do menu lateral.
 
 **Como usar o Feed de Evidências:**
 Role a faixa horizontalmente para ver os eventos mais recentes. Clique em qualquer foto para abrir em tela cheia com todos os detalhes: hora exata, câmera, direção (entrada ou saída), contagem acumulada e quantas pessoas estavam no local naquele momento.
@@ -208,6 +211,7 @@ Acesse **Menu → Configurações** para:
 | **Regra R01** | Quantas pessoas no salão ativam o alerta + janela de tempo sem vendas |
 | **Regra R02** | A partir de qual diferença financeira o alerta dispara |
 | **Horário de monitoramento** | Defina o horário de funcionamento (ex: 18h às 04h) |
+| **Privacidade (LGPD)** | Baixar meus dados em JSON (exportação do estabelecimento) |
 
 ---
 
@@ -239,7 +243,7 @@ O agente grava seus arquivos em pastas específicas por sistema operacional:
 | Arquivo | Para que serve |
 |---|---|
 | `agente.log` | Registro de tudo que o agente fez — útil para suporte |
-| `.olhovivo.env` | Configuração interna com o token (não edite) |
+| `.olhovivo.env` | Configuração interna (token, URL do Supabase, chave anon) — não edite, salvo orientação do suporte |
 | `queue.db` | Fila de eventos para quando a internet cair |
 
 **Não apague** esses arquivos sem orientação do suporte.
@@ -279,10 +283,11 @@ A pasta de dados (`OlhoVivoAgent`) pode permanecer em todos os sistemas — apag
 | Agente não aparece Online | Verifique internet e firewall. Consulte `agente.log` na pasta de dados |
 | Script `.sh` recusa executar (`permission denied`) | Execute com `bash` na frente: `bash ~/Downloads/OlhoVivoSetup_TOKEN_*.sh` |
 | Linux: agente não inicia com o sistema | Verifique se `loginctl enable-linger $USER` está ativo para serviços systemd sem sessão gráfica |
-| `agente.log` mostra `401 Unauthorized` | Problema com a chave de autenticação — entre em contato com o suporte |
+| `agente.log` mostra `401 Unauthorized` | Problema com token ou `SUPABASE_ANON_KEY` — entre em contato com o suporte |
+| `agente.log` mostra `SUPABASE_URL não definida` | Adicione `SUPABASE_URL=https://SEU_PROJETO.supabase.co` no `.olhovivo.env` (Windows: `%LOCALAPPDATA%\OlhoVivoAgent\`) e reinicie o agente |
 | Câmeras não aparecem na aba Câmeras | PC e câmeras precisam estar na mesma rede local (LAN). Aguarde 2 a 3 minutos após o agente ficar Online. Se não aparecer, a câmera pode não ter ONVIF — use **Adicionar manualmente** |
-| Feed de evidências vazio | Confirme que o agente está atualizado e que o bucket `evidence` existe no Supabase |
-| Fotos não carregam no lightbox | O bucket `evidence` no Supabase precisa estar configurado como **público** |
+| Feed de evidências vazio | Confirme que o agente está atualizado e online; verifique se eventos chegam em **Integrações** |
+| Fotos não carregam no lightbox | Aguarde alguns segundos (URL assinada); se persistir, suporte verifica bucket `evidence` e políticas de Storage |
 | DVR aparece sem canais | Clique em **Configurar DVR**, preencha manualmente usuário, senha e quantidade de canais |
 | DVR aprovado mas não conta | Confirme que os canais do DVR têm stream RTSP ativo no firmware |
 | POS × Vídeo não mostra fotos | A câmera do caixa precisa estar com o `CashMonitor` ativo (agente atualizado) |
@@ -297,7 +302,7 @@ Para rodar o agente diretamente do código-fonte (qualquer SO, útil para testes
 ```bash
 export ESTABLISHMENT_TOKEN="uuid-do-agente"
 export SUPABASE_ANON_KEY="chave-anon-public-do-supabase"
-export SUPABASE_URL="https://SEU_REF.supabase.co"   # opcional
+export SUPABASE_URL="https://SEU_REF.supabase.co"   # obrigatório
 cd agent && pip install -r requirements.txt
 python main.py
 ```

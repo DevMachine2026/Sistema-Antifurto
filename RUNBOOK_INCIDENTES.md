@@ -16,7 +16,7 @@
    - **Ingestão** (`webhook-camera`, `webhook-cash`, `webhook-st-ingressos`)
    - **Notificações** (`send-telegram`, `send-whatsapp`)
    - **Frontend** (Vercel)
-3. Coletar evidências: logs da function com `request_id`, erro retornado, período e tenant afetado
+3. Coletar evidências: logs JSON da function (`request_id`, `event`, `function_name`), erro retornado, período e tenant afetado
 4. Comunicar status inicial
 
 ---
@@ -33,7 +33,8 @@ O merchant verifica o status em **Menu → Agentes**. O platform_admin vê todos
    - **Linux:** `systemctl --user status olhovivo-agent`
    - **macOS:** `launchctl list | grep olhovivo`
 3. **Token / autenticação do agente**
-   - **Windows (instalador):** token em `%LOCALAPPDATA%\OlhoVivoAgent\.olhovivo.env`. Se o cliente renomeou o `.exe`, peça novo download pelo link do painel.
+   - **Windows (instalador):** token e chaves em `%LOCALAPPDATA%\OlhoVivoAgent\.olhovivo.env` (inclui `SUPABASE_URL` após atualização do agente). Se o cliente renomeou o `.exe`, peça novo download pelo link do painel.
+   - Log `SUPABASE_URL não definida` → adicionar linha `SUPABASE_URL=https://SEU_REF.supabase.co` no `.olhovivo.env` e reiniciar o agente.
    - **Linux (instalador):** token em `~/.local/share/OlhoVivoAgent/.olhovivo.env`
    - **macOS (instalador):** token em `~/Library/Application Support/OlhoVivoAgent/.olhovivo.env`
    - **Dev:** conferir `ESTABLISHMENT_TOKEN` no ambiente; copiar da aba **Agentes** se necessário.
@@ -88,8 +89,10 @@ O merchant verifica o status em **Menu → Agentes**. O platform_admin vê todos
 2. **Teste de restore trimestral**
    - Restaurar snapshot em projeto de staging; validar login, uma loja e um agente.
 3. **Storage `evidence`**
-   - Retenção: migration `migration_retention.sql` + Edge Function `evidence-purge` (cron diário).
-   - Secret `CRON_SECRET` + header `x-cron-secret` na chamada agendada.
+   - Retenção: migration `migration_retention.sql` (purge DB via `olhovivo_purge_old_events`) + Edge Function `evidence-purge` (cron `olhovivo_evidence_purge`).
+   - Deploy: `supabase functions deploy evidence-purge --no-verify-jwt` (senão o gateway exige `Authorization` e o cron falha).
+   - Secret `CRON_SECRET` + header `x-cron-secret` no job Cron (Integrations → Cron → SQL Snippet com `net.http_post`).
+   - Teste: `curl -X POST "https://SEU_REF.supabase.co/functions/v1/evidence-purge?est_per_run=5" -H "x-cron-secret: VALOR_DO_SECRET"`.
 4. **Secrets**
    - Exportar lista de nomes (não valores) dos Secrets das Edge Functions para runbook offline.
 
