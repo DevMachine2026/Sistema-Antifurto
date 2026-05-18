@@ -33,6 +33,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "intelligence": "Resumo inteligente",
     "importData": "Importar Dados",
     "fraudAlerts": "Alertas de Fraude",
     "simulator": "Simulador Demo",
@@ -123,6 +124,26 @@
     "justNow": "agora",
     "minutesAgo": "há {{count}} min",
     "hoursAgo": "há {{count}} h"
+  },
+  "ai": {
+    "analystLabel": "Central de inteligência",
+    "dashboardTitle": "Analista antifraude",
+    "analyzing": "Analisando operação…",
+    "investigating": "Gerando parecer de investigação…",
+    "error": "Analista IA indisponível no momento",
+    "recommended": "Ações recomendadas",
+    "cachedHint": "Análise em cache — atualize para dados ao vivo",
+    "executiveCta": "Resumo inteligente do turno",
+    "executiveLabel": "Modo executivo",
+    "executivePageTitle": "Resumo inteligente",
+    "executiveSubtitle": "Visão estratégica da operação em linguagem clara — gerada pelo analista IA.",
+    "executiveSummary": "Resumo executivo",
+    "keyEvents": "Eventos importantes",
+    "criticalHours": "Horários críticos",
+    "suspiciousOperators": "Operadores em atenção",
+    "businessInsights": "Insights de negócio",
+    "investigationTitle": "Parecer do analista",
+    "steps": "Passos sugeridos"
   },
   "adminShell": {
     "adminPlatform": "Admin Plataforma"

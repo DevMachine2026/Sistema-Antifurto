@@ -20,3 +20,6 @@ enabled = true
 # Cron chama só com x-cron-secret (sem JWT de usuário)
 [functions.evidence-purge]
 verify_jwt = false
+
+[functions.ai-analyze]
+verify_jwt = true

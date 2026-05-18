@@ -14,6 +14,7 @@ import { Transaction, PeopleCountEvent, Alert, ImportBatch } from '../types';
 import { format, parseISO } from 'date-fns';
 import { SignedEvidenceImg } from '../components/SignedEvidenceImg';
 import SystemHealthCard from '../components/SystemHealthCard';
+import IntelligencePanel from '../components/ai/IntelligencePanel';
 import { debounce } from '../lib/debounce';
 
 interface DashboardProps {
@@ -130,7 +131,8 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
   return (
     <div className="space-y-6 pb-12">
       <SystemHealthCard onGoTo={onNavigate} />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <IntelligencePanel onGoExecutive={onNavigate ? () => onNavigate('intelligence') : undefined} />
+      <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title={t('dashboard.systemConsumption')}
           value={formatCurrency(transactions.filter(tx => tx.source === 'st_ingressos').reduce((a, tx) => a + tx.amount, 0))}
@@ -152,7 +154,7 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
           value={t('dashboard.people', { count: stats.peopleInside })}
           icon={Users}
         />
-      </div>
+      </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-surface p-5 rounded-lg border border-border shadow-sm">

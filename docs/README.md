@@ -7,5 +7,6 @@
 | [`../RUNBOOK_INCIDENTES.md`](../RUNBOOK_INCIDENTES.md) | Suporte / ops | Incidentes, cron purge, agente offline |
 | [`../src/GUIDE.md`](../src/GUIDE.md) | Operador no app | Renderizado na aba **Guia** do painel |
 | [`YOLO_O_QUE_E.md`](YOLO_O_QUE_E.md) | Comercial / técnico | Por que YOLO e não LLM para contagem |
+| [`AI_ARCHITECTURE.md`](AI_ARCHITECTURE.md) | Analista IA Gemini (Edge, cache, risco) |
 
 Migrações: [`../supabase/MIGRATIONS_ORDER.txt`](../supabase/MIGRATIONS_ORDER.txt) e [`../supabase/check_migration_status.sql`](../supabase/check_migration_status.sql).

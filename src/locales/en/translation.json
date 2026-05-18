@@ -33,6 +33,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "intelligence": "Smart summary",
     "importData": "Import Data",
     "fraudAlerts": "Fraud Alerts",
     "simulator": "Demo Simulator",
@@ -123,6 +124,26 @@
     "justNow": "just now",
     "minutesAgo": "{{count}} min ago",
     "hoursAgo": "{{count}} h ago"
+  },
+  "ai": {
+    "analystLabel": "Intelligence center",
+    "dashboardTitle": "Fraud analyst",
+    "analyzing": "Analyzing operations…",
+    "investigating": "Generating investigation brief…",
+    "error": "AI analyst unavailable",
+    "recommended": "Recommended actions",
+    "cachedHint": "Cached analysis — refresh for live data",
+    "executiveCta": "Smart shift summary",
+    "executiveLabel": "Executive mode",
+    "executivePageTitle": "Smart summary",
+    "executiveSubtitle": "Strategic view of your operation in plain language — powered by the AI analyst.",
+    "executiveSummary": "Executive summary",
+    "keyEvents": "Key events",
+    "criticalHours": "Critical hours",
+    "suspiciousOperators": "Operators flagged",
+    "businessInsights": "Business insights",
+    "investigationTitle": "Analyst brief",
+    "steps": "Suggested steps"
   },
   "adminShell": {
     "adminPlatform": "Platform Admin"

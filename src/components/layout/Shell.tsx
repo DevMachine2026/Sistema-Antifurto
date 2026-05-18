@@ -4,8 +4,8 @@ import { getOperationMode, setOperationMode, isNavVisibleInMode, type OperationM
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard, Upload, AlertTriangle, Settings,
-  Menu, X, BookOpen, FlaskConical, Plug, ClipboardList,
-  ShieldCheck, LogOut, ChevronLeft, Camera, ListChecks, Cpu, Rocket, Link2,
+  Menu, X,   BookOpen, FlaskConical, Plug, ClipboardList,
+  ShieldCheck, LogOut, ChevronLeft, Camera, ListChecks, Cpu, Rocket, Link2, Brain,
 } from 'lucide-react';
 import { dataService } from '../../services/dataService';
 import { cn } from '../../lib/utils';
@@ -24,6 +24,7 @@ interface ShellProps {
 
 const NAV_ITEMS = [
   { id: 'dashboard',    labelKey: 'nav.dashboard',    icon: LayoutDashboard },
+  { id: 'intelligence', labelKey: 'nav.intelligence', icon: Brain },
   { id: 'readiness',    labelKey: 'nav.readiness',    icon: ListChecks },
   { id: 'cameras',      labelKey: 'nav.cameras',      icon: Camera },
   { id: 'agents',       labelKey: 'nav.agents',       icon: Cpu },

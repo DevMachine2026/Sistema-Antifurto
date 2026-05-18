@@ -15,6 +15,7 @@ import {
   getResolutionLabel,
   type QuickResolution,
 } from '../lib/alertHumanLabels';
+import AlertAiBrief from '../components/ai/AlertAiBrief';
 
 export default function AlertsPage({ establishmentName }: { establishmentName?: string }) {
   const { t } = useTranslation();
@@ -172,6 +173,10 @@ function AlertCard({ alert, onResolve, resolving, establishmentName }: AlertCard
           </div>
 
           <p className="text-text-dim text-[13px] leading-relaxed">{humanHint}</p>
+
+          {!alert.resolved && (
+            <AlertAiBrief alertId={alert.id} />
+          )}
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2 text-xs">
             <div className="bg-surface-alt p-3 rounded border border-border">

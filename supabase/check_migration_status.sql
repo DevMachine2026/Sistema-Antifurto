@@ -99,4 +99,9 @@ SELECT 'fn export_establishment_data (LGPD)', EXISTS (
   JOIN pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public' AND p.proname = 'export_establishment_data'
 )
+UNION ALL
+SELECT 'table ai_analyses (Gemini cache)', EXISTS (
+  SELECT 1 FROM information_schema.tables
+  WHERE table_schema = 'public' AND table_name = 'ai_analyses'
+)
 ORDER BY item;

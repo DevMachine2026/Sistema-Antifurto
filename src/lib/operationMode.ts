@@ -5,6 +5,7 @@ const STORAGE_KEY = 'olhovivo_nav_mode';
 
 export const OPERATION_NAV_IDS = [
   'dashboard',
+  'intelligence',
   'readiness',
   'onboarding',
   'cameras',

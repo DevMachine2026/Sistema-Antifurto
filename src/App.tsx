@@ -30,6 +30,7 @@ const Agents = lazy(() => import('./pages/Agents'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const PosSync = lazy(() => import('./pages/PosSync'));
+const ExecutiveSummary = lazy(() => import('./pages/ExecutiveSummary'));
 
 interface AccessContext {
   role: 'platform_admin' | 'merchant_admin';
@@ -168,16 +169,8 @@ export default function App() {
         return <Onboarding />;
       case 'readiness':
         return <Readiness />;
-      case 'analytics':
-        return (
-          <div className="flex flex-col items-center justify-center h-[50vh] text-center space-y-4">
-            <div className="bg-indigo-50 p-6 rounded-full text-indigo-600">
-               <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-construction"><rect x="2" y="18" width="20" height="2"/><path d="M10 13v5"/><path d="M14 13v5"/><path d="M22 18H2"/><path d="m17 13-5-5-5 5"/><path d="m5 13 5-5 5 5"/></svg>
-            </div>
-            <h2 className="text-xl font-bold text-slate-800">{t('app.inDevelopment')}</h2>
-            <p className="text-slate-500 max-w-sm">{t('app.inDevelopmentDesc')}</p>
-          </div>
-        );
+      case 'intelligence':
+        return <ExecutiveSummary />;
       default:
         return <Dashboard />;
     }
