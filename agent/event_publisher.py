@@ -4,6 +4,7 @@ import logging
 import sqlite3
 import datetime
 import threading
+import queue
 import httpx
 from agent.models import CountEvent
 
@@ -33,33 +34,61 @@ class EventPublisher:
         self._db.execute(CREATE_TABLE)
         self._db.commit()
         self._lock = threading.Lock()
+        self._send_q: queue.Queue[str | None] = queue.Queue(maxsize=2000)
+        self._worker = threading.Thread(target=self._send_worker, daemon=True, name="event-publisher")
+        self._worker.start()
+
+    def _persist_offline(self, payload: str) -> None:
+        with self._lock:
+            count = self._db.execute("SELECT COUNT(*) FROM pending_events").fetchone()[0]
+            if count >= self.MAX_QUEUE:
+                self._db.execute(
+                    "DELETE FROM pending_events WHERE id IN "
+                    "(SELECT id FROM pending_events ORDER BY id LIMIT ?)",
+                    (count - self.MAX_QUEUE + 1,),
+                )
+                logger.error("event queue at cap (%d), dropped oldest", self.MAX_QUEUE)
+            self._db.execute(
+                "INSERT INTO pending_events (payload, created_at) VALUES (?, ?)",
+                (payload, datetime.datetime.now(datetime.timezone.utc).isoformat()),
+            )
+            self._db.commit()
+
+    def _post_payload(self, payload: str) -> None:
+        resp = httpx.post(self._url, content=payload, headers=self._headers, timeout=10)
+        resp.raise_for_status()
+        data = json.loads(payload)
+        logger.info(
+            "event sent: camera=%s in=%d out=%d inside=%d",
+            data.get("camera_id"),
+            data.get("count_in"),
+            data.get("count_out"),
+            data.get("people_inside"),
+        )
+
+    def _send_worker(self) -> None:
+        while True:
+            payload = self._send_q.get()
+            if payload is None:
+                break
+            try:
+                self._post_payload(payload)
+            except Exception as exc:
+                logger.warning("event queued (send failed: %s)", exc)
+                try:
+                    self._persist_offline(payload)
+                except Exception as db_exc:
+                    logger.error("failed to queue event (lost): %s", db_exc)
+            finally:
+                self._send_q.task_done()
 
     def publish(self, event: CountEvent) -> None:
         payload = json.dumps(event.to_dict())
         try:
-            resp = httpx.post(self._url, content=payload, headers=self._headers, timeout=10)
-            resp.raise_for_status()
-            logger.info("event sent: camera=%s in=%d out=%d inside=%d",
-                        event.camera_id, event.count_in, event.count_out, event.people_inside)
-        except Exception as exc:
-            logger.warning("event queued (send failed: %s)", exc)
-            with self._lock:
-                count = self._db.execute("SELECT COUNT(*) FROM pending_events").fetchone()[0]
-                if count >= self.MAX_QUEUE:
-                    self._db.execute(
-                        "DELETE FROM pending_events WHERE id IN "
-                        "(SELECT id FROM pending_events ORDER BY id LIMIT ?)",
-                        (count - self.MAX_QUEUE + 1,),
-                    )
-                    logger.error("event queue at cap (%d), dropped oldest", self.MAX_QUEUE)
-                try:
-                    self._db.execute(
-                        "INSERT INTO pending_events (payload, created_at) VALUES (?, ?)",
-                        (payload, datetime.datetime.now(datetime.timezone.utc).isoformat()),
-                    )
-                    self._db.commit()
-                except Exception as db_exc:
-                    logger.error("failed to queue event (lost): %s", db_exc)
+            self._send_q.put_nowait(payload)
+        except queue.Full:
+            logger.error("send queue full — persisting offline camera=%s", event.camera_id)
+            self._persist_offline(payload)
 
     def flush_queue(self) -> None:
         with self._lock:
@@ -96,4 +125,10 @@ class EventPublisher:
             return self._db.execute("SELECT COUNT(*) FROM pending_events").fetchone()[0]
 
     def close(self) -> None:
+        try:
+            self._send_q.put_nowait(None)
+        except queue.Full:
+            pass
+        if self._worker.is_alive():
+            self._worker.join(timeout=5)
         self._db.close()

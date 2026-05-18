@@ -9,7 +9,7 @@ Token (produção Windows):
 Modo desenvolvedor:
   ESTABLISHMENT_TOKEN — variável de ambiente
   token.txt — legado na pasta do agente
-  SUPABASE_URL — sobrescreve a URL padrão (opcional)
+  SUPABASE_URL — obrigatório (URL do projeto Supabase)
   AGENT_VERSION — versão (default: 0.1.0)
   YOLO_MODEL_PATH — modelo YOLO ONNX (default: resolve yolov8n.onnx no bundle PyInstaller)
 """
@@ -24,9 +24,9 @@ from agent.config_sync import ConfigSync
 from agent.scanner import discover_cameras, report_discovered
 from agent.event_publisher import EventPublisher
 from agent.cash_publisher import CashPublisher
-from agent.cash_monitor import start_cash_monitors, stop_all as stop_cash_monitors
-from agent.cash_detector import start_cash_detectors, stop_cash_detectors
+from agent.cash_monitor import start_cash_pipeline, stop_all as stop_cash_pipeline
 from agent.heartbeat import HeartbeatSender
+from agent.version_utils import version_gte
 from agent.people_counter import PeopleCounter
 from agent.models import AgentConfig
 from agent.token_from_name import extract_token_from_executable_name
@@ -34,13 +34,12 @@ from agent.token_from_name import extract_token_from_executable_name
 logger = logging.getLogger("agent.main")
 
 VERSION = os.getenv("AGENT_VERSION", "0.1.0")
-_DEFAULT_SUPABASE_URL = "https://uoxcwvjtsebwmbsmyszj.supabase.co"
-
 _INTERNAL_ENV_NAME = ".olhovivo.env"
 _LOG_FILE_NAME = "agente.log"
 _RUN_VALUE_NAME = "OlhoVivoAgent"
 _SCAN_DONE_FILE = ".scan_done"
 _MIN_SCAN_INTERVAL = 300.0  # seconds between scans triggered by request_scan
+_FLUSH_INTERVAL = 60.0  # drenar fila offline mesmo se heartbeat for 300s
 
 # Shared scanner state
 _last_scan_time: float = 0.0
@@ -127,6 +126,10 @@ def _persist_token_to_internal_env(token: str) -> None:
         with open(path, "w", encoding="utf-8") as f:
             for k, v in existing.items():
                 f.write(f"{k}={v}\n")
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
     except OSError as exc:
         logger.warning("could not persist token to %s: %s", path, exc)
 
@@ -276,6 +279,32 @@ def _launch_scan(configured_ips: set[str], token: str, supabase_url: str, anon_k
     threading.Thread(target=_run, daemon=True, name="camera-scanner").start()
 
 
+def _restart_dead_counters(
+    counters: list[PeopleCounter],
+    config: AgentConfig,
+    on_event,
+) -> None:
+    """Reinicia threads de contagem que morreram (RTSP falhou, exceção não tratada)."""
+    dead = [
+        c for c in counters
+        if c._running and (c._thread is None or not c._thread.is_alive())
+    ]
+    for c in dead:
+        logger.warning("restarting dead people counter: %s", c._camera.id)
+        c.stop()
+        counters.remove(c)
+
+    alive_ids = {c._camera.id for c in counters if c._thread and c._thread.is_alive()}
+    for camera in config.counting_cameras:
+        if camera.id in alive_ids:
+            continue
+        initial = config.camera_states.get(camera.id, 0)
+        counter = PeopleCounter(camera=camera, on_event=on_event, initial_people_inside=initial)
+        counter.start()
+        counters.append(counter)
+        logger.info("people counter restarted: %s", camera.id)
+
+
 def load_token() -> str:
     token = os.getenv("ESTABLISHMENT_TOKEN")
     if token and token.strip():
@@ -316,8 +345,11 @@ def main() -> None:
     if getattr(sys, "frozen", False):
         os.environ.setdefault("YOLO_MODEL_PATH", _frozen_yolo_onnx_path())
 
-    supabase_url = os.getenv("SUPABASE_URL", _DEFAULT_SUPABASE_URL).rstrip("/")
     _internal = _read_internal_env()
+    supabase_url = (os.getenv("SUPABASE_URL") or _internal.get("SUPABASE_URL") or "").strip().rstrip("/")
+    if not supabase_url:
+        logger.error("SUPABASE_URL não definida — configure no .olhovivo.env ou variável de ambiente")
+        sys.exit(1)
     anon_key = os.getenv("SUPABASE_ANON_KEY") or _internal.get("SUPABASE_ANON_KEY", "")
 
     token = load_token()
@@ -330,6 +362,12 @@ def main() -> None:
     sync = ConfigSync(token=token, supabase_url=supabase_url, anon_key=anon_key)
     config: AgentConfig = sync.fetch()
     logger.info("config loaded: agent=%s cameras=%d", config.name, len(config.cameras))
+    if not version_gte(VERSION, config.min_agent_version):
+        logger.error(
+            "agent version %s is below minimum %s — baixe novo instalador no painel Olho Vivo",
+            VERSION,
+            config.min_agent_version,
+        )
 
     # 2. Etapa 4: disparo automático no primeiro boot
     if _is_first_boot():
@@ -343,7 +381,7 @@ def main() -> None:
     queue_path = os.path.join(_writable_data_dir(), "queue.db")
     publisher = EventPublisher(
         webhook_url=f"{supabase_url}/functions/v1/webhook-camera",
-        webhook_token=config.webhook_token,
+        webhook_token=token,
         db_path=queue_path,
         anon_key=anon_key,
     )
@@ -377,7 +415,7 @@ def main() -> None:
     # 5b. Câmeras de caixa: buffer de evidência + detecção de atividade
     cash_publisher = CashPublisher(
         webhook_url=f"{supabase_url}/functions/v1/webhook-cash",
-        webhook_token=config.webhook_token,
+        webhook_token=token,
         db_path=queue_path,
         anon_key=anon_key,
     )
@@ -386,8 +424,7 @@ def main() -> None:
     def _on_cash_event(event) -> None:
         cash_publisher.publish(event)
 
-    start_cash_monitors(config.cameras)
-    start_cash_detectors(config.cash_cameras, on_event=_on_cash_event, window_minutes=window_min)
+    start_cash_pipeline(config.cash_cameras, on_event=_on_cash_event, window_minutes=window_min)
     if config.cash_cameras:
         logger.info("cash pipeline: %d câmera(s) de caixa", len(config.cash_cameras))
     else:
@@ -395,13 +432,25 @@ def main() -> None:
 
     # 6. Loop principal
     heartbeat_interval = config.heartbeat_interval
+    hb_elapsed = 0.0
 
     try:
         while True:
-            time.sleep(heartbeat_interval)
+            tick = min(_FLUSH_INTERVAL, max(1, heartbeat_interval))
+            time.sleep(tick)
+            hb_elapsed += tick
 
             publisher.flush_queue()
             cash_publisher.flush_queue()
+            pending = publisher.queue_size() + cash_publisher.queue_size()
+            if pending:
+                logger.info("offline queue pending: %d events", pending)
+
+            _restart_dead_counters(counters, config, publisher.publish)
+
+            if hb_elapsed < heartbeat_interval:
+                continue
+            hb_elapsed = 0.0
 
             last_inference = max(
                 (c.last_inference for c in counters if c.last_inference),
@@ -419,27 +468,24 @@ def main() -> None:
                     for c in counters:
                         c.stop()
                     counters.clear()
-                    stop_cash_detectors()
-                    stop_cash_monitors()
+                    stop_cash_pipeline()
                     cash_publisher.close()
                     config = new_config
-                    # Re-create publisher with new webhook_token
                     publisher.close()
                     publisher = EventPublisher(
                         webhook_url=f"{supabase_url}/functions/v1/webhook-camera",
-                        webhook_token=config.webhook_token,
+                        webhook_token=token,
                         db_path=queue_path,
                         anon_key=anon_key,
                     )
                     cash_publisher = CashPublisher(
                         webhook_url=f"{supabase_url}/functions/v1/webhook-cash",
-                        webhook_token=config.webhook_token,
+                        webhook_token=token,
                         db_path=queue_path,
                         anon_key=anon_key,
                     )
                     window_min = int(config.thresholds.get("cash_window_minutes", 15))
-                    start_cash_monitors(config.cameras)
-                    start_cash_detectors(
+                    start_cash_pipeline(
                         config.cash_cameras,
                         on_event=cash_publisher.publish,
                         window_minutes=window_min,
@@ -478,8 +524,7 @@ def main() -> None:
         logger.info("agent stopping")
         for c in counters:
             c.stop()
-        stop_cash_detectors()
-        stop_cash_monitors()
+        stop_cash_pipeline()
         publisher.close()
         cash_publisher.close()
 

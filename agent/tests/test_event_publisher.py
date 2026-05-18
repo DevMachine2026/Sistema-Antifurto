@@ -1,8 +1,16 @@
 # agent/tests/test_event_publisher.py
-import datetime, json, pytest
+import datetime
+import json
+import time
+
+import pytest
 from unittest.mock import MagicMock
 from agent.event_publisher import EventPublisher
 from agent.models import CountEvent
+
+
+def _wait_worker():
+    time.sleep(0.15)
 
 def make_event():
     return CountEvent(
@@ -20,9 +28,11 @@ def test_publish_success(mocker):
     pub = EventPublisher(webhook_url="https://x.supabase.co/functions/v1/webhook-camera",
                          webhook_token="tok", db_path=":memory:")
     pub.publish(make_event())
+    _wait_worker()
 
     import httpx
     httpx.post.assert_called_once()
+    pub.close()
     call_kwargs = httpx.post.call_args
     payload = json.loads(call_kwargs.kwargs.get("content") or call_kwargs.args[1])
     assert payload["camera_id"] == "cam-1"
@@ -36,8 +46,10 @@ def test_publish_queues_on_failure(mocker):
     pub = EventPublisher(webhook_url="https://x.supabase.co/functions/v1/webhook-camera",
                          webhook_token="tok", db_path=":memory:")
     pub.publish(make_event())
+    _wait_worker()
 
     assert pub.queue_size() == 1
+    pub.close()
 
 def test_publish_sends_apikey_header(mocker):
     mock_resp = MagicMock()
@@ -48,10 +60,12 @@ def test_publish_sends_apikey_header(mocker):
     pub = EventPublisher(webhook_url="https://x.supabase.co/functions/v1/webhook-camera",
                          webhook_token="wh-tok", db_path=":memory:", anon_key="anon-key-abc")
     pub.publish(make_event())
+    _wait_worker()
 
     _, kwargs = mock_post.call_args
     assert kwargs["headers"]["apikey"] == "anon-key-abc"
     assert kwargs["headers"]["Authorization"] == "Bearer wh-tok"
+    pub.close()
 
 def test_flush_queue_on_reconnect(mocker):
     import httpx
@@ -69,7 +83,9 @@ def test_flush_queue_on_reconnect(mocker):
     pub = EventPublisher(webhook_url="https://x.supabase.co/functions/v1/webhook-camera",
                          webhook_token="tok", db_path=":memory:")
     pub.publish(make_event())
+    _wait_worker()
     assert pub.queue_size() == 1
 
     pub.flush_queue()
     assert pub.queue_size() == 0
+    pub.close()

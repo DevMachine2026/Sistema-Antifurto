@@ -19,7 +19,6 @@ function manualChunks(id: string): string | undefined {
   if (id.includes('property-information')) return 'vendor-misc';
   if (id.includes('style-to-js') || id.includes('style-to-object')) return 'vendor-misc';
   if (id.includes('papaparse')) return 'papaparse';
-  if (id.includes('jszip')) return 'jszip';
   if (id.includes('hls.js')) return 'hls';
 
   if (id.includes('scheduler')) return 'vendor';
@@ -39,8 +38,10 @@ export default defineConfig(({mode}) => ({
   },
   server: {
     hmr: process.env.DISABLE_HMR !== 'true',
+    // Polling deixa o dev muito lento em HD externo (/mnt). Ative só se o watcher falhar:
+    // CHOKIDAR_USEPOLLING=true npm run dev
     watch: {
-      usePolling: true,
+      usePolling: process.env.CHOKIDAR_USEPOLLING === 'true',
     },
   },
   build: {

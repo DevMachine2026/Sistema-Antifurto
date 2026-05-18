@@ -330,8 +330,8 @@ def test_port_scan_enriches_dvr_candidate(monkeypatch):
     r = results[0]
     assert r["device_type"] == "dvr"
     assert r["channel_count"] == 8
-    assert r["username"] == "admin"
-    assert r["password"] == "admin"
+    assert "username" not in r
+    assert "password" not in r
     assert r["credentials_ok"] is True
 
 

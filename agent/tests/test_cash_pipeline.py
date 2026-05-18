@@ -1,6 +1,6 @@
 # agent/tests/test_cash_pipeline.py
 from agent.models import Camera, CashEvent, normalize_camera_role
-from agent.cash_monitor import start_cash_monitors, stop_all, _monitors
+from agent.cash_monitor import start_cash_pipeline, stop_all, _monitors
 
 
 def test_normalize_camera_role_aliases():
@@ -40,12 +40,12 @@ def test_cash_event_payload():
     assert d["evidence_image"] == "abc"
 
 
-def test_start_cash_monitors_filters_role(monkeypatch):
+def test_start_cash_pipeline_filters_role(monkeypatch):
     stop_all()
     started = []
 
     class FakeMonitor:
-        def __init__(self, camera):
+        def __init__(self, camera, on_event=None, window_minutes=15, cooldown_sec=45.0):
             self._camera = camera
 
         def start(self):
@@ -60,6 +60,6 @@ def test_start_cash_monitors_filters_role(monkeypatch):
         Camera("c-count", "1.1.1.1", "u", "p", "counting", "Entrada", 0.5, "/s"),
         Camera("c-cash", "1.1.1.2", "u", "p", "cash", "Caixa", 0.5, "/s"),
     ]
-    start_cash_monitors(cameras)
+    start_cash_pipeline(cameras, on_event=lambda e: None)
     assert started == ["c-cash"]
     stop_all()

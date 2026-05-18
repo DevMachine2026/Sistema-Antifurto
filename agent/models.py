@@ -74,9 +74,10 @@ class AgentConfig:
     cameras: list[Camera]
     thresholds: dict
     heartbeat_interval: int
-    webhook_token: str
     supabase_url: str
     config_changed_at: str  # ISO timestamp — enviado no heartbeat como last_config_changed_at
+    webhook_token: str = ""  # legado; webhooks usam ESTABLISHMENT_TOKEN no Bearer
+    min_agent_version: str = "0.1.0"
     request_scan: bool = False  # sinaliza que o backend quer um novo scan de câmeras
     camera_states: dict[str, int] = None  # {camera_id: people_inside} — estado persistido no DB
 
@@ -106,9 +107,10 @@ class AgentConfig:
             cameras=cameras,
             thresholds=d.get("thresholds", {}),
             heartbeat_interval=int(d.get("heartbeat_interval", 300)),
-            webhook_token=d["webhook_token"],
+            webhook_token=d.get("webhook_token") or "",
             supabase_url=d.get("supabase_url", ""),
             config_changed_at=d.get("config_changed_at", ""),
+            min_agent_version=d.get("min_agent_version") or "0.1.0",
             request_scan=bool(d.get("request_scan", False)),
             camera_states={k: int(v) for k, v in d.get("camera_states", {}).items()},
         )

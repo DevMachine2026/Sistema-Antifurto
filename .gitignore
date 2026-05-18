@@ -17,7 +17,13 @@ __pycache__/
 .fuse_*
 .superpowers/
 
+# Dev local (scripts/dev-webcam-*.sh)
+agent/token.dev
+agent/establishment.dev
+agent/token.txt
+
 # Modelos e artefatos de runtime do agente
+agent/.scan_done
 *.pt
 *.onnx
 *.db

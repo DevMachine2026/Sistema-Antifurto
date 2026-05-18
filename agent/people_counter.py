@@ -9,6 +9,8 @@ import numpy as np
 
 from agent.models import Camera, CountEvent
 from agent.evidence_uploader import frame_to_b64
+from agent.onnx_pool import get_yolo_session
+from agent.rtsp_capture import open_capture, reopen_capture
 
 if TYPE_CHECKING:
     pass
@@ -318,10 +320,7 @@ class PeopleCounter:
             logger.error("missing dependency: %s", exc)
             return
 
-        import os
-        model_path = os.environ.get("YOLO_MODEL_PATH", "yolov8n.onnx")
-        session = ort.InferenceSession(model_path, providers=["CPUExecutionProvider"])
-        input_name = session.get_inputs()[0].name
+        session, input_name = get_yolo_session()
 
         tracker = SORTTracker(max_age=5, min_hits=2, iou_threshold=0.25)
         detector = LineCrossDetector(
@@ -329,22 +328,30 @@ class PeopleCounter:
             frame_height=480,
             hysteresis_px=15.0,
         )
-        cap = cv2.VideoCapture(self._camera.rtsp_url)
+        cap = open_capture(self._camera)
 
         if not cap.isOpened():
-            logger.error("cannot open RTSP stream: %s", self._camera.id)
+            logger.error("cannot open stream: %s", self._camera.id)
             cap.release()
             return
 
         frame_count = 0
+        reconnect_failures = 0
 
         while self._running:
             ret, frame = cap.read()
             if not ret:
-                logger.warning("camera %s lost, reconnecting in 5s...", self._camera.id)
-                cap.release()
-                self._stop_event.wait(5)
-                cap = cv2.VideoCapture(self._camera.rtsp_url)
+                logger.warning("camera %s lost, reconnecting...", self._camera.id)
+                cap = reopen_capture(self._camera, cap, wait_sec=5.0 if not self._stop_event.is_set() else 0)
+                if not cap.isOpened():
+                    reconnect_failures += 1
+                    if reconnect_failures >= 12:
+                        logger.error("camera %s gave up after %d reconnects", self._camera.id, reconnect_failures)
+                        break
+                    self._stop_event.wait(min(30, 5 * reconnect_failures))
+                    continue
+                reconnect_failures = 0
+                frame_count = 0
                 continue
 
             frame_count += 1

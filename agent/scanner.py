@@ -107,7 +107,7 @@ def _try_default_creds(ip: str, port: int = 554) -> tuple[str, str] | None:
     """
     for user, pwd in _DEFAULT_CREDS:
         if _rtsp_probe(ip, port, user, pwd):
-            logger.info("default creds work on %s:%d user=%s", ip, port, user)
+            logger.info("default creds work on %s:%d (not stored)", ip, port)
             return user, pwd
     return None
 
@@ -281,8 +281,6 @@ def discover_port_scan(timeout_per_host: float = 0.5) -> list[dict]:
                         "manufacturer":    mfr,
                         "device_type":     device_type,
                         "channel_count":   channel_count,
-                        "username":        creds[0] if creds else None,
-                        "password":        creds[1] if creds else None,
                         "credentials_ok":  creds is not None,
                     })
                 logger.info(
@@ -347,9 +345,7 @@ def report_discovered(
             "manufacturer":   c.get("manufacturer"),
             "device_type":    c.get("device_type", "camera"),
             "channel_count":  c.get("channel_count"),
-            "username":       c.get("username"),
-            "password":       c.get("password"),
-            "credentials_ok": c.get("credentials_ok"),
+            "credentials_ok": bool(c.get("credentials_ok")),
         }
         for c in candidates
     ]

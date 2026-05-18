@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _MAX_SIDE   = 640    # px — lado máximo após redimensionamento
-_JPEG_QUAL  = 72     # qualidade JPEG (0-100); 72 ≈ 35-55 KB a 640x480
+_JPEG_QUAL  = 65     # qualidade JPEG (0-100); menor custo de storage/bandwidth
 
 
 def frame_to_b64(frame: "np.ndarray") -> Optional[str]:

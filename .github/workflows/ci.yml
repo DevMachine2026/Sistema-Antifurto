@@ -28,6 +28,12 @@ jobs:
       - name: Typecheck
         run: npm run lint
 
+      - name: Build frontend
+        env:
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.ci-placeholder
+        run: npm run build
+
       - name: Frontend unit tests
         run: npm test
 
