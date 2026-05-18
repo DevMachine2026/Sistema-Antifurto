@@ -75,7 +75,7 @@ Quando uma regra dispara, o alerta é gravado no banco e as notificações são 
 O gestor abre o painel web e tem acesso a quatro níveis de investigação, do mais simples ao mais profundo:
 
 **Nível 1 — Dashboard**
-Visão executiva: pessoas no salão agora, total de vendas, gap financeiro, alertas ativos, gráfico Vendas × Pessoas por hora, card **Saúde do sistema** (notificações, agente, contagem, alertas) e feed de evidências com URL assinada.
+Visão executiva: pessoas no salão agora, total de vendas, gap financeiro, alertas ativos, gráfico Vendas × Pessoas por hora, card **Analista IA** (insights e score de risco via Gemini), card **Saúde do sistema**, feed de evidências com URL assinada e menu **Resumo inteligente** (modo executivo do turno).
 
 **Nível 2 — Alertas**
 Central de alertas com filtros, histórico de resoluções e auditoria de quem resolveu cada ocorrência.
@@ -101,7 +101,8 @@ Cada linha da timeline exibe thumbnail da câmera, horário, valor, método, ope
 
 | Página | Acesso via | Para quê serve |
 |---|---|---|
-| **Dashboard** | Menu → Dashboard | Visão geral: métricas, gráfico, alertas e feed de evidências |
+| **Dashboard** | Menu → Dashboard | Métricas, analista IA, gráfico, alertas e evidências |
+| **Resumo inteligente** | Menu → Resumo inteligente | Narrativa executiva do turno (Gemini + cache) |
 | **POS × Vídeo** | Menu → POS × Vídeo | Timeline transação ↔ câmera do caixa com evidência visual |
 | **Alertas** | Menu → Alertas | Central de alertas com resolução e auditoria |
 | **Câmeras** | Menu → Câmeras | Wizard de cadastro, player HLS, varredura de rede |
@@ -318,7 +319,8 @@ src/
 │   ├── Simulator.tsx         ← gerador de dados de demo
 │   ├── Guide.tsx             ← guia operacional in-app
 │   ├── AdminPanel.tsx        ← painel platform_admin
-│   ├── Onboarding.tsx        ← fluxo de onboarding guiado
+│   ├── Onboarding.tsx        ← implantação guiada (3 passos)
+│   ├── ExecutiveSummary.tsx  ← resumo inteligente (IA)
 │   └── Install.tsx           ← download do agente (multi-OS)
 ├── components/
 │   ├── SystemHealthCard.tsx  ← saúde: notif, agente, pessoas, alertas
@@ -353,10 +355,11 @@ agent/
 
 supabase/
 ├── schema.sql                ← só ambiente novo; ver aviso no arquivo
-├── migration_*.sql           ← ver MIGRATIONS_ORDER.txt (#1–23)
+├── migration_*.sql           ← ver MIGRATIONS_ORDER.txt (#1–24)
 ├── check_migration_status.sql
 └── functions/
-    ├── _shared/              ← notify, rateLimit, webhookAuth, log, evidenceLimits
+    ├── _shared/              ← notify, rateLimit, gemini, aiContextBuilder, log
+    ├── ai-analyze/           ← analista IA (Gemini + cache ai_analyses)
     ├── webhook-camera/       ← ingestão de contagem + upload de evidência
     ├── webhook-cash/         ← ingestão de espécie + upload de evidência
     ├── webhook-st-ingressos/ ← ingestão de vendas da bilheteria
@@ -403,22 +406,26 @@ supabase/
 | **Instalador Linux — script .sh + systemd (PyInstaller + GitHub Actions)** | ✅ |
 | **Instalador macOS — script .sh + launchd (PyInstaller + GitHub Actions)** | ✅ |
 | Score de risco por operador | 🔜 Fase 2 |
+| Resumo de turno no painel (Gemini) | ✅ |
 | Relatório automático de turno (WhatsApp/email) | 🔜 Fase 2 |
 | Comparativo histórico entre turnos | 🔜 Fase 2 |
 | Inteligência de estoque (bar) | 🔜 Fase 2 |
 
 ---
 
-## Documentação complementar
+## Documentação
 
-| Arquivo | Conteúdo |
-|---|---|
-| [`MANUAL_IMPLANTACAO_RESTAURANTE.md`](MANUAL_IMPLANTACAO_RESTAURANTE.md) | Guia para o dono/gestor: instalação, câmeras, painel, problemas comuns |
-| [`RUNBOOK_INCIDENTES.md`](RUNBOOK_INCIDENTES.md) | Diagnóstico e resolução de incidentes em produção |
-| [`src/GUIDE.md`](src/GUIDE.md) | Guia de operação embutido no app (aba Guia) |
-| [`docs/YOLO_O_QUE_E.md`](docs/YOLO_O_QUE_E.md) | Por que usamos YOLO e não LLM para visão |
-| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | CI: lint, build, testes |
-| [`.github/workflows/agent-release.yml`](.github/workflows/agent-release.yml) | Release automático na tag `agent-v*` |
+| Arquivo | Público | Conteúdo |
+|---|---|---|
+| [`MANUAL_IMPLANTACAO_RESTAURANTE.md`](MANUAL_IMPLANTACAO_RESTAURANTE.md) | Dono / implantação | Instalação do agente, câmeras, painel |
+| [`RUNBOOK_INCIDENTES.md`](RUNBOOK_INCIDENTES.md) | Suporte / ops | Incidentes, cron purge, agente offline |
+| [`src/GUIDE.md`](src/GUIDE.md) | Operador | Texto da aba **Guia** no painel (não duplicar fora do app) |
+| [`docs/AI_ARCHITECTURE.md`](docs/AI_ARCHITECTURE.md) | Desenvolvedor | Analista IA Gemini: Edge Function, cache, deploy |
+| [`docs/CHECKLIST_TESTE.md`](docs/CHECKLIST_TESTE.md) | QA / implantação | Testes em ordem crescente com resultado esperado |
+| [`docs/YOLO_O_QUE_E.md`](docs/YOLO_O_QUE_E.md) | Comercial / técnico | YOLO na borda vs LLM na nuvem (visão) |
+| [`supabase/MIGRATIONS_ORDER.txt`](supabase/MIGRATIONS_ORDER.txt) | Desenvolvedor | Ordem das migrations SQL |
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | CI | Lint, build, testes |
+| [`.github/workflows/agent-release.yml`](.github/workflows/agent-release.yml) | Release | Artefatos do agente na tag `agent-v*` |
 
 ---
 
