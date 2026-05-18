@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
 import { evidenceRef } from '../lib/evidenceUrl';
 import { notificationService } from './notificationService';
+import { QUERY_LIMITS } from '../lib/queryLimits';
 
 class DataService {
   private get establishmentId(): string {
@@ -20,12 +21,13 @@ class DataService {
 
   // ── Leitura ────────────────────────────────────────────────
 
-  async getTransactions(): Promise<Transaction[]> {
+  async getTransactions(limit = QUERY_LIMITS.transactions): Promise<Transaction[]> {
     const { data, error } = await supabase
       .from('transactions')
       .select('*')
       .eq('establishment_id', this.establishmentId)
-      .order('occurred_at', { ascending: false });
+      .order('occurred_at', { ascending: false })
+      .limit(limit);
 
     if (error) throw error;
 
@@ -48,7 +50,8 @@ class DataService {
       .select('*')
       .eq('establishment_id', this.establishmentId)
       .gte('recorded_at', since)
-      .order('recorded_at', { ascending: true });
+      .order('recorded_at', { ascending: true })
+      .limit(QUERY_LIMITS.peopleCount24h);
 
     if (error) throw error;
 
@@ -66,12 +69,13 @@ class DataService {
     }));
   }
 
-  async getAlerts(): Promise<Alert[]> {
+  async getAlerts(limit = QUERY_LIMITS.alerts): Promise<Alert[]> {
     const { data, error } = await supabase
       .from('alerts')
       .select('*')
       .eq('establishment_id', this.establishmentId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
     if (error) throw error;
 
@@ -87,12 +91,13 @@ class DataService {
     }));
   }
 
-  async getBatches(): Promise<ImportBatch[]> {
+  async getBatches(limit = QUERY_LIMITS.batches): Promise<ImportBatch[]> {
     const { data, error } = await supabase
       .from('import_batches')
       .select('*')
       .eq('establishment_id', this.establishmentId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
     if (error) throw error;
 
@@ -151,12 +156,13 @@ class DataService {
     await this.runRules();
   }
 
-  async getCashPaymentEvents(): Promise<CashPaymentEvent[]> {
+  async getCashPaymentEvents(limit = QUERY_LIMITS.cashEvents): Promise<CashPaymentEvent[]> {
     const { data, error } = await supabase
       .from('cash_payment_events')
       .select('*')
       .eq('establishment_id', this.establishmentId)
-      .order('detected_at', { ascending: false });
+      .order('detected_at', { ascending: false })
+      .limit(limit);
 
     if (error) throw error;
 

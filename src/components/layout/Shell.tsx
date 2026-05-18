@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getOperationMode, setOperationMode, isNavVisibleInMode, type OperationMode } from '../../lib/operationMode';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LayoutDashboard, Upload, AlertTriangle, Settings,
@@ -17,6 +18,8 @@ interface ShellProps {
   onLogout: () => void;
   establishmentName?: string;
   onBackToAdmin?: () => void;
+  /** Exibe botão Simular R01 (somente modo Avançado). */
+  allowSimulate?: boolean;
 }
 
 const NAV_ITEMS = [
@@ -76,10 +79,27 @@ function NavItem({ item, active, onClick }: {
 }
 
 export default function Shell({
-  children, activeTab, onTabChange, onLogout, establishmentName, onBackToAdmin,
+  children, activeTab, onTabChange, onLogout, establishmentName, onBackToAdmin, allowSimulate = false,
 }: ShellProps) {
   const { t, i18n } = useTranslation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [navMode, setNavMode] = useState<OperationMode>(() => getOperationMode());
+
+  const visibleNavItems = useMemo(
+    () => NAV_ITEMS.filter((item) => isNavVisibleInMode(item.id, navMode)),
+    [navMode],
+  );
+
+  const toggleNavMode = useCallback(() => {
+    setNavMode((prev) => {
+      const next: OperationMode = prev === 'operation' ? 'advanced' : 'operation';
+      setOperationMode(next);
+      if (!isNavVisibleInMode(activeTab, next)) {
+        onTabChange('dashboard');
+      }
+      return next;
+    });
+  }, [activeTab, onTabChange]);
 
   const handleSimulateAlert = async () => {
     await Promise.all([
@@ -129,7 +149,7 @@ export default function Shell({
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {NAV_ITEMS.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavItem
               key={item.id}
               item={item}
@@ -140,6 +160,21 @@ export default function Shell({
         </nav>
 
         <div className="px-4 py-4 space-y-1" style={{ borderTop: '1px solid var(--color-border)' }}>
+          <button
+            type="button"
+            onClick={toggleNavMode}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-[11px] font-semibold uppercase tracking-wider transition-all"
+            style={{
+              background: 'var(--color-surface-alt)',
+              border: '1px solid var(--color-border-strong)',
+              color: 'var(--color-text-dim)',
+            }}
+          >
+            <span>{navMode === 'operation' ? t('shell.modeOperation') : t('shell.modeAdvanced')}</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(79,124,255,0.15)', color: 'var(--color-primary)' }}>
+              {navMode === 'operation' ? t('shell.switchToAdvanced') : t('shell.switchToOperation')}
+            </span>
+          </button>
           {onBackToAdmin && (
             <button
               onClick={onBackToAdmin}
@@ -260,7 +295,7 @@ export default function Shell({
               </div>
 
               <nav className="flex-1 px-3 py-4 space-y-0.5">
-                {NAV_ITEMS.map((item) => (
+                {visibleNavItems.map((item) => (
                   <button
                     key={item.id}
                     onClick={() => { onTabChange(item.id); setIsMobileMenuOpen(false); }}
@@ -336,13 +371,15 @@ export default function Shell({
 
             <LanguageSwitcher />
 
-            <button onClick={handleSimulateAlert}
-              className="px-3 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all"
-              style={{ background: 'rgba(240,82,82,0.08)', border: '1px solid rgba(240,82,82,0.2)', color: 'var(--color-danger)' }}
-              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(240,82,82,0.15)'}
-              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'rgba(240,82,82,0.08)'}>
-              {t('shell.simulateR01')}
-            </button>
+            {allowSimulate && navMode === 'advanced' && (
+              <button onClick={handleSimulateAlert}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all"
+                style={{ background: 'rgba(240,82,82,0.08)', border: '1px solid rgba(240,82,82,0.2)', color: 'var(--color-danger)' }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = 'rgba(240,82,82,0.15)'}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'rgba(240,82,82,0.08)'}>
+                {t('shell.simulateR01')}
+              </button>
+            )}
 
             <button onClick={onLogout}
               className="px-3 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all"

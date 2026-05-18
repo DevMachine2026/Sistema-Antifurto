@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 export type AgentOs = 'windows' | 'linux' | 'macos';
 
 const INSTALL_FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-install`;
@@ -27,10 +29,10 @@ export function installerExtension(os: AgentOs): 'exe' | 'sh' | 'command' {
   return 'sh';
 }
 
-/** Nome amigável para o cliente (token vai no .olhovivo.env, não no nome do arquivo). */
+/** Nome do arquivo baixado (token fica só no .olhovivo.env após instalação). */
 export function installerFilename(_token: string, os: AgentOs): string {
   if (os === 'windows') {
-    return `OlhoVivoSetup_TOKEN_${assertSafeToken(_token)}.exe`;
+    return 'OlhoVivoSetup.exe';
   }
   if (os === 'macos') return 'Instalar-Olho-Vivo.command';
   return 'Instalar-Olho-Vivo.sh';
@@ -83,8 +85,7 @@ export interface DownloadInstallerResult {
 }
 
 /**
- * Baixa o instalador correto via agent-install (Windows / Linux / macOS).
- * Usa apikey anon — mesmo endpoint da página /install/:token.
+ * Baixa o instalador via agent-install (requer sessão logada no painel).
  */
 export async function downloadAgentInstaller(
   token: string,
@@ -93,9 +94,19 @@ export async function downloadAgentInstaller(
   const safe = assertSafeToken(token);
   const filename = installerFilename(safe, os);
 
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    throw new Error('Faça login no painel Olho Vivo para baixar o instalador.');
+  }
+
   const res = await fetch(
     `${INSTALL_FN}?token=${encodeURIComponent(safe)}&os=${os}`,
-    { headers: { apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? '' } },
+    {
+      headers: {
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    },
   );
 
   if (!res.ok) {

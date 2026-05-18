@@ -90,7 +90,7 @@ class CameraService {
             event: 'INSERT',
             schema: 'public',
             table: 'people_count_events',
-            filter: `camera_id=eq.${cameraId}`,
+            filter: `establishment_id=eq.${this.eid},camera_id=eq.${cameraId}`,
           },
           () => {
             clearTimeout(deadline);

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Hls from 'hls.js';
 import { Camera as CameraIcon } from 'lucide-react';
 import { Camera } from '../types';
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function CameraPlayer({ cameraId, ip, status, height, lastEvidenceUrl, lastEvidenceAt }: Props) {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const streamBackend = getStreamBackendUrl();
@@ -27,7 +29,7 @@ export function CameraPlayer({ cameraId, ip, status, height, lastEvidenceUrl, la
 
   const [playerState, setPlayerState] = useState<PlayerState>(() => {
     if (status !== 'online' || !ip) return 'offline';
-    if (!streamBackend) return lastEvidenceUrl ? 'evidence' : 'offline';
+    if (!streamBackend) return lastEvidenceUrl ? 'evidence' : 'error';
     return 'loading';
   });
   const [snapshotSrc, setSnapshotSrc] = useState<string | null>(null);
@@ -40,7 +42,7 @@ export function CameraPlayer({ cameraId, ip, status, height, lastEvidenceUrl, la
     }
 
     if (!streamBackend) {
-      setPlayerState(lastEvidenceUrl ? 'evidence' : 'offline');
+      setPlayerState(lastEvidenceUrl ? 'evidence' : 'error');
       setSnapshotSrc(null);
       return;
     }
@@ -51,7 +53,9 @@ export function CameraPlayer({ cameraId, ip, status, height, lastEvidenceUrl, la
       setPlayerState('loading');
       setSnapshotSrc(null);
       try {
-        const res = await fetch(`${streamBackend}/api/streams/${cameraId}/hls-url`);
+        const res = await fetch(`${streamBackend}/api/streams/${cameraId}/hls-url`, {
+          signal: AbortSignal.timeout(4_000),
+        });
         if (!res.ok) throw new Error('no-hls');
         const data = await res.json() as { hlsUrl: string };
         const url = data.hlsUrl;
@@ -157,7 +161,7 @@ export function CameraPlayer({ cameraId, ip, status, height, lastEvidenceUrl, la
         <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full"
           style={{ background: 'rgba(107,114,128,0.82)', backdropFilter: 'blur(4px)' }}>
           <span className="w-1.5 h-1.5 rounded-full bg-white/60" />
-          <span className="text-[10px] font-bold text-white tracking-wide">ÚLTIMO FRAME</span>
+          <span className="text-[10px] font-bold text-white tracking-wide">{t('camera.player.lastFrame').toUpperCase()}</span>
         </div>
         {evidenceTime && (
           <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded text-[10px] text-white/80 font-mono"
@@ -176,13 +180,19 @@ export function CameraPlayer({ cameraId, ip, status, height, lastEvidenceUrl, la
   }
 
   if (playerState === 'evidence') {
-    return <EvidenceFrame subtitle={streamBackend ? 'Ao vivo indisponível' : 'Stream não configurado'} />;
+    return <EvidenceFrame subtitle={t('camera.player.lastCapture')} />;
   }
 
   if (playerState === 'offline' || playerState === 'error') {
-    const label = playerState === 'offline' ? 'Câmera offline' : 'Sem sinal';
+    const onlineNoPreview = status === 'online' && !!ip && !streamBackend;
+    const label =
+      status !== 'online' || !ip
+        ? t('camera.player.offline')
+        : onlineNoPreview
+          ? t('camera.player.noPreview')
+          : t('camera.player.noSignal');
     if (lastEvidenceUrl) {
-      return <EvidenceFrame subtitle={label} />;
+      return <EvidenceFrame subtitle={t('camera.player.lastCapture')} />;
     }
 
     return (
@@ -190,9 +200,9 @@ export function CameraPlayer({ cameraId, ip, status, height, lastEvidenceUrl, la
         <div className="flex flex-col items-center gap-2 px-4 text-center">
           <CameraIcon size={28} style={{ color: 'var(--color-text-muted)', opacity: 0.5 }} />
           <span className="text-[11px] font-medium" style={{ color: 'var(--color-text-muted)' }}>{label}</span>
-          {!streamBackend && status === 'online' && (
+          {onlineNoPreview && (
             <span className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
-              Vídeo ao vivo requer servidor na loja (VITE_API_URL).
+              {t('camera.player.noPreviewHint')}
             </span>
           )}
         </div>
@@ -236,14 +246,14 @@ export function CameraPlayer({ cameraId, ip, status, height, lastEvidenceUrl, la
         <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full"
           style={{ background: 'rgba(220,38,38,0.85)', backdropFilter: 'blur(4px)' }}>
           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-          <span className="text-[10px] font-bold text-white tracking-wide">AO VIVO</span>
+          <span className="text-[10px] font-bold text-white tracking-wide">{t('camera.player.live').toUpperCase()}</span>
         </div>
       )}
 
       {playerState === 'snapshot' && (
         <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full"
           style={{ background: 'rgba(217,119,6,0.85)', backdropFilter: 'blur(4px)' }}>
-          <span className="text-[10px] font-bold text-white tracking-wide">SNAPSHOT</span>
+          <span className="text-[10px] font-bold text-white tracking-wide">{t('camera.player.snapshot').toUpperCase()}</span>
         </div>
       )}
     </div>

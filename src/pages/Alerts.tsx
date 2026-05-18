@@ -5,15 +5,23 @@ import { AlertTriangle, CheckCircle2, ShieldAlert, History, MapPin, Clock, Messa
 import { dataService } from '../services/dataService';
 import { auditService } from '../services/auditService';
 import { notificationService } from '../services/notificationService';
+import { supabase } from '../lib/supabase';
 import { format, parseISO } from 'date-fns';
 import { cn } from '../lib/utils';
 import { Alert } from '../types';
+import {
+  getAlertHumanTitle,
+  getAlertHumanHint,
+  getResolutionLabel,
+  type QuickResolution,
+} from '../lib/alertHumanLabels';
 
 export default function AlertsPage({ establishmentName }: { establishmentName?: string }) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState<'all' | 'unresolved' | 'resolved'>('unresolved');
   const [allAlerts, setAllAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   async function loadAlerts() {
     try {
@@ -32,15 +40,24 @@ export default function AlertsPage({ establishmentName }: { establishmentName?: 
     return !a.resolved;
   });
 
-  const handleResolve = async (id: string) => {
-    await dataService.resolveAlert(id, 'Eduardo (Proprietário)');
-    await auditService.log({
-      eventType: 'alert.resolved',
-      targetType: 'alert',
-      targetId: id,
-      metadata: { resolved_by: 'Eduardo (Proprietário)' },
-    });
-    await loadAlerts();
+  const handleResolve = async (id: string, resolution: QuickResolution) => {
+    setResolvingId(id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const who = user?.email?.split('@')[0] ?? t('alerts.defaultResolver');
+      const label = getResolutionLabel(resolution, t);
+      const resolvedBy = `${label} — ${who}`;
+      await dataService.resolveAlert(id, resolvedBy);
+      await auditService.log({
+        eventType: 'alert.resolved',
+        targetType: 'alert',
+        targetId: id,
+        metadata: { resolved_by: resolvedBy, resolution },
+      });
+      await loadAlerts();
+    } finally {
+      setResolvingId(null);
+    }
   };
 
   if (loading) {
@@ -56,7 +73,7 @@ export default function AlertsPage({ establishmentName }: { establishmentName?: 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-text uppercase tracking-tight">{t('alerts.title')}</h2>
-          <p className="text-text-dim text-sm font-medium">{t('alerts.subtitle')}</p>
+          <p className="text-text-dim text-sm font-medium">{t('alerts.subtitleLeigo')}</p>
         </div>
         <div className="flex bg-surface p-1 rounded border border-border shadow-sm self-start">
           <FilterBtn active={filter === 'unresolved'} onClick={() => setFilter('unresolved')} label={t('alerts.filterActive')} count={allAlerts.filter(a => !a.resolved).length} />
@@ -80,7 +97,13 @@ export default function AlertsPage({ establishmentName }: { establishmentName?: 
             </motion.div>
           ) : (
             filteredAlerts.map(alert => (
-              <AlertCard key={alert.id} alert={alert} onResolve={handleResolve} establishmentName={establishmentName} />
+              <AlertCard
+                key={alert.id}
+                alert={alert}
+                onResolve={handleResolve}
+                resolving={resolvingId === alert.id}
+                establishmentName={establishmentName}
+              />
             ))
           )}
         </AnimatePresence>
@@ -89,14 +112,14 @@ export default function AlertsPage({ establishmentName }: { establishmentName?: 
   );
 }
 
-function FilterBtn({ active, onClick, label, count }: any) {
+function FilterBtn({ active, onClick, label, count }: { active: boolean; onClick: () => void; label: string; count: number }) {
   return (
     <button onClick={onClick} className={cn(
-      "px-4 py-2 rounded text-[11px] font-bold uppercase tracking-wider transition-all flex items-center gap-2",
-      active ? "bg-surface-alt text-white shadow-sm border border-border" : "text-text-dim hover:text-text"
+      'px-4 py-2 rounded text-[11px] font-bold uppercase tracking-wider transition-all flex items-center gap-2',
+      active ? 'bg-surface-alt text-white shadow-sm border border-border' : 'text-text-dim hover:text-text',
     )}>
       {label}
-      <span className={cn("text-[9px] px-1.5 py-0.5 rounded font-black", active ? "bg-primary text-white" : "bg-surface-alt text-text-dim")}>
+      <span className={cn('text-[9px] px-1.5 py-0.5 rounded font-black', active ? 'bg-primary text-white' : 'bg-surface-alt text-text-dim')}>
         {count}
       </span>
     </button>
@@ -105,24 +128,27 @@ function FilterBtn({ active, onClick, label, count }: any) {
 
 interface AlertCardProps {
   alert: Alert;
-  onResolve: (id: string) => void;
+  onResolve: (id: string, resolution: QuickResolution) => void;
+  resolving: boolean;
   establishmentName?: string;
 }
 
-function AlertCard({ alert, onResolve, establishmentName }: AlertCardProps) {
+function AlertCard({ alert, onResolve, resolving, establishmentName }: AlertCardProps) {
   const { t } = useTranslation();
   const isHigh = alert.severity === 'high';
+  const humanTitle = getAlertHumanTitle(alert.type, t);
+  const humanHint = getAlertHumanHint(alert.type, t);
 
   return (
     <motion.div layout initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
       className={cn(
-        "bg-surface rounded-lg overflow-hidden border border-border transition-all",
-        alert.resolved ? "opacity-60" : isHigh ? "border-danger/30" : "border-warning/30"
+        'bg-surface rounded-lg overflow-hidden border border-border transition-all',
+        alert.resolved ? 'opacity-60' : isHigh ? 'border-danger/30' : 'border-warning/30',
       )}>
       <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6">
         <div className={cn(
-          "w-12 h-12 rounded flex items-center justify-center shrink-0 shadow-inner",
-          isHigh ? "bg-danger text-white shadow-[0_0_15px_rgba(239,68,68,0.3)]" : "bg-warning text-white shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+          'w-12 h-12 rounded flex items-center justify-center shrink-0 shadow-inner',
+          isHigh ? 'bg-danger text-white shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-warning text-white shadow-[0_0_15px_rgba(245,158,11,0.3)]',
         )}>
           {isHigh ? <ShieldAlert size={24} /> : <AlertTriangle size={24} />}
         </div>
@@ -131,26 +157,21 @@ function AlertCard({ alert, onResolve, establishmentName }: AlertCardProps) {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
             <div>
               <span className={cn(
-                "text-[9px] uppercase font-black px-2 py-0.5 rounded tracking-[0.1em] border",
-                isHigh ? "bg-danger/10 text-danger border-danger/20" : "bg-warning/10 text-warning border-warning/20"
+                'text-[9px] uppercase font-black px-2 py-0.5 rounded tracking-[0.1em] border',
+                isHigh ? 'bg-danger/10 text-danger border-danger/20' : 'bg-warning/10 text-warning border-warning/20',
               )}>
                 {isHigh ? t('alerts.criticalPriority') : t('alerts.mediumInvestigation')}
               </span>
-              <h3 className="text-lg font-bold text-text mt-2 uppercase tracking-tight">{alert.description}</h3>
+              <h3 className="text-lg font-bold text-text mt-2 leading-snug">{humanTitle}</h3>
+              <p className="text-[11px] text-text-dim font-mono mt-1">{alert.type}</p>
             </div>
-            <div className="flex items-center gap-2 text-text-dim text-[11px] font-semibold font-mono uppercase">
+            <div className="flex items-center gap-2 text-text-dim text-[11px] font-semibold">
               <Clock size={12} />
               {format(parseISO(alert.createdAt), "HH:mm '•' dd/MM")}
             </div>
           </div>
 
-          <p className="text-text-dim text-[13px] leading-relaxed font-medium">
-            {t('alerts.anomalyDetected', {
-              source: alert.type === 'card_gap'
-                ? t('alerts.financialSystems')
-                : t('alerts.presenceSensors'),
-            })}
-          </p>
+          <p className="text-text-dim text-[13px] leading-relaxed">{humanHint}</p>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 py-2 text-xs">
             <div className="bg-surface-alt p-3 rounded border border-border">
@@ -159,12 +180,8 @@ function AlertCard({ alert, onResolve, establishmentName }: AlertCardProps) {
                 <MapPin size={12} className="text-primary" /> {establishmentName ?? t('common.establishment')}
               </div>
             </div>
-            <div className="bg-surface-alt p-3 rounded border border-border">
-              <p className="text-[10px] uppercase font-bold text-text-dim tracking-widest">{t('alerts.ruleCode')}</p>
-              <div className="mt-1 font-mono font-bold text-text uppercase truncate">{alert.type}</div>
-            </div>
-            {alert.context?.diff && (
-              <div className="bg-danger/5 p-3 rounded border border-danger/20 col-span-2">
+            {alert.context?.diff != null && (
+              <div className="bg-danger/5 p-3 rounded border border-danger/20 col-span-2 md:col-span-3">
                 <p className="text-[10px] uppercase font-bold text-danger tracking-widest">{t('alerts.divergenceGap')}</p>
                 <div className="mt-1 font-mono font-black text-danger text-sm">
                   {Math.abs(alert.context.diff).toLocaleString('pt-br', { style: 'currency', currency: 'BRL' })}
@@ -173,25 +190,41 @@ function AlertCard({ alert, onResolve, establishmentName }: AlertCardProps) {
             )}
           </div>
 
-          <div className="flex flex-wrap gap-3 pt-2">
-            {!alert.resolved && (
-              <button onClick={() => onResolve(alert.id)}
-                className="bg-primary text-white px-6 py-2.5 rounded font-black uppercase text-[11px] tracking-[0.1em] hover:bg-primary/90 transition-all flex items-center gap-2 group shadow-xl shadow-primary/20">
-                <CheckCircle2 size={16} className="group-hover:scale-110 transition-transform" />
-                {t('alerts.auditedValidated')}
+          {!alert.resolved && (
+            <div className="flex flex-wrap gap-2 pt-2">
+              {(['false_positive', 'fixed_at_register', 'escalate'] as QuickResolution[]).map((res) => (
+                <button
+                  key={res}
+                  type="button"
+                  disabled={resolving}
+                  onClick={() => onResolve(alert.id, res)}
+                  className={cn(
+                    'px-4 py-2.5 rounded font-bold text-[11px] uppercase tracking-wide transition-all border disabled:opacity-50',
+                    res === 'escalate'
+                      ? 'bg-danger/10 text-danger border-danger/30 hover:bg-danger/20'
+                      : res === 'fixed_at_register'
+                        ? 'bg-primary text-white border-transparent hover:bg-primary/90'
+                        : 'bg-surface-alt text-text border-border hover:border-primary/40',
+                  )}
+                >
+                  {getResolutionLabel(res, t)}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => window.open(notificationService.getWhatsAppLink(alert), '_blank')}
+                className="bg-surface border border-border text-text-dim px-4 py-2.5 rounded font-bold text-[11px] uppercase tracking-wide hover:text-success hover:border-success/50 transition-all flex items-center gap-2"
+              >
+                <MessageCircle size={14} />
+                {t('alerts.notifyStaff')}
               </button>
-            )}
-            <button onClick={() => window.open(notificationService.getWhatsAppLink(alert), '_blank')}
-              className="bg-surface border border-border text-text-dim px-6 py-2.5 rounded font-black uppercase text-[11px] tracking-[0.1em] hover:text-success hover:border-success/50 transition-all flex items-center gap-2 group">
-              <MessageCircle size={16} className="group-hover:scale-110 transition-transform" />
-              {t('alerts.notifyStaff')}
-            </button>
-          </div>
+            </div>
+          )}
 
           {alert.resolved && (
             <div className="flex items-center gap-2 pt-2 text-success font-black text-[11px] uppercase tracking-widest">
               <History size={14} />
-              {t('alerts.resolvedBy', { name: alert.resolvedBy?.split(' ')[0] })}
+              {t('alerts.resolvedBy', { name: alert.resolvedBy?.split('—')[0]?.trim() ?? alert.resolvedBy?.split(' ')[0] ?? '—' })}
             </div>
           )}
         </div>

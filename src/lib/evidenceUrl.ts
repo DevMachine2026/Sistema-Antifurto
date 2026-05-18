@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { getCurrentEstablishmentId } from './tenant';
 
 const BUCKET = 'evidence';
 const SIGNED_TTL_SEC = 3600;
@@ -38,6 +39,11 @@ export async function signEvidenceRef(ref: string | null | undefined): Promise<s
   const path = evidenceStoragePath(ref);
   if (!path) {
     return ref.startsWith('http') ? ref : null;
+  }
+
+  const estId = getCurrentEstablishmentId();
+  if (estId && !path.startsWith(`${estId}/`)) {
+    return null;
   }
 
   const { data, error } = await supabase.storage

@@ -90,7 +90,39 @@
   "shell": {
     "activeEstablishment": "Active business",
     "simulateR01": "Simulate R01",
-    "simulationAlertMsg": "R01 Alert Simulation triggered! Check the Alerts tab."
+    "simulationAlertMsg": "R01 Alert Simulation triggered! Check the Alerts tab.",
+    "modeOperation": "Operation mode",
+    "modeAdvanced": "Advanced mode",
+    "switchToAdvanced": "More options",
+    "switchToOperation": "Simple mode"
+  },
+  "health": {
+    "cardTitle": "System health",
+    "titleLoading": "Checking…",
+    "titleOk": "Ready to operate",
+    "titleWarn": "Review the items below",
+    "titleBad": "Action needed before the shift",
+    "loading": "Loading status…",
+    "rowNotif": "Mobile alerts",
+    "rowAgent": "Store computer",
+    "rowPeople": "People count",
+    "rowAlerts": "Open alerts",
+    "telegramOk": "Telegram connected",
+    "whatsappOk": "WhatsApp configured",
+    "notifMissing": "Connect Telegram or WhatsApp in Settings",
+    "agentOnline": "Online — seen {{ago}}",
+    "agentStale": "No signal — last seen {{ago}}",
+    "agentNever": "Installer has not reported yet",
+    "agentMissing": "Install the app on the register PC (Onboarding)",
+    "peopleLast": "Last reading {{ago}}",
+    "peopleNever": "No count yet — wait for agent or approve camera",
+    "alertsClear": "No pending alerts",
+    "alertsOpen": "{{count}} alert(s) awaiting decision",
+    "fixCta": "Fix now",
+    "never": "never",
+    "justNow": "just now",
+    "minutesAgo": "{{count}} min ago",
+    "hoursAgo": "{{count}} h ago"
   },
   "adminShell": {
     "adminPlatform": "Platform Admin"
@@ -217,8 +249,10 @@
   },
   "alerts": {
     "loading": "Loading alerts...",
-    "title": "Audit Center",
+    "title": "Alerts",
     "subtitle": "Anomaly rules executed by the local AI engine.",
+    "subtitleLeigo": "What needs your attention — choose how to close each alert.",
+    "defaultResolver": "Operator",
     "filterActive": "Active",
     "filterResolved": "Resolved",
     "filterAll": "All",
@@ -234,9 +268,36 @@
     "divergenceGap": "Divergence_Gap",
     "auditedValidated": "Audited & Validated",
     "notifyStaff": "Notify Staff",
-    "resolvedBy": "Resolved by {{name}}",
+    "resolvedBy": "Resolved: {{name}}",
     "highCriticality": "HIGH CRITICALITY",
-    "medium": "MEDIUM"
+    "medium": "MEDIUM",
+    "human": {
+      "default": { "title": "Unusual situation", "hint": "Check register and sales for the period shown." },
+      "crowd_no_sales": { "title": "Many people in venue, few sales recorded", "hint": "Verify register entries and ticketing integration." },
+      "card_gap": { "title": "Payments do not match sales", "hint": "Compare card terminal and sales system for the same time window." },
+      "cash_ghost": { "title": "Cash handled without matching sale", "hint": "High priority — check physical register and operator." },
+      "dead_window": { "title": "Unexpected idle period", "hint": "May be closure or integration failure." },
+      "velocity_spike": { "title": "Unusual spike in activity or sales", "hint": "Check for special event or bulk entry error." },
+      "shift_missing_closing": { "title": "Shift closing pending", "hint": "Record closing or import shift files." },
+      "operator_void_abuse": { "title": "Many voids or refunds", "hint": "Review operator and cancelled transactions." }
+    },
+    "resolution": {
+      "false_positive": "False alarm",
+      "fixed_at_register": "Fixed at register",
+      "escalate": "Escalate to manager"
+    }
+  },
+  "camera": {
+    "player": {
+      "lastFrame": "Last photo",
+      "lastCapture": "Last capture",
+      "offline": "Camera offline",
+      "noPreview": "No live preview",
+      "noSignal": "No signal",
+      "noPreviewHint": "Photo appears when someone crosses the line or there is a register event.",
+      "live": "Live",
+      "snapshot": "Snapshot"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -271,6 +332,12 @@
       "start": "Start",
       "end": "End",
       "hint": "Outside this window the engine still runs, but with lower priority."
+    },
+    "privacy": {
+      "title": "Your data (privacy)",
+      "desc": "Download a copy of alerts, sales, counts and audit logs. JPEG evidence in Storage may be requested from support.",
+      "exportButton": "Download my data (JSON)",
+      "exportError": "Export failed. Ensure migration_export_tenant is applied."
     },
     "strictMode": {
       "title": "Strict Audit Mode",

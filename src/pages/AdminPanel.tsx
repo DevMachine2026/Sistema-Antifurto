@@ -77,10 +77,14 @@ export default function AdminPanel() {
       const { data: { session } } = await supabase.auth.getSession();
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/telegram-connect?setup=1`;
       const res = await fetch(url, {
-        headers: { Authorization: `Bearer ${session?.access_token ?? ''}` },
+        headers: {
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY ?? '',
+          Authorization: `Bearer ${session?.access_token ?? ''}`,
+        },
       });
-      const body = await res.json();
-      setTelegramStatus(body?.ok === true || body?.result === true ? 'ok' : 'error');
+      const body = await res.json().catch(() => ({}));
+      const ok = res.ok && (body?.ok === true || body?.result === true);
+      setTelegramStatus(ok ? 'ok' : 'error');
     } catch {
       setTelegramStatus('error');
     }

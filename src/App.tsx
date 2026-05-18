@@ -143,7 +143,7 @@ export default function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onNavigate={setActiveTab} />;
       case 'upload':
         return <UploadPage />;
       case 'alerts':
@@ -275,6 +275,7 @@ export default function App() {
           onLogout={handleLogout}
           establishmentName={ownEst.name}
           onBackToAdmin={() => setAdminView('platform')}
+          allowSimulate
         >
           <Suspense fallback={pageFallback}>{renderContent()}</Suspense>
         </Shell>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Shield, Bell, Database, Megaphone, Save, Loader2, CheckCircle2, Send, ExternalLink, XCircle } from 'lucide-react';
+import { Shield, Bell, Database, Megaphone, Save, Loader2, CheckCircle2, Send, ExternalLink, XCircle, Download } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
 import { notificationService } from '../services/notificationService';
@@ -41,6 +41,7 @@ export default function Settings() {
   const [telegramChatId, setTelegramChatId] = useState<string | null>(null);
   const [webhookToken, setWebhookToken] = useState<string | null>(null);
   const [connectingTelegram, setConnectingTelegram] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -418,6 +419,44 @@ export default function Settings() {
           </label>
         </div>
         <p className="text-[10px] text-text-dim mt-3">{t('settings.monitoring.hint')}</p>
+      </Section>
+
+      <Section icon={Database} title={t('settings.privacy.title')} color="primary">
+        <p className="text-xs text-text-dim mb-4 leading-relaxed">{t('settings.privacy.desc')}</p>
+        <button
+          type="button"
+          disabled={exporting}
+          onClick={async () => {
+            setExporting(true);
+            try {
+              const { data, error } = await supabase.rpc('export_establishment_data', {
+                p_establishment_id: establishmentId,
+              });
+              if (error) throw error;
+              const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `olhovivo-dados-${establishmentId.slice(0, 8)}.json`;
+              a.click();
+              URL.revokeObjectURL(url);
+              await auditService.log({
+                eventType: 'data.export',
+                targetType: 'establishment',
+                targetId: establishmentId,
+                metadata: { format: 'json' },
+              });
+            } catch (e: unknown) {
+              alert(e instanceof Error ? e.message : t('settings.privacy.exportError'));
+            } finally {
+              setExporting(false);
+            }
+          }}
+          className="flex items-center gap-2 px-5 py-2.5 rounded font-bold text-[11px] uppercase tracking-wider bg-surface-alt border border-border hover:border-primary/40 transition-all disabled:opacity-50"
+        >
+          {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+          {t('settings.privacy.exportButton')}
+        </button>
       </Section>
 
       <div className={cn(

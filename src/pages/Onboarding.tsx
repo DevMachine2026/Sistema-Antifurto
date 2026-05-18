@@ -16,7 +16,8 @@ import {
 import { supabase } from '../lib/supabase';
 import { getCurrentEstablishmentId } from '../lib/tenant';
 import { cn } from '../lib/utils';
-import { downloadAgentInstaller } from '../lib/downloadAgentInstaller';
+import { downloadAgentInstaller } from '../lib/agentInstaller';
+import { ensureDefaultAgent } from '../lib/ensureAgent';
 
 const BOT_USERNAME = 'sistemantifraude_bot';
 const INSTALL_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-install`;
@@ -41,10 +42,15 @@ async function downloadInstaller(token: string, platform: 'windows' | 'linux') {
   }
 
   const { data: { session } } = await supabase.auth.getSession();
-  const bearerToken = session?.access_token ?? ANON_KEY;
+  if (!session?.access_token) {
+    throw new Error('Faça login no painel para baixar o instalador.');
+  }
 
-  const res = await fetch(`${INSTALL_URL}?token=${token}&platform=${platform}`, {
-    headers: { Authorization: `Bearer ${bearerToken}` },
+  const res = await fetch(`${INSTALL_URL}?token=${encodeURIComponent(token)}&os=${platform}`, {
+    headers: {
+      apikey: ANON_KEY,
+      Authorization: `Bearer ${session.access_token}`,
+    },
   });
   if (!res.ok) throw new Error(await res.text());
   const blob = await res.blob();
@@ -82,7 +88,11 @@ export default function Onboarding() {
     ]);
 
     const settings = settingsRes.data;
-    const agent = agentsRes.data?.[0] ?? null;
+    let agent = agentsRes.data?.[0] ?? null;
+    if (!agent) {
+      const created = await ensureDefaultAgent(estId);
+      if (created) agent = { id: created.id, token: created.token };
+    }
 
     let agentOnline = false;
     let cameraCandidate = null;
@@ -293,7 +303,7 @@ export default function Onboarding() {
               <p className="text-[10px] font-black uppercase tracking-widest text-primary">Instruções para o cliente</p>
               {(platform === 'windows' ? [
                 'Baixe e envie o instalador (.exe) por WhatsApp ou e-mail',
-                'Cliente: duplo clique no ficheiro e avança no assistente (Next)',
+                'Cliente: duplo clique no arquivo e avança no assistente (Avançar)',
                 'Não precisa de ZIP, token em ficheiro nem janela de terminal',
                 'Aguardar "Agente Online" ficar verde aqui',
               ] : [

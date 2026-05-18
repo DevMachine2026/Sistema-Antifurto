@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, TrendingUp, AlertCircle, Wallet, X, ArrowUpRight, ArrowDownLeft, Camera } from 'lucide-react';
@@ -13,8 +13,14 @@ import { formatCurrency, cn } from '../lib/utils';
 import { Transaction, PeopleCountEvent, Alert, ImportBatch } from '../types';
 import { format, parseISO } from 'date-fns';
 import { SignedEvidenceImg } from '../components/SignedEvidenceImg';
+import SystemHealthCard from '../components/SystemHealthCard';
+import { debounce } from '../lib/debounce';
 
-export default function Dashboard() {
+interface DashboardProps {
+  onNavigate?: (tab: string) => void;
+}
+
+export default function Dashboard({ onNavigate }: DashboardProps) {
   const { t } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [people, setPeople] = useState<PeopleCountEvent[]>([]);
@@ -27,6 +33,8 @@ export default function Dashboard() {
     const id = requestAnimationFrame(() => setChartReady(true));
     return () => cancelAnimationFrame(id);
   }, []);
+
+  const loadRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     let active = true;
@@ -49,21 +57,28 @@ export default function Dashboard() {
       }
     }
 
-    load();
+    loadRef.current = () => {
+      if (active) void load();
+    };
+
+    const scheduleReload = debounce(() => loadRef.current(), 400);
+
+    void load();
 
     const estId = getCurrentEstablishmentId();
     const filter = estId ? `establishment_id=eq.${estId}` : undefined;
 
     const channel = supabase
       .channel('dashboard-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'people_count_events', ...(filter && { filter }) }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'alerts',              ...(filter && { filter }) }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions',        ...(filter && { filter }) }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'import_batches',      ...(filter && { filter }) }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'people_count_events', ...(filter && { filter }) }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'alerts',              ...(filter && { filter }) }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions',        ...(filter && { filter }) }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'import_batches',      ...(filter && { filter }) }, scheduleReload)
       .subscribe();
 
     return () => {
       active = false;
+      scheduleReload.cancel();
       supabase.removeChannel(channel);
     };
   }, []);
@@ -114,6 +129,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 pb-12">
+      <SystemHealthCard onGoTo={onNavigate} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title={t('dashboard.systemConsumption')}

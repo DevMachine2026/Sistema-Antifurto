@@ -54,12 +54,12 @@
     "summaryOk": "Base crítica ok: token de webhook e canais de alerta estão definidos, e já há dados de contagem ou de vendas.",
     "summaryWarn": "Ainda faltam itens críticos: defina o token em Integrações e configure Telegram ou WhatsApp em Configurações.",
     "items": {
-      "webhookToken": "Token Bearer dos webhooks",
-      "notifications": "Telegram ou WhatsApp para alertas",
-      "cameraIngest": "Contagem de pessoas recebida",
-      "cashIngest": "Eventos de espécie no caixa",
-      "salesIngest": "Vendas importadas (PagBank/ST)",
-      "streamReady": "Câmera ao vivo (status online)"
+      "webhookToken": "Sistema ligado à nuvem",
+      "notifications": "Alertas no celular (Telegram ou WhatsApp)",
+      "cameraIngest": "Contagem de pessoas funcionando",
+      "cashIngest": "Detecção de dinheiro no caixa",
+      "salesIngest": "Vendas registradas (maquineta ou bilheteria)",
+      "streamReady": "Pelo menos uma câmera ativa"
     },
     "hints": {
       "integrations": "Menu Integrações — copie o token e configure na câmera ou no Raspberry.",
@@ -90,7 +90,39 @@
   "shell": {
     "activeEstablishment": "Comércio ativo",
     "simulateR01": "Simular R01",
-    "simulationAlertMsg": "Simulação de Alerta R01 disparada! Verifique a aba Alertas."
+    "simulationAlertMsg": "Simulação de Alerta R01 disparada! Verifique a aba Alertas.",
+    "modeOperation": "Modo Operação",
+    "modeAdvanced": "Modo Avançado",
+    "switchToAdvanced": "Mais opções",
+    "switchToOperation": "Modo simples"
+  },
+  "health": {
+    "cardTitle": "Saúde do sistema",
+    "titleLoading": "Verificando…",
+    "titleOk": "Tudo certo para operar",
+    "titleWarn": "Atenção — revise os itens abaixo",
+    "titleBad": "Ação necessária antes do turno",
+    "loading": "Carregando status…",
+    "rowNotif": "Alertas no celular",
+    "rowAgent": "Computador da loja",
+    "rowPeople": "Contagem de pessoas",
+    "rowAlerts": "Alertas abertos",
+    "telegramOk": "Telegram conectado",
+    "whatsappOk": "WhatsApp configurado",
+    "notifMissing": "Conecte Telegram ou WhatsApp em Configurações",
+    "agentOnline": "Online — visto {{ago}}",
+    "agentStale": "Sem sinal — último contato {{ago}}",
+    "agentNever": "Instalador ainda não reportou",
+    "agentMissing": "Instale o programa no PC do caixa (Implantação)",
+    "peopleLast": "Última leitura {{ago}}",
+    "peopleNever": "Ainda sem contagem — aguarde o agente ou aprove a câmera",
+    "alertsClear": "Nenhum alerta pendente",
+    "alertsOpen": "{{count}} alerta(s) aguardando decisão",
+    "fixCta": "Corrigir agora",
+    "never": "nunca",
+    "justNow": "agora",
+    "minutesAgo": "há {{count}} min",
+    "hoursAgo": "há {{count}} h"
   },
   "adminShell": {
     "adminPlatform": "Admin Plataforma"
@@ -217,8 +249,10 @@
   },
   "alerts": {
     "loading": "Carregando alertas...",
-    "title": "Audit Center",
+    "title": "Alertas",
     "subtitle": "Regras de anomalia executadas pelo motor de IA local.",
+    "subtitleLeigo": "O que precisa da sua atenção agora — escolha como encerrar cada alerta.",
+    "defaultResolver": "Operador",
     "filterActive": "Ativos",
     "filterResolved": "Resolvidos",
     "filterAll": "Todos",
@@ -234,9 +268,60 @@
     "divergenceGap": "Divergência_Gap",
     "auditedValidated": "Auditado & Validado",
     "notifyStaff": "Notificar Staff",
-    "resolvedBy": "Resolvido por {{name}}",
+    "resolvedBy": "Resolvido: {{name}}",
     "highCriticality": "ALTA CRITICIDADE",
-    "medium": "MÉDIA"
+    "medium": "MÉDIA",
+    "human": {
+      "default": {
+        "title": "Situação fora do normal",
+        "hint": "Confira o caixa e as vendas no período indicado."
+      },
+      "crowd_no_sales": {
+        "title": "Muita gente no salão e pouca venda registrada",
+        "hint": "Verifique se o caixa está lançando as vendas e se a bilheteria está atualizando."
+      },
+      "card_gap": {
+        "title": "Pagamentos não batem com as vendas",
+        "hint": "Compare maquineta e sistema de vendas no mesmo horário; pode faltar importação."
+      },
+      "cash_ghost": {
+        "title": "Dinheiro no caixa sem venda correspondente",
+        "hint": "Prioridade alta — confira o caixa físico e o operador no intervalo do alerta."
+      },
+      "dead_window": {
+        "title": "Período sem movimento esperado",
+        "hint": "Pode ser fechamento ou falha de integração; confira se os dados estão chegando."
+      },
+      "velocity_spike": {
+        "title": "Pico incomum de movimento ou vendas",
+        "hint": "Confira se houve evento especial ou erro de lançamento em massa."
+      },
+      "shift_missing_closing": {
+        "title": "Fechamento de turno pendente",
+        "hint": "Registre o fechamento ou importe os arquivos do turno."
+      },
+      "operator_void_abuse": {
+        "title": "Muitos cancelamentos ou estornos",
+        "hint": "Revise o operador e as transações canceladas no período."
+      }
+    },
+    "resolution": {
+      "false_positive": "Falso alarme",
+      "fixed_at_register": "Corrigido no caixa",
+      "escalate": "Escalar p/ gerente"
+    }
+  },
+  "camera": {
+    "player": {
+      "lastFrame": "Última foto",
+      "lastCapture": "Última captura",
+      "offline": "Câmera offline",
+      "noPreview": "Sem vídeo ao vivo",
+      "noSignal": "Sem sinal",
+      "noPreviewHint": "A foto aparece quando alguém passa na linha ou há evento no caixa.",
+      "live": "Ao vivo",
+      "snapshot": "Foto instantânea"
+    }
   },
   "settings": {
     "title": "Configurações",
@@ -271,6 +356,12 @@
       "start": "Início",
       "end": "Fim",
       "hint": "Fora desta janela o motor ainda roda, mas com menor prioridade."
+    },
+    "privacy": {
+      "title": "Seus dados (LGPD)",
+      "desc": "Baixe uma cópia dos alertas, vendas, contagens e auditoria do seu comércio. Fotos no Storage podem ser solicitadas ao suporte.",
+      "exportButton": "Baixar meus dados (JSON)",
+      "exportError": "Não foi possível exportar. Confirme que a migration export_tenant foi aplicada no banco."
     },
     "strictMode": {
       "title": "Modo Auditoria Estrita",

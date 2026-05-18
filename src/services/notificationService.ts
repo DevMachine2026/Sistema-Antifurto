@@ -59,13 +59,9 @@ class NotificationService {
             chat_id: config.telegram_chat_id,
           },
         });
-        if (!error) {
-          console.log(`[TELEGRAM] Alerta enviado: ${alert.type}`);
-        } else {
-          console.error('[TELEGRAM] Erro ao invocar Edge Function:', error.message);
-        }
-      } catch (e) {
-        console.error('[TELEGRAM] Falha na requisição:', e);
+        void error;
+      } catch {
+        /* falha silenciosa — alerta já está no dashboard */
       }
     }
 
@@ -78,13 +74,9 @@ class NotificationService {
             message: text,
           },
         });
-        if (!error) {
-          console.log(`[WHATSAPP] Alerta enviado: ${alert.type}`);
-        } else {
-          console.error('[WHATSAPP] Erro ao invocar Edge Function:', error.message);
-        }
-      } catch (e) {
-        console.error('[WHATSAPP] Falha na requisição:', e);
+        void error;
+      } catch {
+        /* falha silenciosa — alerta já está no dashboard */
       }
     }
 
@@ -102,10 +94,6 @@ class NotificationService {
         notification.onclick = () =>
           window.open(`https://api.whatsapp.com/send?phone=${config.whatsapp_number}&text=${waMsg}`, '_blank');
       }
-    }
-
-    if (!config.telegram_chat_id && !config.whatsapp_number) {
-      console.warn('[NOTIF] Nenhum canal configurado. Configure em Configurações.');
     }
   }
 
