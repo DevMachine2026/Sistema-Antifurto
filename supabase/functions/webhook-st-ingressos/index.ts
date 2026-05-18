@@ -1,22 +1,14 @@
+// @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { dispatchAlertNotifications } from './notify.ts';
+import { checkRateLimit } from '../_shared/rateLimit.ts';
+import { resolveEstablishmentId } from '../_shared/webhookAuth.ts';
+import { dispatchAlertNotifications } from '../_shared/notify.ts';
+import { createLogContext, durationMs, logError, logInfo } from '../_shared/log.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type',
 };
-
-// 60 req/min por IP — importações em batch; 60 permite envio de lotes razoáveis
-const _rl = new Map<string, { n: number; resetAt: number }>();
-function rateLimit(req: Request): boolean {
-  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
-  const now = Date.now();
-  const entry = _rl.get(ip);
-  if (!entry || now > entry.resetAt) { _rl.set(ip, { n: 1, resetAt: now + 60_000 }); return true; }
-  if (entry.n >= 60) return false;
-  entry.n++;
-  return true;
-}
 
 // Mapeamento de métodos de pagamento ST Ingressos → sistema
 const METHOD_MAP: Record<string, string> = {
@@ -35,7 +27,9 @@ Deno.serve(async (req) => {
   const ctx = createLogContext(req, 'webhook-st-ingressos');
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed', request_id: ctx.request_id }, 405);
-  if (!rateLimit(req)) return json({ error: 'rate_limit_exceeded', request_id: ctx.request_id }, 429);
+  if (!(await checkRateLimit('webhook-st-ingressos', req, 60))) {
+    return json({ error: 'rate_limit_exceeded', request_id: ctx.request_id }, 429);
+  }
 
   try {
     const supabase = createClient(
@@ -46,12 +40,7 @@ Deno.serve(async (req) => {
     const token = getBearerToken(req);
     if (!token) return json({ error: 'missing_bearer_token', request_id: ctx.request_id }, 401);
 
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('establishment_id')
-      .eq('webhook_token', token)
-      .single();
-
+    const settings = await resolveEstablishmentId(supabase, token);
     if (!settings) return json({ error: 'invalid_bearer_token', request_id: ctx.request_id }, 401);
 
     const body = await readJsonBody(req);
@@ -204,13 +193,6 @@ Deno.serve(async (req) => {
 });
 
 class InvalidRequestError extends Error {}
-interface LogContext {
-  request_id: string;
-  function_name: string;
-  path: string;
-  method: string;
-  started_at_ms: number;
-}
 
 function getBearerToken(req: Request): string | null {
   const auth = req.headers.get('Authorization') ?? req.headers.get('authorization');
@@ -263,44 +245,6 @@ function toHex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
-}
-
-function createLogContext(req: Request, functionName: string): LogContext {
-  return {
-    request_id: crypto.randomUUID(),
-    function_name: functionName,
-    path: new URL(req.url).pathname,
-    method: req.method,
-    started_at_ms: Date.now(),
-  };
-}
-
-function logInfo(ctx: LogContext, event: string, data: Record<string, unknown> = {}) {
-  console.info(JSON.stringify({
-    level: 'info',
-    event,
-    request_id: ctx.request_id,
-    function_name: ctx.function_name,
-    path: ctx.path,
-    method: ctx.method,
-    ...data,
-  }));
-}
-
-function logError(ctx: LogContext, event: string, data: Record<string, unknown> = {}) {
-  console.error(JSON.stringify({
-    level: 'error',
-    event,
-    request_id: ctx.request_id,
-    function_name: ctx.function_name,
-    path: ctx.path,
-    method: ctx.method,
-    ...data,
-  }));
-}
-
-function durationMs(ctx: LogContext): number {
-  return Date.now() - ctx.started_at_ms;
 }
 
 function json(data: unknown, status = 200) {

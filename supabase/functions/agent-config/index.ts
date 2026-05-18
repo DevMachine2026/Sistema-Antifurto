@@ -1,6 +1,7 @@
 // supabase/functions/agent-config/index.ts
 // @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { checkRateLimit } from '../_shared/rateLimit.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -20,22 +21,12 @@ function getBearerToken(req: Request): string | null {
   return match?.[1]?.trim() || null;
 }
 
-// Rate limiter: 20 req/min por IP (por instância do isolado)
-const _rl = new Map<string, { n: number; resetAt: number }>();
-function rateLimit(req: Request): boolean {
-  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
-  const now = Date.now();
-  const entry = _rl.get(ip);
-  if (!entry || now > entry.resetAt) { _rl.set(ip, { n: 1, resetAt: now + 60_000 }); return true; }
-  if (entry.n >= 20) return false;
-  entry.n++;
-  return true;
-}
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   if (req.method !== 'GET') return json({ error: 'method_not_allowed' }, 405);
-  if (!rateLimit(req)) return json({ error: 'rate_limit_exceeded' }, 429);
+  if (!(await checkRateLimit('agent-config', req, 20))) {
+    return json({ error: 'rate_limit_exceeded' }, 429);
+  }
 
   const token = getBearerToken(req);
   if (!token) return json({ error: 'missing_bearer_token' }, 401);
@@ -54,12 +45,6 @@ Deno.serve(async (req) => {
       .single();
 
     if (agentError || !agent) return json({ error: 'invalid_token' }, 401);
-
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('webhook_token')
-      .eq('establishment_id', agent.establishment_id)
-      .single();
 
     // Último people_inside por câmera nas últimas 24h — usado pelo agente para
     // inicializar a contagem corretamente após reinicialização.
@@ -86,15 +71,17 @@ Deno.serve(async (req) => {
       .eq('id', agent.id)
       .then(({ error }) => { if (error) console.error('last_connected_at update failed:', error.message); });
 
+    const minAgentVersion = Deno.env.get('AGENT_MIN_VERSION')?.trim() || '0.1.0';
+
     return json({
       agent_id: agent.id,
       name: agent.name,
       cameras: agent.cameras,
       thresholds: agent.thresholds,
       heartbeat_interval: agent.heartbeat_interval,
-      webhook_token: settings?.webhook_token ?? null,
       config_changed_at: agent.config_changed_at,
       supabase_url: Deno.env.get('SUPABASE_URL'),
+      min_agent_version: minAgentVersion,
       camera_states: cameraStates,
     });
   } catch (err: any) {

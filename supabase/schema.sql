@@ -2,6 +2,10 @@
 -- SISTEMA ANTIFRAUDE — Schema Inicial
 -- RonalDigital
 -- Executar no SQL Editor do Supabase (dashboard)
+--
+-- AVISO (produção): não rode este arquivo inteiro em banco já migrado.
+-- Use supabase/MIGRATIONS_ORDER.txt e os migration_*.sql incrementais.
+-- Policies MVP (ex.: service_role_all) neste arquivo são perigosas em prod.
 -- =============================================================
 
 

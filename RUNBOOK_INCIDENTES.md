@@ -80,6 +80,21 @@ O merchant verifica o status em **Menu → Agentes**. O platform_admin vê todos
 
 ---
 
+## Backups e disaster recovery (produção)
+
+1. **Supabase Dashboard → Database → Backups**
+   - Plano **Pro+**: ativar **Point-in-Time Recovery (PITR)**.
+   - Anotar RPO/RTO aceitável (ex.: RPO 24h, RTO 4h).
+2. **Teste de restore trimestral**
+   - Restaurar snapshot em projeto de staging; validar login, uma loja e um agente.
+3. **Storage `evidence`**
+   - Retenção: migration `migration_retention.sql` + Edge Function `evidence-purge` (cron diário).
+   - Secret `CRON_SECRET` + header `x-cron-secret` na chamada agendada.
+4. **Secrets**
+   - Exportar lista de nomes (não valores) dos Secrets das Edge Functions para runbook offline.
+
+---
+
 ## Contenção e Mitigação
 
 **Agente offline:**

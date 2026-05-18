@@ -1,14 +1,7 @@
 // @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-function isServiceRoleRequest(req: Request): boolean {
-  const expected = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim();
-  if (!expected) return false;
-  const auth = req.headers.get('Authorization') ?? req.headers.get('authorization') ?? '';
-  const match = auth.match(/^Bearer\s+(.+)$/i);
-  const token = match?.[1]?.trim();
-  return !!token && token === expected;
-}
+import { isServiceRoleRequest } from '../_shared/internalAuth.ts';
+import { createLogContext, durationMs, logError, logInfo } from '../_shared/log.ts';
 
 // supabase-js envia x-client-info no invoke; sem isso o preflight falha no browser (ex.: localhost).
 const cors = {
@@ -106,52 +99,6 @@ Deno.serve(async (req) => {
     }, 500);
   }
 });
-
-interface LogContext {
-  request_id: string;
-  function_name: string;
-  path: string;
-  method: string;
-  started_at_ms: number;
-}
-
-function createLogContext(req: Request, functionName: string): LogContext {
-  return {
-    request_id: crypto.randomUUID(),
-    function_name: functionName,
-    path: new URL(req.url).pathname,
-    method: req.method,
-    started_at_ms: Date.now(),
-  };
-}
-
-function durationMs(ctx: LogContext): number {
-  return Date.now() - ctx.started_at_ms;
-}
-
-function logInfo(ctx: LogContext, event: string, data: Record<string, unknown> = {}) {
-  console.info(JSON.stringify({
-    level: 'info',
-    event,
-    request_id: ctx.request_id,
-    function_name: ctx.function_name,
-    path: ctx.path,
-    method: ctx.method,
-    ...data,
-  }));
-}
-
-function logError(ctx: LogContext, event: string, data: Record<string, unknown> = {}) {
-  console.error(JSON.stringify({
-    level: 'error',
-    event,
-    request_id: ctx.request_id,
-    function_name: ctx.function_name,
-    path: ctx.path,
-    method: ctx.method,
-    ...data,
-  }));
-}
 
 async function readJsonBody(req: Request): Promise<Record<string, unknown>> {
   try {

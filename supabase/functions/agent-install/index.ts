@@ -41,7 +41,7 @@ function rateLimit(req: Request): boolean {
   return true;
 }
 
-function makeShellScript(token: string, os: "linux" | "macos", anonKey: string): string {
+function makeShellScript(token: string, os: "linux" | "macos", anonKey: string, supabaseUrl: string): string {
   const archive = os === "linux" ? "OlhoVivoAgent-linux.tar.gz" : "OlhoVivoAgent-macos.tar.gz";
   const archiveUrl = `${GITHUB_BASE}/${archive}`;
 
@@ -133,6 +133,7 @@ ARCHIVE_URL="${archiveUrl}"
 INSTALL_DIR="${installDir}"
 DATA_DIR="${dataDir}"
 ANON_KEY="${anonKey}"
+SUPABASE_URL="${supabaseUrl.replace(/"/g, '\\"')}"
 
 echo "========================================"
 echo "  Olho Vivo Agent — Instalação"
@@ -162,6 +163,7 @@ echo "Agente instalado em: $INSTALL_DIR"
 mkdir -p "$DATA_DIR"
 ENV_FILE="$DATA_DIR/.olhovivo.env"
 printf 'ESTABLISHMENT_TOKEN=%s\\n' "$TOKEN" > "$ENV_FILE"
+printf 'SUPABASE_URL=%s\\n' "$SUPABASE_URL" >> "$ENV_FILE"
 if [ -n "$ANON_KEY" ]; then
   printf 'SUPABASE_ANON_KEY=%s\\n' "$ANON_KEY" >> "$ENV_FILE"
 fi
@@ -205,10 +207,55 @@ Deno.serve(async (req) => {
 
   if (error || !data) return new Response("token_invalido_ou_agente_inativo", { status: 404, headers: CORS });
 
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!/^Bearer\s+\S+/i.test(authHeader)) {
+    return new Response("missing_or_invalid_authorization", { status: 401, headers: CORS });
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const userClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: { user }, error: userErr } = await userClient.auth.getUser();
+  if (userErr || !user) {
+    return new Response("nao_autenticado", { status: 401, headers: CORS });
+  }
+
+  const { data: agentRow } = await supabase
+    .from("agent_configs")
+    .select("establishment_id")
+    .eq("token", token)
+    .eq("active", true)
+    .single();
+
+  if (!agentRow?.establishment_id) {
+    return new Response("agente_nao_encontrado", { status: 404, headers: CORS });
+  }
+
+  const { data: membership } = await supabase
+    .from("user_establishments")
+    .select("establishment_id")
+    .eq("user_id", user.id)
+    .eq("establishment_id", agentRow.establishment_id)
+    .eq("active", true)
+    .maybeSingle();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  const isAdmin = profile?.role === "platform_admin";
+  if (!membership && !isAdmin) {
+    return new Response("sem_permissao_para_este_agente", { status: 403, headers: CORS });
+  }
+
   // ── Linux / macOS: gera script shell ──────────────────────────────────────
   if (os === "linux" || os === "macos") {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-    const script = makeShellScript(token, os, anonKey);
+    const script = makeShellScript(token, os, anonKey, supabaseUrl);
     const headers = new Headers(CORS);
     const scriptName = os === "macos" ? "Instalar-Olho-Vivo.command" : "Instalar-Olho-Vivo.sh";
     headers.set("Content-Disposition", `attachment; filename="${scriptName}"`);
@@ -232,7 +279,7 @@ Deno.serve(async (req) => {
   if (!upstream.ok) return new Response("origem_retornou_erro", { status: 502, headers: CORS });
 
   const headers = new Headers(CORS);
-  headers.set("Content-Disposition", `attachment; filename="OlhoVivoSetup_TOKEN_${token}.exe"`);
+  headers.set("Content-Disposition", 'attachment; filename="OlhoVivoSetup.exe"');
   headers.set("Content-Type", "application/octet-stream");
   return new Response(upstream.body, { status: 200, headers });
 });

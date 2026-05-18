@@ -72,4 +72,31 @@ SELECT 'policy tenant_evidence_select (storage)', EXISTS (
   SELECT 1 FROM pg_policies
   WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'tenant_evidence_select'
 )
+UNION ALL
+SELECT 'NO policy cameras_all (must be false)', NOT EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'public' AND tablename = 'cameras' AND policyname = 'cameras_all'
+)
+UNION ALL
+SELECT 'NO open agent_configs policy (must be false)', NOT EXISTS (
+  SELECT 1 FROM pg_policies
+  WHERE schemaname = 'public' AND tablename = 'agent_configs'
+    AND policyname = 'service_role_agent_configs'
+)
+UNION ALL
+SELECT 'fn purge_old_people_count_events', EXISTS (
+  SELECT 1 FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'purge_old_people_count_events'
+)
+UNION ALL
+SELECT 'pg_cron extension (retenção DB)', EXISTS (
+  SELECT 1 FROM pg_extension WHERE extname = 'pg_cron'
+)
+UNION ALL
+SELECT 'fn export_establishment_data (LGPD)', EXISTS (
+  SELECT 1 FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = 'export_establishment_data'
+)
 ORDER BY item;

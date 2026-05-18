@@ -26,6 +26,8 @@
 19. migration_platform_admin_scope.sql
 20. migration_security_hotfix.sql          # RLS cameras/agent, get_pos_timeline, run_fraud_rules R05, profiles
 21. migration_evidence_private.sql        # bucket evidence privado + evidence_storage_path (+ passo manual Dashboard)
+22. migration_retention.sql               # purge DB (pg_cron) + agendar evidence-purge no Dashboard
+23. migration_export_tenant.sql         # RPC export_establishment_data (LGPD)
 
 # Pós-migração (opcional)
 # - seed_demo.sql

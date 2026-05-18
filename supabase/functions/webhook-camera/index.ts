@@ -1,71 +1,15 @@
-
 // @ts-nocheck
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
-const MAX_EVIDENCE_B64_CHARS = 700_000;
-function evidenceB64TooLarge(b64: string | null | undefined): boolean {
-  return typeof b64 === 'string' && b64.length > MAX_EVIDENCE_B64_CHARS;
-}
-
-// ── Notificações (inlined de notify.ts para compatibilidade com deploy via dashboard) ──
-async function dispatchAlertNotifications(
-  establishmentId: string,
-  alerts: { alert_type: string; severity: string; description: string }[],
-): Promise<void> {
-  if (!alerts || alerts.length === 0) return;
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
-  const [settingsRes, estRes] = await Promise.all([
-    supabase.from('settings').select('telegram_chat_id, whatsapp_number').eq('establishment_id', establishmentId).single(),
-    supabase.from('establishments').select('name').eq('id', establishmentId).single(),
-  ]);
-  const settings = settingsRes.data;
-  if (!settings) return;
-  const estName = estRes.data?.name ?? 'Estabelecimento';
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const serviceKey  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-  for (const alert of alerts) {
-    const sev = String(alert.severity ?? '').toLowerCase();
-    const emoji = sev === 'high' || sev === 'critical' ? '🚨' : '⚠️';
-    const message =
-      `${emoji} *Alerta Olho Vivo*\n\n*${estName}*\n\n${alert.description}\n\nTipo: \`${alert.alert_type}\`\nSeveridade: ${alert.severity}`;
-    const tasks: Promise<void>[] = [];
-    if (settings.telegram_chat_id) {
-      tasks.push(fetch(`${supabaseUrl}/functions/v1/send-telegram`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
-        body: JSON.stringify({ establishment_id: establishmentId, message }),
-      }).then(() => {}).catch(() => {}));
-    }
-    if (settings.whatsapp_number) {
-      tasks.push(fetch(`${supabaseUrl}/functions/v1/send-whatsapp`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
-        body: JSON.stringify({ establishment_id: establishmentId, number: settings.whatsapp_number, message }),
-      }).then(() => {}).catch(() => {}));
-    }
-    await Promise.allSettled(tasks);
-  }
-}
+import { checkRateLimit } from '../_shared/rateLimit.ts';
+import { resolveEstablishmentId, sanitizeCameraId } from '../_shared/webhookAuth.ts';
+import { dispatchAlertNotifications } from '../_shared/notify.ts';
+import { evidenceB64TooLarge } from '../_shared/evidenceLimits.ts';
+import { createLogContext, durationMs, logError, logInfo } from '../_shared/log.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type',
 };
-
-// 120 req/min por IP — câmeras enviam ~1 evento/min cada; 120 suporta até ~120 câmeras por gateway
-const _rl = new Map<string, { n: number; resetAt: number }>();
-function rateLimit(req: Request): boolean {
-  const ip = (req.headers.get('x-forwarded-for') ?? 'unknown').split(',')[0].trim();
-  const now = Date.now();
-  const entry = _rl.get(ip);
-  if (!entry || now > entry.resetAt) { _rl.set(ip, { n: 1, resetAt: now + 60_000 }); return true; }
-  if (entry.n >= 120) return false;
-  entry.n++;
-  return true;
-}
 
 Deno.serve(async (req) => {
   const ctx = createLogContext(req, 'webhook-camera');
@@ -75,7 +19,9 @@ Deno.serve(async (req) => {
     return json({ error: 'method_not_allowed', request_id: ctx.request_id }, 405);
   }
 
-  if (!rateLimit(req)) return json({ error: 'rate_limit_exceeded', request_id: ctx.request_id }, 429);
+  if (!(await checkRateLimit('webhook-camera', req, 120))) {
+    return json({ error: 'rate_limit_exceeded', request_id: ctx.request_id }, 429);
+  }
 
   try {
     const supabase = createClient(
@@ -89,12 +35,7 @@ Deno.serve(async (req) => {
       return json({ error: 'missing_bearer_token', request_id: ctx.request_id }, 401);
     }
 
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('establishment_id')
-      .eq('webhook_token', token)
-      .single();
-
+    const settings = await resolveEstablishmentId(supabase, token);
     if (!settings) {
       logInfo(ctx, 'auth_failed', { reason: 'invalid_bearer_token' });
       return json({ error: 'invalid_bearer_token', request_id: ctx.request_id }, 401);
@@ -142,7 +83,10 @@ Deno.serve(async (req) => {
       return json({ error: 'invalid_recorded_at', request_id: ctx.request_id }, 400);
     }
 
-    const normalizedCameraId = cameraId.trim();
+    const normalizedCameraId = sanitizeCameraId(cameraId);
+    if (!normalizedCameraId) {
+      return json({ error: 'invalid_camera_id', request_id: ctx.request_id }, 400);
+    }
     const eventKey = String(
       body.event_id ??
       body.source_event_id ??
@@ -252,13 +196,6 @@ Deno.serve(async (req) => {
 });
 
 class InvalidRequestError extends Error {}
-interface LogContext {
-  request_id: string;
-  function_name: string;
-  path: string;
-  method: string;
-  started_at_ms: number;
-}
 
 function getBearerToken(req: Request): string | null {
   const auth = req.headers.get('Authorization') ?? req.headers.get('authorization');
@@ -294,44 +231,6 @@ function toHex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
-}
-
-function createLogContext(req: Request, functionName: string): LogContext {
-  return {
-    request_id: crypto.randomUUID(),
-    function_name: functionName,
-    path: new URL(req.url).pathname,
-    method: req.method,
-    started_at_ms: Date.now(),
-  };
-}
-
-function logInfo(ctx: LogContext, event: string, data: Record<string, unknown> = {}) {
-  console.info(JSON.stringify({
-    level: 'info',
-    event,
-    request_id: ctx.request_id,
-    function_name: ctx.function_name,
-    path: ctx.path,
-    method: ctx.method,
-    ...data,
-  }));
-}
-
-function logError(ctx: LogContext, event: string, data: Record<string, unknown> = {}) {
-  console.error(JSON.stringify({
-    level: 'error',
-    event,
-    request_id: ctx.request_id,
-    function_name: ctx.function_name,
-    path: ctx.path,
-    method: ctx.method,
-    ...data,
-  }));
-}
-
-function durationMs(ctx: LogContext): number {
-  return Date.now() - ctx.started_at_ms;
 }
 
 function json(data: unknown, status = 200) {

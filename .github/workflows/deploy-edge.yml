@@ -1,0 +1,46 @@
+# Deploy manual das Edge Functions (após merge em main).
+# Secrets necessários no GitHub: SUPABASE_ACCESS_TOKEN, SUPABASE_PROJECT_REF
+name: Deploy Edge Functions
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Ambiente Supabase'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+
+jobs:
+  deploy:
+    name: supabase functions deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      - name: Deploy all functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+
+      - name: Smoke test telegram-connect setup auth
+        env:
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" \
+            "https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/telegram-connect?setup=1")
+          test "$code" = "401" || (echo "expected 401 without auth, got $code" && exit 1)

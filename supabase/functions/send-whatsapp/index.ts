@@ -1,12 +1,5 @@
 // @ts-nocheck
-function isServiceRoleRequest(req: Request): boolean {
-  const expected = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim();
-  if (!expected) return false;
-  const auth = req.headers.get('Authorization') ?? req.headers.get('authorization') ?? '';
-  const match = auth.match(/^Bearer\s+(.+)$/i);
-  const token = match?.[1]?.trim();
-  return !!token && token === expected;
-}
+import { isServiceRoleRequest } from '../_shared/internalAuth.ts';
 
 /**
  * send-whatsapp — envia mensagem via WhatsApp usando Evolution API (ou compatível).
